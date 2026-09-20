@@ -22,6 +22,7 @@ import type { ProgramById, SeasonsWithEpisodes } from "../../src/nrk-response";
 import { IdEntry, readIds } from "../support/fixtures";
 import { installPoliteFetch } from "../support/polite-fetch";
 import { isHttpUrl } from "../support/helpers";
+import { AiClient } from "../../src/ai-client";
 
 const LIMIT = Number(process.env.NRK_LIVE_LIMIT) || Infinity;
 const INTERVAL_MS = Number(process.env.NRK_LIVE_INTERVAL_MS) || 350;
@@ -33,7 +34,7 @@ const limited = <T>(list: ReadonlyArray<T>) => list.slice(0, LIMIT);
 
 type Outcome = { id: string; kind: "ok" | "gone" | "hard"; message: string };
 
-function classify(e: unknown): "gone" | "hard" {
+const classify = (e: unknown): "gone" | "hard" => {
     if (e instanceof NrkHttpError && [403, 404, 410].includes(e.status)) {
         return "gone";
     }
@@ -41,12 +42,12 @@ function classify(e: unknown): "gone" | "hard" {
         return "gone";
     }
     return "hard";
-}
+};
 
-async function runAll<T extends { id: string }>(
+const runAll = async <T extends { id: string }>(
     items: ReadonlyArray<T>,
     check: (item: T) => Promise<void>,
-): Promise<Outcome[]> {
+): Promise<Outcome[]> => {
     const outcomes: Outcome[] = new Array(items.length);
     let next = 0;
     await Promise.all(
@@ -68,9 +69,9 @@ async function runAll<T extends { id: string }>(
         }),
     );
     return outcomes;
-}
+};
 
-function assertOutcomes(group: string, outcomes: Outcome[]) {
+const assertOutcomes = (group: string, outcomes: Outcome[]) => {
     const hard = outcomes.filter((o) => o.kind === "hard");
     const gone = outcomes.filter((o) => o.kind === "gone");
     const summary = `${group}: ${outcomes.length} checked, ${gone.length} gone, ${hard.length} failed`;
@@ -92,9 +93,23 @@ function assertOutcomes(group: string, outcomes: Outcome[]) {
                 .map((o) => `  ${o.id}: ${o.message}`)
                 .join("\n"),
     );
-}
+};
 
-function checkProgramPage(p: ProgramById) {
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+const checkPersonalizationFields = (x: {
+    firstAired: string | null;
+    contributors: ReadonlyArray<{ name: string; role: string }>;
+}) => {
+    assert.ok(x.firstAired === null || ISO_DATE.test(x.firstAired), "firstAired is " + x.firstAired);
+    for (const c of x.contributors) {
+        assert.ok(c.name.length > 0 && c.role.length > 0, "contributor " + JSON.stringify(c));
+    }
+};
+
+const checkProgramPage = (p: ProgramById) => {
+    checkPersonalizationFields(p);
+    assert.ok(p.seriesId === null || p.seriesId.length > 0, "seriesId");
     assert.ok(p.title.length > 0, "title");
     assert.equal(typeof p.subtitle, "string");
     assert.ok(p.images.length > 0, "images");
@@ -110,9 +125,9 @@ function checkProgramPage(p: ProgramById) {
             p.availabilityStatus,
         ),
     );
-}
+};
 
-async function checkPlayableProgram(id: string) {
+const checkPlayableProgram = async (id: string) => {
     const program = await NRK.getProgramById(id);
     checkProgramPage(program);
     // playback endpoints are only meaningful while the program can be played
@@ -124,10 +139,11 @@ async function checkPlayableProgram(id: string) {
     assert.equal(manifest.format, "HLS");
     assert.ok(isHttpUrl(manifest.playUrl), "playUrl");
     return program;
-}
+};
 
-function checkEpisodes(result: SeasonsWithEpisodes) {
+const checkEpisodes = (result: SeasonsWithEpisodes) => {
     for (const e of result.episodes) {
+        checkPersonalizationFields(e);
         assert.ok(e.prfId.length > 0, "prfId");
         assert.ok(e.title.length > 0, "episode title");
         assert.ok(e.durationInSeconds > 0, "episode duration");
@@ -136,7 +152,7 @@ function checkEpisodes(result: SeasonsWithEpisodes) {
             assert.ok(n === null || Number.isInteger(n), "number is " + n);
         }
     }
-}
+};
 
 describe("live: psapi.nrk.no", () => {
     let restore: () => void;
@@ -196,6 +212,32 @@ describe("live: psapi.nrk.no", () => {
             await assert.rejects(NRK.getManifest(p.id), (e: unknown) => classify(e) === "gone");
         });
         assertOutcomes("unavailable programs", outcomes);
+    });
+
+    it("AiClient: keyword search -> series -> episodes available today", async () => {
+        const ai = new AiClient({ minIntervalMs: 0 }); // the polite fetch already paces requests
+        const today = new Date().toISOString().slice(0, 10);
+
+        const search = await ai.searchCatalog({ query: "natur, dyr, dokumentar", type: "series", limit: 5 });
+        assert.ok(search.ok, JSON.stringify(search));
+        assert.ok(search.data.total > 0, "expected series matching the keywords");
+        assert.ok(search.data.catalogSize > 10000, "catalog size " + search.data.catalogSize);
+
+        let withEpisodes = 0;
+        for (const item of search.data.items) {
+            const series = await ai.getSeries({ seriesId: item.id });
+            assert.ok(series.ok, item.id + ": " + JSON.stringify(series));
+            const season = series.data.seasons[0];
+            if (!season) continue;
+            const page = await ai.getEpisodes({ seriesId: item.id, seasonName: season.name, availableOn: today });
+            assert.ok(page.ok, item.id + ": " + JSON.stringify(page));
+            for (const e of page.data.episodes) {
+                assert.ok(e.durationMinutes >= 0 && e.id.length > 0);
+                assert.ok(e.availableTo === null || e.availableTo.slice(0, 10) >= today);
+            }
+            withEpisodes += page.data.episodes.length > 0 ? 1 : 0;
+        }
+        assert.ok(withEpisodes > 0, "at least one series should have episodes available today");
     });
 
     for (const type of ["standard", "sequential", "news"] as const) {

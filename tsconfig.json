@@ -7,7 +7,7 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "rootDir": ".",
-    "outDir": "dist",
+    "outDir": "build",
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,

@@ -31,6 +31,12 @@ type AvailabilityStatus =
     | "expired"
     | "notAvailableOnline";
 
+export interface Contributor {
+    readonly name: string;
+    /** As NRK labels it: "Medvirkende", "Programleder", "Artister/Utøvere", ... */
+    readonly role: string;
+}
+
 export interface ProgramById {
     readonly id: string;
     readonly title: string;
@@ -46,6 +52,11 @@ export interface ProgramById {
     readonly durationDisplayValue: string;
     readonly category: string;
     readonly productionYear: number | null;
+    /** When NRK first broadcast it (YYYY-MM-DD), if known. */
+    readonly firstAired: string | null;
+    readonly contributors: ReadonlyArray<Contributor>;
+    /** Set when the program is an episode of a series. */
+    readonly seriesId: string | null;
 }
 
 export type SeriesType = "sequential" | "news" | "standard";
@@ -64,6 +75,8 @@ export interface SeriesWithSeasons {
     readonly imageUrl300: string;
     readonly title: string;
     readonly seriesType: SeriesType;
+    /** NRK's own classification of the series, e.g. { id: "dokumentar", name: "Dokumentar" }. */
+    readonly category: { readonly id: string; readonly name: string } | null;
     readonly seasons: ReadonlyArray<Season>;
 }
 export interface Episode {
@@ -84,6 +97,9 @@ export interface Episode {
     readonly detailsDisplayValue: string;
     readonly episodeNumber: number | null;
     readonly productionYear: number | null;
+    /** When NRK first broadcast it (YYYY-MM-DD), if known. */
+    readonly firstAired: string | null;
+    readonly contributors: ReadonlyArray<Contributor>;
 }
 export interface SeasonsWithEpisodes {
     readonly seriesId: string;

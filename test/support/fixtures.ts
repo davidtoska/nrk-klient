@@ -14,29 +14,29 @@ export interface RecordedResponse {
 }
 
 /** A stable, filesystem-safe file name for a request URL. */
-export function fileNameForUrl(url: string): string {
+export const fileNameForUrl = (url: string): string => {
     const withoutHost = url.replace(/^https?:\/\/[^/]+\//, "");
     const safe = withoutHost
         .replace(/[/?&=]/g, "__")
         .replace(/[^a-zA-Z0-9._-]/g, (c) => "~" + c.charCodeAt(0).toString(16));
     return safe + ".json";
-}
+};
 
-export function readRecorded(url: string): RecordedResponse | null {
+export const readRecorded = (url: string): RecordedResponse | null => {
     const file = path.join(RAW_DIR, fileNameForUrl(url));
     if (!fs.existsSync(file)) {
         return null;
     }
     return JSON.parse(fs.readFileSync(file, "utf8")) as RecordedResponse;
-}
+};
 
-export function writeRecorded(url: string, response: RecordedResponse): void {
+export const writeRecorded = (url: string, response: RecordedResponse): void => {
     fs.mkdirSync(RAW_DIR, { recursive: true });
     fs.writeFileSync(
         path.join(RAW_DIR, fileNameForUrl(url)),
         JSON.stringify(response),
     );
-}
+};
 
 export interface IdEntry {
     readonly id: string;
@@ -65,8 +65,8 @@ export interface IdsFile {
     readonly curated: Readonly<Record<string, string>>;
 }
 
-export function readIds(): IdsFile {
+export const readIds = (): IdsFile => {
     return JSON.parse(
         fs.readFileSync(path.join(FIXTURES_DIR, "ids.json"), "utf8"),
     ) as IdsFile;
-}
+};

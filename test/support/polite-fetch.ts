@@ -26,7 +26,7 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
  *
  * Returns a function that restores the original fetch.
  */
-export function installPoliteFetch(options: PoliteFetchOptions): () => void {
+export const installPoliteFetch = (options: PoliteFetchOptions): () => void => {
     const original = globalThis.fetch;
     const maxRetries = options.maxRetries ?? 2;
     const maxWaitMs = (options.maxWaitSeconds ?? 660) * 1000;
@@ -98,4 +98,4 @@ export function installPoliteFetch(options: PoliteFetchOptions): () => void {
             `polite-fetch: ${requests} network requests, ${cacheHits} cache hits`,
         );
     };
-}
+};

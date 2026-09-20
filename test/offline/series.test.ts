@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { NRK } from "../../src/client";
 import { NrkHttpError } from "../../src/nrk-client-raw";
 import { FetchStub, installFetchStub } from "../support/fetch-stub";
+import { parseFirstAired } from "../../src/nrk-format";
 import { curated, first, isHttpUrl, recordedJson, urls } from "../support/helpers";
 
 const TYPES = ["standard", "sequential", "news"] as const;
@@ -32,6 +33,7 @@ describe("series", () => {
                 assert.equal(series.title, raw[type].titles.title);
                 assert.ok(isHttpUrl(series.imageUrl300));
                 assert.deepEqual(series.seasons, raw._links.seasons);
+                assert.deepEqual(series.category, raw[type].category ?? null);
                 assert.ok(series.seasons.length > 0, "series should have seasons");
                 for (const season of series.seasons) {
                     assert.ok(season.name.length > 0);
@@ -87,6 +89,56 @@ describe("series", () => {
             });
         });
     }
+
+    it("episodes carry first broadcast date and credited people", async () => {
+        for (const type of TYPES) {
+            const id = curated(`${type}Series`);
+            const series = await NRK.getSeasons(id);
+            for (const season of series.seasons.slice(0, 2)) {
+                const raw = recordedJson(urls.season(id, season.name));
+                const rawList = raw._embedded.episodes ?? raw._embedded.instalments ?? [];
+                const { episodes } = await NRK.getAllEpisodes(id, season.name);
+                episodes.forEach((e, i) => {
+                    const r = rawList[i];
+                    assert.equal(
+                        e.firstAired,
+                        parseFirstAired(
+                            r.transmissions?.first?.displayValue,
+                            r.firstTransmissionDateDisplayValue,
+                        ),
+                    );
+                    assert.ok(e.firstAired === null || /^\d{4}-\d{2}-\d{2}$/.test(e.firstAired));
+                    assert.deepEqual(
+                        e.contributors,
+                        (r.contributors ?? []).map((c: { name: string; role: string }) => ({
+                            name: c.name,
+                            role: c.role,
+                        })),
+                    );
+                });
+                const dated = episodes.filter((e) => e.firstAired !== null).length;
+                assert.ok(
+                    dated / Math.max(1, episodes.length) > 0.5,
+                    `${id}/${season.name}: only ${dated}/${episodes.length} have a first-aired date`,
+                );
+            }
+        }
+    });
+
+    it("maps credited people on episodes of a series that has them", async () => {
+        const id = curated("contributorSeries");
+        const seasonName = curated("contributorSeason");
+        const raw = recordedJson(urls.season(id, seasonName));
+        const rawList = raw._embedded.episodes ?? raw._embedded.instalments ?? [];
+        const { episodes } = await NRK.getAllEpisodes(id, seasonName);
+
+        const withPeople = episodes.filter((e) => e.contributors.length > 0);
+        assert.ok(withPeople.length > 0, "fixture should contain credited people");
+        const rawWith = rawList.filter(
+            (r: { contributors?: unknown[] }) => (r.contributors ?? []).length > 0,
+        );
+        assert.equal(withPeople.length, rawWith.length);
+    });
 
     it("sequential series expose episode numbers (sequenceNumber)", async () => {
         const series = await NRK.getSeasons(curated("sequentialSeries"));

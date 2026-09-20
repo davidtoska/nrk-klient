@@ -12,16 +12,14 @@ import {
     SeriesWithSeasons,
 } from "./nrk-response";
 import { nrkClientParsed } from "./nrk-client-parsed";
+import { flattenContributors, parseFirstAired, seriesIdFromHref } from "./nrk-format";
 
 class NrkClient {
-    constructor() {
-        this.letter = this.letter.bind(this);
-    }
     /**
      * Will throw
      * @param letter a letter between a-å
      */
-    async letter(letter: string): Promise<NrkLetterResponse> {
+    letter = async (letter: string): Promise<NrkLetterResponse> => {
         const parsed = await nrkClientParsed.letter(letter);
         const responseObject: NrkLetterResponse = {
             letter,
@@ -55,9 +53,9 @@ class NrkClient {
         });
 
         return responseObject;
-    }
+    };
 
-    async getManifest(prfId: string): Promise<Manifest> {
+    getManifest = async (prfId: string): Promise<Manifest> => {
         const parsed = await nrkClientParsed.getManifest(prfId);
         const playable = parsed.playable;
         if (!playable) {
@@ -76,8 +74,8 @@ class NrkClient {
         };
 
         return manifest;
-    }
-    async getMetadata(prfId: string): Promise<Metadata> {
+    };
+    getMetadata = async (prfId: string): Promise<Metadata> => {
         const parsed = await nrkClientParsed.getMetadata(prfId);
         const availabilityOnDemand = parsed.availability.onDemand;
         if (!availabilityOnDemand) {
@@ -91,7 +89,7 @@ class NrkClient {
             })),
             availableNow: availabilityOnDemand.hasRightsNow,
             availableTo: availabilityOnDemand.to,
-            description: "",
+            description: parsed.preplay.description,
             playable: parsed.playability === "playable",
             prfId,
             // rawJSON: JSON.stringify(json),
@@ -100,24 +98,19 @@ class NrkClient {
             title: parsed.preplay.titles.title,
         };
         return metaData;
-    }
+    };
 
-    async getSeasons(seriesId: string) {
+    getSeasons = async (seriesId: string) => {
         const data = await nrkClientParsed.getSeasons(seriesId);
-        let title = "";
-        let images: Array<{ url: string; width: number }> = [];
-        if (data.seriesType === "news") {
-            images = data.news.image;
-            title = data.news.titles.title;
-        }
-        if (data.seriesType === "standard") {
-            images = data.standard.image;
-            title = data.standard.titles.title;
-        }
-        if (data.seriesType === "sequential") {
-            images = data.sequential.image;
-            title = data.sequential.titles.title;
-        }
+        const inner =
+            data.seriesType === "news"
+                ? data.news
+                : data.seriesType === "standard"
+                  ? data.standard
+                  : data.sequential;
+        const images = inner.image;
+        const title = inner.titles.title;
+        const category = inner.category ?? null;
         const pickImage = (array: Array<{ url: string; width: number }>) => {
             const first = array[0];
             if (!first) {
@@ -136,15 +129,16 @@ class NrkClient {
             title,
             seriesId,
             seriesType: data.seriesType,
+            category,
             seasons: data._links.seasons,
         };
         return seriesWithSeasons;
-    }
+    };
 
-    async getAllEpisodes(
+    getAllEpisodes = async (
         seriesId: string,
         seasonName: string,
-    ): Promise<SeasonsWithEpisodes> {
+    ): Promise<SeasonsWithEpisodes> => {
         const parsed = await nrkClientParsed.getAllEpisodes(seriesId, seasonName);
         const toEpisode = (
             e: NonNullable<typeof parsed._embedded.episodes>[number],
@@ -161,6 +155,14 @@ class NrkClient {
             durationInSeconds: e.durationInSeconds,
             images: e.image,
             productionYear: e.productionYear ?? null,
+            firstAired: parseFirstAired(
+                e.transmissions?.first?.displayValue,
+                e.firstTransmissionDateDisplayValue,
+            ),
+            contributors: (e.contributors ?? []).map((p) => ({
+                name: p.name,
+                role: p.role,
+            })),
             episodeNumber: e.sequenceNumber ?? null,
             subtitle: e.titles.subtitle ?? null,
             title: e.titles.title,
@@ -181,20 +183,20 @@ class NrkClient {
         };
 
         return returnValue;
-    }
-    async getSeriesType(seriesId: string): Promise<SeriesType> {
+    };
+    getSeriesType = async (seriesId: string): Promise<SeriesType> => {
         const seriesType = await nrkClientParsed.getSeriesType(seriesId);
 
         return seriesType;
-    }
-    async getRecommendation(
+    };
+    getRecommendation = async (
         contentId: string,
         options: {
             count?: 5 | 10 | 15 | 20 | 25;
             contentGroup?: "adults" | "children";
             age?: number;
         },
-    ) {
+    ) => {
         const parerResult = await nrkClientParsed.getRecommendation(
             contentId,
             options,
@@ -252,12 +254,12 @@ class NrkClient {
         });
 
         return result;
-    }
+    };
 
     /**
      * Will throw
      */
-    async getAllLetters(): Promise<NrkLetterResponse> {
+    getAllLetters = async (): Promise<NrkLetterResponse> => {
         const legalLetters = "abcdefghijklmnopqrstuvwxyzæøå";
         const all = legalLetters.split("").map(this.letter);
         const resolvedAll = await Promise.all(all);
@@ -276,9 +278,9 @@ class NrkClient {
             allLetterResponsees.series.push(...letterResult.series);
         });
         return allLetterResponsees;
-    }
+    };
 
-    async prfIdGetAll(prfId: string) {
+    prfIdGetAll = async (prfId: string) => {
         const programByIdPromise = this.getProgramById(prfId);
         const manifestPromise = this.getManifest(prfId);
         const metadataPromise = this.getMetadata(prfId);
@@ -289,9 +291,9 @@ class NrkClient {
         ]);
         const [manifest, metadata, programById] = all;
         return { manifest, metadata, programById };
-    }
+    };
 
-    async getProgramById(id: string) {
+    getProgramById = async (id: string) => {
         const parsed = await nrkClientParsed.getProgramById(id);
 
         // FLATTEND
@@ -319,13 +321,18 @@ class NrkClient {
             durationInSeconds,
             category,
             productionYear,
+            firstAired: parseFirstAired(
+                parsed.moreInformation.transmissions?.first?.displayValue,
+            ),
+            contributors: flattenContributors(parsed.contributors),
+            seriesId: seriesIdFromHref(parsed._links.seriesPage?.href),
             availableFromDate,
             availableFromDisplayValue,
             availableToDate,
             availableToDisplayValue,
         };
         return returnType;
-    }
+    };
 }
 
 export const NRK = new NrkClient();

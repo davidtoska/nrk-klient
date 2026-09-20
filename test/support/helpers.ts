@@ -15,7 +15,7 @@ export const urls = {
 
 /** The recorded JSON body for a URL. Fails if it was not recorded as JSON. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function recordedJson(url: string): any {
+export const recordedJson = (url: string): any => {
     const recorded = readRecorded(url);
     if (!recorded || recorded.json === undefined) {
         throw new Error(
@@ -23,10 +23,10 @@ export function recordedJson(url: string): any {
         );
     }
     return recorded.json;
-}
+};
 
 /** A hand-picked id used by the offline tests, by role. */
-export function curated(role: string): string {
+export const curated = (role: string): string => {
     const id = readIds().curated[role];
     if (!id) {
         throw new Error(
@@ -35,14 +35,14 @@ export function curated(role: string): string {
         );
     }
     return id;
-}
+};
 
-export function first<T>(list: ReadonlyArray<T>, what = "list"): T {
+export const first = <T>(list: ReadonlyArray<T>, what = "list"): T => {
     const item = list[0];
     if (item === undefined) {
         throw new Error(`Expected ${what} to have at least one item`);
     }
     return item;
-}
+};
 
 export const isHttpUrl = (s: string) => /^https?:\/\/\S+$/.test(s);

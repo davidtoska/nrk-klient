@@ -65,6 +65,7 @@ describe("NRK.getMetadata", () => {
         assert.equal(meta.prfId, id);
         assert.equal(meta.title, raw.preplay.titles.title);
         assert.equal(meta.subTitle, raw.preplay.titles.subtitle);
+        assert.equal(meta.description, raw.preplay.description);
         assert.equal(meta.streamingMode, "onDemand");
         assert.equal(meta.playable, true);
         assert.equal(meta.availableNow, raw.availability.onDemand.hasRightsNow);
@@ -114,5 +115,13 @@ describe("NRK.prfIdGetAll", () => {
         assert.equal(all.metadata.prfId, id);
         assert.equal(all.programById.id, id);
         assert.equal(all.metadata.title, all.programById.title);
+    });
+
+    it("works when the methods are detached from NRK (no lost this)", async () => {
+        const { prfIdGetAll, getProgramById } = NRK;
+        const id = curated("availableProgram");
+        const all = await prfIdGetAll(id);
+        assert.equal(all.programById.id, id);
+        assert.equal((await getProgramById(id)).id, id);
     });
 });

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { NRK } from "../../src/client";
 import { NrkHttpError } from "../../src/nrk-client-raw";
 import { FetchStub, installFetchMock, installFetchStub } from "../support/fetch-stub";
+import { parseFirstAired } from "../../src/nrk-format";
 import { curated, isHttpUrl, recordedJson, urls } from "../support/helpers";
 
 describe("NRK.getProgramById", () => {
@@ -46,6 +47,42 @@ describe("NRK.getProgramById", () => {
         assert.equal(program.productionYear, raw.moreInformation.productionYear ?? null);
         // NRK fills every ga.dimension* with "_", so it must never leak into the result.
         assert.ok(program.productionYear === null || Number.isInteger(program.productionYear));
+    });
+
+    it("maps first broadcast date, credited people and series link", async () => {
+        for (const role of ["availableProgram", "programWithContributors", "filmProgram"]) {
+            const id = curated(role);
+            const raw = recordedJson(urls.programPage(id));
+            const program = await NRK.getProgramById(id);
+
+            assert.equal(
+                program.firstAired,
+                parseFirstAired(raw.moreInformation.transmissions?.first?.displayValue),
+                role,
+            );
+            assert.ok(
+                program.firstAired === null || /^\d{4}-\d{2}-\d{2}$/.test(program.firstAired),
+                role,
+            );
+
+            const expected = (raw.contributors ?? []).flatMap(
+                (g: { role: string; name: string[] }) =>
+                    g.name.map((name) => ({ name, role: g.role })),
+            );
+            assert.deepEqual(program.contributors, expected, role);
+
+            const href: string | undefined = raw._links.seriesPage?.href;
+            assert.equal(program.seriesId, href ? href.split("/").pop() : null, role);
+        }
+    });
+
+    it("reads several credited people from a real program page", async () => {
+        const program = await NRK.getProgramById(curated("programWithContributors"));
+        assert.ok(program.contributors.length >= 3);
+        for (const person of program.contributors) {
+            assert.ok(person.name.length > 0);
+            assert.ok(person.role.length > 0);
+        }
     });
 
     it("still parses when _embedded.ga is missing entirely", async () => {

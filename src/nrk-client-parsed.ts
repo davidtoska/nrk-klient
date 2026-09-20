@@ -56,6 +56,9 @@ const availability = z.object({
     ]),
 });
 
+const transmissions = z
+    .object({ first: z.object({ displayValue: z.string() }).nullish() })
+    .nullish();
 const details = z.object({ displayValue: z.string().nonempty() });
 const category = z.object({ id: z.string() });
 
@@ -83,6 +86,8 @@ const NrkLetterItem = z.object({
     hasOndemandRights: z.boolean(),
 });
 
+const seriesCategory = z.object({ id: z.string(), name: z.string() }).nullish();
+
 const _links = z.object({
     seasons: z.array(
         z.object({ href: z.string(), name: z.string(), title: z.string() }),
@@ -91,17 +96,17 @@ const _links = z.object({
 const GetSeriesWithSeasonsParser = z.union([
     z.object({
         seriesType: z.literal("news"),
-        news: z.object({ image, titles }),
+        news: z.object({ image, titles, category: seriesCategory }),
         _links,
     }),
     z.object({
         seriesType: z.literal("standard"),
-        standard: z.object({ image, titles }),
+        standard: z.object({ image, titles, category: seriesCategory }),
         _links,
     }),
     z.object({
         seriesType: z.literal("sequential"),
-        sequential: z.object({ image, titles }),
+        sequential: z.object({ image, titles, category: seriesCategory }),
         _links,
     }),
 ]);
@@ -151,6 +156,9 @@ const EmbeddedOrInstalledEpisode = z.object({
     usageRights,
     productionYear,
     sequenceNumber: z.number().nullish(),
+    contributors: z.array(z.object({ name: z.string(), role: z.string() })).nullish(),
+    transmissions,
+    firstTransmissionDateDisplayValue: z.string().nullish(),
 });
 const GetEpisodesParser = z.object({
     seriesType,
@@ -186,6 +194,7 @@ const metaDataParser = z.object({
     displayAspectRatio: z.union([z.literal("16:9"), z.literal("4:3")]),
     preplay: z.object({
         titles: z.object({ title: z.string(), subtitle: z.string() }),
+        description: z.string(),
         poster: z.object({
             images: z.array(z.object({ url: z.string(), pixelWidth: z.number() })),
         }),
@@ -208,42 +217,42 @@ const metaDataParser = z.object({
     }),
 });
 class NrkClientParsed {
-    async letter(letter: string) {
+    letter = async (letter: string) => {
         const result = await nrkClientRaw.letter(letter);
         return z.array(NrkLetterItem).parse(result);
-    }
+    };
 
-    async getManifest(prfId: string) {
+    getManifest = async (prfId: string) => {
         const json = await nrkClientRaw.getManifest(prfId);
         return manifestParser.parse(json);
-    }
-    async getMetadata(prfId: string) {
+    };
+    getMetadata = async (prfId: string) => {
         const json = await nrkClientRaw.getMetadata(prfId);
         return metaDataParser.parse(json);
-    }
+    };
 
-    async getSeasons(seriesId: string) {
+    getSeasons = async (seriesId: string) => {
         const json = await nrkClientRaw.getSeasons(seriesId);
         return GetSeriesWithSeasonsParser.parse(json);
-    }
+    };
 
-    async getAllEpisodes(seriesId: string, seasonName: string) {
+    getAllEpisodes = async (seriesId: string, seasonName: string) => {
         const json = await nrkClientRaw.getAllEpisodes(seriesId, seasonName);
         return GetEpisodesParser.parse(json);
-    }
-    async getSeriesType(seriesId: string) {
+    };
+    getSeriesType = async (seriesId: string) => {
         const data = await nrkClientRaw.getSeriesType(seriesId);
         const parsedResult = SeriesTypeResponse.parse(data);
         return parsedResult.seriesType;
-    }
-    async getRecommendation(
+    };
+    getRecommendation = async (
         contentId: string,
         options: {
             count?: 5 | 10 | 15 | 20 | 25;
             contentGroup?: "adults" | "children";
             age?: number;
         },
-    ) {
+    ) => {
         const count = options?.count ?? 25;
         const contentGroup = options?.contentGroup ?? "adults";
 
@@ -253,9 +262,9 @@ class NrkClientParsed {
             ...(options?.age !== undefined && { age: options.age }),
         });
         return RecommendationSchema.parse(body);
-    }
+    };
 
-    async getProgramById(id: string) {
+    getProgramById = async (id: string) => {
         const json = await nrkClientRaw.getProgramById(id);
         const schema = z.object({
             programInformation: z.object({
@@ -271,8 +280,12 @@ class NrkClientParsed {
                     .object({ name: z.string().min(1), title: z.string(), href })
                     .optional(),
             }),
+            contributors: z
+                .array(z.object({ role: z.string(), name: z.array(z.string()) }))
+                .nullish(),
             moreInformation: z.object({
                 category,
+                transmissions,
                 duration: z.object({
                     seconds: z.number(),
                     displayValue: z.string(),
@@ -283,8 +296,8 @@ class NrkClientParsed {
             }),
         });
         return schema.parse(json);
-    }
-    async getLiveChannels() {
+    };
+    getLiveChannels = async () => {
         const json = await nrkClientRaw.getLiveChannels();
         const schema = z.array(
             z.object({
@@ -315,6 +328,6 @@ class NrkClientParsed {
         );
 
         return schema.parse(json);
-    }
+    };
 }
 export const nrkClientParsed = new NrkClientParsed();

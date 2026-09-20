@@ -14,7 +14,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const dist = path.resolve(__dirname, "../dist");
+const dist = path.resolve(__dirname, "../build");
 const { NRK } = require(path.join(dist, "src/client.js"));
 const { NrkHttpError } = require(path.join(dist, "src/nrk-client-raw.js"));
 const { writeRecorded, FIXTURES_DIR, RAW_DIR } = require(
@@ -37,7 +37,7 @@ const FILM_MIN_SECONDS = 75 * 60;
 
 // ---------- hjelpere ----------
 
-function mulberry32(seed) {
+const mulberry32 = (seed) => {
     return () => {
         seed |= 0;
         seed = (seed + 0x6d2b79f5) | 0;
@@ -45,17 +45,17 @@ function mulberry32(seed) {
         t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
         return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
-}
+};
 const rnd = mulberry32(20260921);
-function shuffled(list) {
+const shuffled = (list) => {
     const a = [...list];
     for (let i = a.length - 1; i > 0; i--) {
         const j = Math.floor(rnd() * (i + 1));
         [a[i], a[j]] = [a[j], a[i]];
     }
     return a;
-}
-async function pool(items, fn) {
+};
+const pool = async (items, fn) => {
     const out = new Array(items.length);
     let next = 0;
     await Promise.all(
@@ -67,7 +67,7 @@ async function pool(items, fn) {
         }),
     );
     return out;
-}
+};
 const log = (...a) => console.log(...a);
 let swallowed = 0;
 
@@ -98,7 +98,7 @@ globalThis.fetch = async (input, init) => {
     }
     return res;
 };
-async function record(fn) {
+const record = async (fn) => {
     recording = true;
     try {
         return await fn();
@@ -107,7 +107,7 @@ async function record(fn) {
     } finally {
         recording = false;
     }
-}
+};
 
 // ---------- main ----------
 
@@ -193,6 +193,18 @@ async function record(fn) {
             /* hopp over */
         }
     }
+    // program med flere medvirkende (tester mapping av contributors)
+    for (const p of available.slice(0, 150)) {
+        try {
+            const x = await NRK.getProgramById(p.id);
+            if (x.contributors.length >= 3) {
+                curated.programWithContributors = p.id;
+                break;
+            }
+        } catch {
+            swallowed++;
+        }
+    }
     if (films[0]) curated.filmProgram = films[0].id;
     if (geoblocked[0]) curated.geoblockedProgram = geoblocked[0].id;
 
@@ -222,6 +234,22 @@ async function record(fn) {
         }
         if (best) curated[`${t}Series`] = best.id;
     }
+    // serie der episodene har medvirkende
+    search: for (const s of [...seriesOut.standard, ...seriesOut.sequential].slice(0, 150)) {
+        try {
+            const info = await NRK.getSeasons(s.id);
+            const season = info.seasons[0];
+            if (!season) continue;
+            const eps = await NRK.getAllEpisodes(s.id, season.name);
+            if (eps.episodes.some((e) => e.contributors.length > 0)) {
+                curated.contributorSeries = s.id;
+                curated.contributorSeason = season.name;
+                break search;
+            }
+        } catch {
+            swallowed++;
+        }
+    }
     curated.missingProgram = "DOESNOTEXIST";
     curated.missingSeries = "finnes-ikke-serie";
 
@@ -233,6 +261,7 @@ async function record(fn) {
         "noSubtitleProgram",
         "filmProgram",
         "geoblockedProgram",
+        "programWithContributors",
         "expiredProgram",
         "comingProgram",
     ]) {
@@ -251,6 +280,10 @@ async function record(fn) {
         for (const season of seasons.seasons.slice(0, 2)) {
             await record(() => NRK.getAllEpisodes(id, season.name));
         }
+    }
+    if (curated.contributorSeries) {
+        await record(() => NRK.getSeasons(curated.contributorSeries));
+        await record(() => NRK.getAllEpisodes(curated.contributorSeries, curated.contributorSeason));
     }
     const missing = await record(() => NRK.getProgramById(curated.missingProgram));
     const missingSeries = await record(() => NRK.getSeasons(curated.missingSeries));
