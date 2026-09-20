@@ -1,0 +1,2259 @@
+{
+ "generatedAt": "2026-09-20T22:50:00.311Z",
+ "programs": {
+  "available": [
+   {
+    "id": "FFIL63000263",
+    "title": "Elven og broen"
+   },
+   {
+    "id": "FSAM09000690",
+    "title": "Vann med kreklingsmak"
+   },
+   {
+    "id": "FPGR00001384",
+    "title": "Den syngende barberer"
+   },
+   {
+    "id": "FNYH70006587",
+    "title": "Eritrea i dag - håp for Afrika i morgen?"
+   },
+   {
+    "id": "OCUH11002809",
+    "title": "Alexander med fela"
+   },
+   {
+    "id": "FMUS20005482",
+    "title": "Den bergtekne"
+   },
+   {
+    "id": "FOLA01001568",
+    "title": "Det glemte folk"
+   },
+   {
+    "id": "FOLA02006777",
+    "title": "Ny liturgi i den norske kirke"
+   },
+   {
+    "id": "MUHH01002725",
+    "title": "Maria Stavang"
+   },
+   {
+    "id": "FBUA00002574",
+    "title": "Dyr kan også bli syke"
+   },
+   {
+    "id": "FBUA69002769",
+    "title": "Sommer med Heidi"
+   },
+   {
+    "id": "FTRO40007093",
+    "title": "Hans Theessink og Blue Groove"
+   },
+   {
+    "id": "FSKO00009980",
+    "title": "Når Jesus kommer igjen ..."
+   },
+   {
+    "id": "FREP43004274",
+    "title": "\"Meg sjølv om 15 år\""
+   },
+   {
+    "id": "FBUA01005088",
+    "title": "Rubbel og Bitt - en musikal på badet"
+   },
+   {
+    "id": "FTMK00003092",
+    "title": "Kvinner skaper eget arbeid"
+   },
+   {
+    "id": "PRHO80003003",
+    "title": "De hellige tre narrer"
+   },
+   {
+    "id": "FBUA02004880",
+    "title": "Historien om Jesu lidelse og død"
+   },
+   {
+    "id": "PRTY12005904",
+    "title": "Josef og Maria, 6 år"
+   },
+   {
+    "id": "FKUN52000195",
+    "title": "Det e hardt å være mainn"
+   },
+   {
+    "id": "FUHA00008277",
+    "title": "Store Ellas lille \"Cabaretselskab\""
+   },
+   {
+    "id": "FUHA03003078",
+    "title": "Konsertmester'n"
+   },
+   {
+    "id": "FNYH05005568",
+    "title": "Stein tilbake til kirken"
+   },
+   {
+    "id": "FHLD00000791",
+    "title": "I all MINDELIGhet"
+   },
+   {
+    "id": "FNYH70002376",
+    "title": "Jerusalem av gull..."
+   },
+   {
+    "id": "FSKO00005378",
+    "title": "En halv meter mindre over bakken"
+   },
+   {
+    "id": "FROG01000988",
+    "title": "En bedre fødsel"
+   },
+   {
+    "id": "FDRP29001291",
+    "title": "Den hvite viking"
+   },
+   {
+    "id": "FOLA03001774",
+    "title": "Under Tronfjell"
+   },
+   {
+    "id": "FOLA01009277",
+    "title": "Alle har rett til kunst"
+   },
+   {
+    "id": "KMNO10004421",
+    "title": "TRAILER: Oss to"
+   },
+   {
+    "id": "KMNO10022826",
+    "title": "TRAILER: Kode rød S1 E11"
+   },
+   {
+    "id": "OUHA10004507",
+    "title": "Fra Alta til Helsingfors"
+   },
+   {
+    "id": "FOPP00000689",
+    "title": "OL-ringvirkninger"
+   },
+   {
+    "id": "FOLA05003575",
+    "title": "Form i rom - Henry Moore"
+   },
+   {
+    "id": "FMUS00003184",
+    "title": "Pas de deux"
+   },
+   {
+    "id": "FKUN32001296",
+    "title": "Lalla Carlsen, selvfølgelig!"
+   },
+   {
+    "id": "FREP41009376",
+    "title": "Få se førerkortet, takk"
+   },
+   {
+    "id": "FREP42008476",
+    "title": "Jorda sett fra rommet"
+   },
+   {
+    "id": "FFIL00002373",
+    "title": "Japansk måne og røde valmuer"
+   },
+   {
+    "id": "FOLA02001483",
+    "title": "Det er de beste som dør"
+   },
+   {
+    "id": "FREP45006676",
+    "title": "På røyefiske"
+   },
+   {
+    "id": "FBUA07000891",
+    "title": "Røft om rift - En rockete samtale om menneske og miljø"
+   },
+   {
+    "id": "FOLA03000083",
+    "title": "Jøder i Norge"
+   },
+   {
+    "id": "FHLD01000486",
+    "title": "Motto: Jeg stiller opp"
+   },
+   {
+    "id": "FMUS00002084",
+    "title": "Anne-Marie Giørtz Kvintett"
+   },
+   {
+    "id": "FOLA03001384",
+    "title": "Stefanus' dag"
+   },
+   {
+    "id": "KMNO10002622",
+    "title": "TRAILER: Harry Palmer"
+   },
+   {
+    "id": "FMUS00000287",
+    "title": "Dråper"
+   },
+   {
+    "id": "KMNO10003621",
+    "title": "TRAILER: Mitt liv som meg"
+   },
+   {
+    "id": "FTEA00002480",
+    "title": "Barnet i glasskulen"
+   },
+   {
+    "id": "FSØR01006792",
+    "title": "Grete Nash - med leire som lerret"
+   },
+   {
+    "id": "FTRO00003884",
+    "title": "Davás Juvva, Davás! (Mot nord, Juvva, mot nord!)"
+   },
+   {
+    "id": "KMNO02000115",
+    "title": "Dokumentaren om Radioresepsjonen"
+   },
+   {
+    "id": "FMUS10002488",
+    "title": "Ikke bare Frühlingsrauschen"
+   },
+   {
+    "id": "FOLA64011464",
+    "title": "Keiserens nye klær - kunst og ikke kunst"
+   },
+   {
+    "id": "FMUS00003386",
+    "title": "Musikk og mirakler"
+   },
+   {
+    "id": "FUHA04002780",
+    "title": "Jegere i natten"
+   },
+   {
+    "id": "FREP44001273",
+    "title": "Fjordfiskeren"
+   },
+   {
+    "id": "FOLA01009369",
+    "title": "En mann og hans lakseelv"
+   },
+   {
+    "id": "FALM16000294",
+    "title": "Langs Via Dolorosa"
+   },
+   {
+    "id": "MUHU21005020",
+    "title": "Halvdan har bursdag"
+   },
+   {
+    "id": "FOLA02006883",
+    "title": "Bli med på søndagsskolen"
+   },
+   {
+    "id": "DKRO35000114",
+    "title": "Oljeveteranene feires"
+   },
+   {
+    "id": "FBUA01008090",
+    "title": "Ørkenens skip"
+   },
+   {
+    "id": "FOLA02004077",
+    "title": "Kjør ikke i hjel Gamlebyen!"
+   },
+   {
+    "id": "MUHU31000023",
+    "title": "MGP - skjelettene i skapet"
+   },
+   {
+    "id": "FOLA62006962",
+    "title": "I ledige stunder"
+   },
+   {
+    "id": "FOLA65001565",
+    "title": "Ti millioner på deling"
+   },
+   {
+    "id": "FUHA51210097",
+    "title": "Høy humor på høylandet"
+   },
+   {
+    "id": "FHLD00004088",
+    "title": "Mor \"Matador\""
+   },
+   {
+    "id": "FSØR00004085",
+    "title": "Fiskeren på Udøy"
+   },
+   {
+    "id": "FOLA62008162",
+    "title": "Når våre lemmer svikter"
+   },
+   {
+    "id": "FUHA00002970",
+    "title": "Gammeldans i Hallingdal"
+   },
+   {
+    "id": "FREP41009278",
+    "title": "Kirkeristen - et særpreget Oslo-miljø"
+   },
+   {
+    "id": "FSAM00000588",
+    "title": "Fredrik Mellbye - den revolusjonære byråkrat"
+   },
+   {
+    "id": "FOLA00002072",
+    "title": "Bare skrap?"
+   },
+   {
+    "id": "FOLA01007482",
+    "title": "De holdt livet sammen"
+   },
+   {
+    "id": "FOLA69006269",
+    "title": "Hvem har ansvaret?"
+   },
+   {
+    "id": "FOLA65007865",
+    "title": "Grannehjelp og nøytralitet"
+   },
+   {
+    "id": "FOLA02008574",
+    "title": "Fra bygård og bygdetun"
+   },
+   {
+    "id": "FTRO14005090",
+    "title": "Med hammar og høtt"
+   },
+   {
+    "id": "FOLA00000275",
+    "title": "Oslomarka - ingen hovedstad har maken"
+   },
+   {
+    "id": "KMTE30002419",
+    "title": "Fremmed blod"
+   },
+   {
+    "id": "FMUS20003180",
+    "title": "Sonate for cello og klaver"
+   },
+   {
+    "id": "FBUA01004382",
+    "title": "Syke barn trenger hjelp"
+   },
+   {
+    "id": "FMRD01000386",
+    "title": "Overbord alle Bues menn"
+   },
+   {
+    "id": "FHLD00003292",
+    "title": "Spanarane"
+   },
+   {
+    "id": "FHLD00005493",
+    "title": "Sommar i desember"
+   },
+   {
+    "id": "FMUS00004482",
+    "title": "Juilliard-kvartetten"
+   },
+   {
+    "id": "FROM00001180",
+    "title": "Møt en gitarist"
+   },
+   {
+    "id": "FOLA01003780",
+    "title": "Hobbyenes konge"
+   },
+   {
+    "id": "FNYH70000286",
+    "title": "Befolkningseksplosjonen - en trussel mot oss alle?"
+   },
+   {
+    "id": "FOLA01000573",
+    "title": "Må gamle se dårlig?"
+   },
+   {
+    "id": "FOLA03007377",
+    "title": "Helsestasjoner - et viktig ledd i forebyggende helsearbeid"
+   },
+   {
+    "id": "FNYH70004172",
+    "title": "Framtidens romvirksomhet og dagens problemer"
+   },
+   {
+    "id": "FREP63004663",
+    "title": "Vi og trafikken"
+   },
+   {
+    "id": "FOLA04004273",
+    "title": "\"Solgården\" i Alicante"
+   },
+   {
+    "id": "MUHU24005018",
+    "title": "Alexander Rybak: Hello Europe!"
+   },
+   {
+    "id": "FUHA00009470",
+    "title": "\"Toots\""
+   },
+   {
+    "id": "FOLA02005681",
+    "title": "Bakeren i Bærum"
+   },
+   {
+    "id": "MDDP12000818",
+    "title": "Arnar og Mia"
+   },
+   {
+    "id": "FUHA00007276",
+    "title": "''Gi meg de brennende hjerter''"
+   },
+   {
+    "id": "OCMF27000009",
+    "title": "Fra is til yr - festspillkonsert fra Bergen"
+   },
+   {
+    "id": "FTRO00000184",
+    "title": "Historien om et hus"
+   },
+   {
+    "id": "FALD07000592",
+    "title": "Karahavet"
+   },
+   {
+    "id": "FSKO00000970",
+    "title": "Trafikkquiz"
+   },
+   {
+    "id": "FMUS00004688",
+    "title": "Nasjonalsang"
+   },
+   {
+    "id": "FREP41004372",
+    "title": "Fiskevær i vekst"
+   },
+   {
+    "id": "FRED00000072",
+    "title": "Fjellvettreglene 1 - 9"
+   },
+   {
+    "id": "FTEM00001172",
+    "title": "Lytt -"
+   },
+   {
+    "id": "FREP69002969",
+    "title": "Skutt til slutt"
+   },
+   {
+    "id": "FOLA03001880",
+    "title": "Vi tar hånd om pasientene - Landsforeningen mot kreft"
+   },
+   {
+    "id": "FTEM00000672",
+    "title": "Mozart-Motto-Sinfonietta"
+   },
+   {
+    "id": "FMUS00001780",
+    "title": "Trekkspelar frå Ural"
+   },
+   {
+    "id": "OCUH15000108",
+    "title": "Bare en mann - Bjørn Eidsvåg"
+   },
+   {
+    "id": "FMUS00006571",
+    "title": "Øivind kan slå på tromme"
+   },
+   {
+    "id": "FREP65005865",
+    "title": "Kirken og kunstneren"
+   },
+   {
+    "id": "FSKO01000372",
+    "title": "Hovedinstrumenta i norsk folkemusikk"
+   },
+   {
+    "id": "MDDP11000920",
+    "title": "Equinors farlige eventyr"
+   },
+   {
+    "id": "MUHU37000021",
+    "title": "Jan Eggum innrømmer at han blir 70 år"
+   },
+   {
+    "id": "IUFL54000226",
+    "title": "Lørdagsrådet tømmer innboksen"
+   },
+   {
+    "id": "FBUA02000487",
+    "title": "Gamlemor og Tullemor"
+   },
+   {
+    "id": "FOLA03008274",
+    "title": "Forskning krever både penger og tålmodighet"
+   },
+   {
+    "id": "FOLA03006979",
+    "title": "Grenselosene i Tysfjord"
+   },
+   {
+    "id": "FTRO00007684",
+    "title": "Norsk-svensk blues"
+   },
+   {
+    "id": "OUHA59000101",
+    "title": "Hemmel og hav"
+   },
+   {
+    "id": "FSFJ00000788",
+    "title": "Mitt skip er lasta med ...Epos"
+   },
+   {
+    "id": "DKTL90000017",
+    "title": "Fra FM til DAB i Trøndelag og Møre og Romsdal"
+   },
+   {
+    "id": "FSTL04000389",
+    "title": "Olavshallen - nytt kulturhus i Trondheim"
+   },
+   {
+    "id": "FUHA00000365",
+    "title": "\"Forventning\""
+   },
+   {
+    "id": "FOLA63008463",
+    "title": "Hvor står sosialismen? - Innledning"
+   },
+   {
+    "id": "FUHA02006987",
+    "title": "Hallo verden - Nordmarka kaller!"
+   },
+   {
+    "id": "FALF06000191",
+    "title": "Med rødt blekk"
+   },
+   {
+    "id": "FOLA01008181",
+    "title": "Fredsmarsjen mot Paris"
+   },
+   {
+    "id": "FRED00003974",
+    "title": "Vi går rundt juletreet"
+   },
+   {
+    "id": "OUHA22002107",
+    "title": "Gnistrende Wenche!"
+   },
+   {
+    "id": "DKSF49001516",
+    "title": "Eva Weel Skram på Åmot operagard"
+   },
+   {
+    "id": "FUHA01008884",
+    "title": "Fransk kabaret - Je te veux"
+   },
+   {
+    "id": "FOLA65001765",
+    "title": "Transport av levende bilder"
+   },
+   {
+    "id": "FUHA00003782",
+    "title": "God påske, mitt navn er Jon"
+   },
+   {
+    "id": "FUHA02002976",
+    "title": "Romjulstreff"
+   },
+   {
+    "id": "FALF05000694",
+    "title": "Refleks Helse"
+   },
+   {
+    "id": "FOLA65002465",
+    "title": "Gunbjør Lund i Espevika"
+   },
+   {
+    "id": "FKUM23005291",
+    "title": "Trekkspillgalla med swing"
+   },
+   {
+    "id": "MUHU12000024",
+    "title": "Hvit komiker, svarte vitser"
+   },
+   {
+    "id": "FREP45009383",
+    "title": "Den lange reisen"
+   },
+   {
+    "id": "MUHU23005319",
+    "title": "Sissels jul - O helga natt"
+   },
+   {
+    "id": "FOLA01001382",
+    "title": "Skapt til lengsel"
+   },
+   {
+    "id": "FKUN40002092",
+    "title": "EØS = Ekvilibristen Øystein Sunde"
+   },
+   {
+    "id": "FUHA02000582",
+    "title": "Norsk sommer i nød og Marienlyst"
+   },
+   {
+    "id": "FUHA01000979",
+    "title": "Haralda Petrea kom, sang og vant!"
+   },
+   {
+    "id": "FOLA00004673",
+    "title": "Kristne i Kina"
+   },
+   {
+    "id": "PRHO85007103",
+    "title": "Adventsgudsteneste frå Foldnes kyrkje på Sotra"
+   },
+   {
+    "id": "FSAM05001589",
+    "title": "Fra Norge til Norsewood"
+   },
+   {
+    "id": "FOLA00003674",
+    "title": "Jubilant på Oslos \"Røde Plass\""
+   },
+   {
+    "id": "MSUB05000919",
+    "title": "Temauke: Vold mot barn i hjemmet"
+   },
+   {
+    "id": "MUHU33000021",
+    "title": "Hev stemmen"
+   },
+   {
+    "id": "FNYH63001263",
+    "title": "Kringkastingssjefen orienterer om den økonomiske situasjonen"
+   },
+   {
+    "id": "FHLD10001391",
+    "title": "Roser og syvstjerne"
+   },
+   {
+    "id": "FFAS11002698",
+    "title": "Kva står på OL-menyen?"
+   },
+   {
+    "id": "MDFP13003013",
+    "title": "Historien om en øy"
+   },
+   {
+    "id": "FKUM35000192",
+    "title": "\"Jeg lagde mig saa sildig\""
+   },
+   {
+    "id": "FOLA05007069",
+    "title": "Bahimaer vi møtte"
+   },
+   {
+    "id": "NNFA50160325",
+    "title": "Mot alle odds"
+   },
+   {
+    "id": "OBUB16000002",
+    "title": "Utfordringen"
+   },
+   {
+    "id": "KOIF75001026",
+    "title": "Stakkars meg"
+   },
+   {
+    "id": "FFIL00000975",
+    "title": "Om å være kvinne bak kamera"
+   },
+   {
+    "id": "FOLA68012168",
+    "title": "Milorg i motgang og modning"
+   },
+   {
+    "id": "DVFJ39003619",
+    "title": "Øyeblikk fra Svalbard"
+   },
+   {
+    "id": "MUHU63000016",
+    "title": "KLM 40 år"
+   },
+   {
+    "id": "FOLA00001486",
+    "title": "Hjertekrampe kan helbredes"
+   },
+   {
+    "id": "PRHO63003009",
+    "title": "Med hjartet på rette banen"
+   },
+   {
+    "id": "FRED10000577",
+    "title": "Mot - hva er det?"
+   },
+   {
+    "id": "FOLA02000776",
+    "title": "Kirke eller museum?"
+   },
+   {
+    "id": "MUHU54004211",
+    "title": "Nasjonal minneseremoni 21.08.2011"
+   },
+   {
+    "id": "FREP02002769",
+    "title": "Velferd i 40 havner og på 7 hav"
+   },
+   {
+    "id": "DBUF00001995",
+    "title": "\"Slipp rumpa løs\""
+   },
+   {
+    "id": "FREP01006768",
+    "title": "Idrettsfest i ridderånd"
+   },
+   {
+    "id": "DHLF45000095",
+    "title": "Kjenner vi hverandre?"
+   },
+   {
+    "id": "FOLA70003870",
+    "title": "Maskinen som fjøsrøkter"
+   },
+   {
+    "id": "FFMR00000188",
+    "title": "Willem Barents' oppdagelsesreiser"
+   },
+   {
+    "id": "FOLA00006173",
+    "title": "Mer enn et misjonsselskap"
+   },
+   {
+    "id": "FHED00003792",
+    "title": "Uten arbe'.  Moelv etter industrikrakket"
+   },
+   {
+    "id": "FOLA03008277",
+    "title": "Storfuglen blir borte i skogene våre"
+   },
+   {
+    "id": "FBUA00001681",
+    "title": "Boller og ris"
+   },
+   {
+    "id": "FHLD00001891",
+    "title": "Missa Verbi"
+   },
+   {
+    "id": "FUHA02006570",
+    "title": "Tiden er inne"
+   },
+   {
+    "id": "FTMK00002092",
+    "title": "Navnet mitt er borte"
+   },
+   {
+    "id": "FOPP00000389",
+    "title": "Norge for nordmenn - men hvem er \"nordmenn\"?"
+   },
+   {
+    "id": "FOLA02004088",
+    "title": "Paris - Ny norsk misjonsmark"
+   },
+   {
+    "id": "FBUA09004178",
+    "title": "Svart på hvitt"
+   },
+   {
+    "id": "FOLA03009583",
+    "title": "Kort møte med den italienske teatermannen Dario Fo"
+   },
+   {
+    "id": "FHLD00000490",
+    "title": "Mann over bord!"
+   },
+   {
+    "id": "FMUS20000290",
+    "title": "På oppfordring"
+   },
+   {
+    "id": "FTEM00004371",
+    "title": "Vekstsentrum - kultursentrum?"
+   },
+   {
+    "id": "FBUB06000097",
+    "title": "Julegleden som forsvant"
+   },
+   {
+    "id": "FTRO11000090",
+    "title": "Med stil og stett"
+   },
+   {
+    "id": "FOLA01001883",
+    "title": "Ung på Kongsberg"
+   },
+   {
+    "id": "FALM20000191",
+    "title": "Syndflod, men ingen ark"
+   },
+   {
+    "id": "FSFJ00000494",
+    "title": "Tonar til Jakob Sande"
+   },
+   {
+    "id": "FOLA21003179",
+    "title": "Vitnet - Hvor observante er vi?"
+   },
+   {
+    "id": "FFIL00000774",
+    "title": "Jens Johannessen, norsk maler"
+   },
+   {
+    "id": "MKTF51000616",
+    "title": "Christmas with Christ"
+   },
+   {
+    "id": "FALM08002694",
+    "title": "Thor Heyerdahl 80 år ung"
+   },
+   {
+    "id": "FTEM67000267",
+    "title": "Knut Nystedt: \"The Moment\""
+   },
+   {
+    "id": "FMRD03000088",
+    "title": "Med familien mot svømmetoppen"
+   },
+   {
+    "id": "FMUS20000975",
+    "title": "Rekviem for en danser"
+   },
+   {
+    "id": "FBUA07006468",
+    "title": "Groovy"
+   },
+   {
+    "id": "RKUD05000001",
+    "title": "Garasjen - mannens siste skanse?"
+   },
+   {
+    "id": "MKMF11500015",
+    "title": "Møte med pianisten Liv Glaser"
+   },
+   {
+    "id": "FBUA50000279",
+    "title": "Vil du være med en tur til elva?"
+   },
+   {
+    "id": "FREP01001871",
+    "title": "Sunndalen"
+   },
+   {
+    "id": "FNYH70001674",
+    "title": "Bali - et tapt paradis?"
+   },
+   {
+    "id": "FBUA09000684",
+    "title": "Barnas egen dag"
+   },
+   {
+    "id": "PRHO58008002",
+    "title": "Afrikapresten"
+   },
+   {
+    "id": "MDFP13005110",
+    "title": "Vikingskip til siste havn?"
+   },
+   {
+    "id": "MDRA20002083",
+    "title": "Seriehøsten 2020"
+   },
+   {
+    "id": "FBUA63000563",
+    "title": "Møte med speilbilde"
+   },
+   {
+    "id": "FUHA06005686",
+    "title": "I skuddet"
+   }
+  ],
+  "films": [
+   {
+    "id": "OUHA10008102",
+    "title": "Til Märtha og Ari",
+    "durationInSeconds": 5336
+   },
+   {
+    "id": "MUHU09005017",
+    "title": "DDE 25 år",
+    "durationInSeconds": 6198
+   },
+   {
+    "id": "DVNA20001014",
+    "title": "Piip-show",
+    "durationInSeconds": 51350
+   },
+   {
+    "id": "KOID75005824",
+    "title": "Helene Bøksle - jul i Oslo spektrum",
+    "durationInSeconds": 4508
+   },
+   {
+    "id": "FUHA04001091",
+    "title": "Førti år på scenen",
+    "durationInSeconds": 4586
+   },
+   {
+    "id": "PRTR70001005",
+    "title": "Mandela-debatten om hiv, aids og globale helseproblemer",
+    "durationInSeconds": 8455
+   },
+   {
+    "id": "MKFO35000022",
+    "title": "Stilleste gutt – Lillebjørn Nilsens egen historie",
+    "durationInSeconds": 4906
+   },
+   {
+    "id": "FUHA06003085",
+    "title": "Velkommen til Norge i Florida!",
+    "durationInSeconds": 4783
+   },
+   {
+    "id": "DVNA18000118",
+    "title": "Vidden, steg for steg",
+    "durationInSeconds": 6100
+   },
+   {
+    "id": "MKMF22000214",
+    "title": "Stormen åpner dørene",
+    "durationInSeconds": 6215
+   },
+   {
+    "id": "FUHA00008078",
+    "title": "Festforestilling i Oslo Konserthus",
+    "durationInSeconds": 5412
+   },
+   {
+    "id": "FOLA00009171",
+    "title": "Læreren i dagens og morgendagens skolevesen",
+    "durationInSeconds": 4520
+   },
+   {
+    "id": "KOID75004125",
+    "title": "Riv i hjertet",
+    "durationInSeconds": 6561
+   },
+   {
+    "id": "OCUH21001508",
+    "title": "Levva livet!",
+    "durationInSeconds": 4509
+   },
+   {
+    "id": "DVRO55510017",
+    "title": "Mods live!",
+    "durationInSeconds": 6706
+   },
+   {
+    "id": "NNFA80311602",
+    "title": "Thor Heyerdahls bisettelse",
+    "durationInSeconds": 4857
+   },
+   {
+    "id": "MKMU68000524",
+    "title": "Reinspikka hiphop",
+    "durationInSeconds": 6058
+   },
+   {
+    "id": "SAPU62420025",
+    "title": "Eurovision på nordsamisk// Eurovision davvisámegillii",
+    "durationInSeconds": 14988
+   },
+   {
+    "id": "MKMF23000016",
+    "title": "Festkonsert for Arve Tellefsen",
+    "durationInSeconds": 5347
+   }
+  ],
+  "geoblocked": [
+   {
+    "id": "KOID22002624",
+    "title": "Vi som overlevde atombombene"
+   },
+   {
+    "id": "KOID28001424",
+    "title": "Henden – rekviem for en fotograf"
+   },
+   {
+    "id": "MSUI29006126",
+    "title": "Sydenflyet"
+   },
+   {
+    "id": "KOID22000124",
+    "title": "TikTok-drapene"
+   },
+   {
+    "id": "KMNO10027726",
+    "title": "TRAILER: Bakemesterskapet S3 E3 - tett på"
+   },
+   {
+    "id": "KMNO10041526",
+    "title": "TRAILER: Fotball-VM 2026: Nederland–Sverige"
+   },
+   {
+    "id": "KMNO10026026",
+    "title": "TRAILER: Diamond League: Brussel fredag"
+   },
+   {
+    "id": "KOID24004625",
+    "title": "Trump og tek-gigantene"
+   },
+   {
+    "id": "KMNO10046525",
+    "title": "TRAILER: Ville fristelser S1 E5"
+   },
+   {
+    "id": "KOID21009922",
+    "title": "Livet og andre problemer"
+   },
+   {
+    "id": "KOID75002117",
+    "title": "Kampen"
+   },
+   {
+    "id": "KOID21005124",
+    "title": "Livet med Jim"
+   },
+   {
+    "id": "MSUI26009023",
+    "title": "Det avskyelige snøbarnet"
+   },
+   {
+    "id": "MSPO53229924",
+    "title": "Musikkvideo: Ingen gjør det bedre"
+   },
+   {
+    "id": "KMNO10047026",
+    "title": "TRAILER: Mesternes mester Team S1 E2"
+   },
+   {
+    "id": "KMNO10038726",
+    "title": "TRAILER 2: Fotball-VM 2026 - 3 kamper"
+   },
+   {
+    "id": "MSUI28008019",
+    "title": "Sneglen og hvalen"
+   },
+   {
+    "id": "KOID21007424",
+    "title": "Becoming Madonna"
+   },
+   {
+    "id": "TEST10002119",
+    "title": "TEST NRK TV"
+   },
+   {
+    "id": "KMNO10007620",
+    "title": "TRAILER: Atlantic Crossing"
+   }
+  ],
+  "unavailable": [
+   {
+    "id": "KMNO10056526",
+    "title": "TRAILER: Debatten"
+   },
+   {
+    "id": "KMNO10015526",
+    "title": "TRAILER: OL 2026: Skøyter 3000 meter, kvinner5"
+   },
+   {
+    "id": "MSUI31002023",
+    "title": "Dancing Queen"
+   },
+   {
+    "id": "KMDR19091926",
+    "title": "HERO - DR19 HEAD"
+   },
+   {
+    "id": "KMNO10017226",
+    "title": "TRAILER: OL 2026: Alpint: Super-G, menn"
+   },
+   {
+    "id": "KMNO10023626",
+    "title": "TRAILER: OL 2026: Langrenn 50km, menn"
+   },
+   {
+    "id": "KMNO10016826",
+    "title": "TRAILER: OL 2026: Fristil Kule, kvinner"
+   },
+   {
+    "id": "KMNO10061426",
+    "title": "TRAILER: NpN S55 E4"
+   },
+   {
+    "id": "KMDR19092726",
+    "title": "HERO - DR19 HEAD"
+   },
+   {
+    "id": "MSUI24001014",
+    "title": "Rallskanken"
+   },
+   {
+    "id": "KMDR19090326",
+    "title": "HERO - DR19 HEAD"
+   },
+   {
+    "id": "IBTE30000126",
+    "title": "Familien Lykke"
+   },
+   {
+    "id": "KMNO10052326",
+    "title": "TRAILER: Alle mot 1 S8 E3"
+   },
+   {
+    "id": "KMNO10015126",
+    "title": "TRAILER: OL 2026: Alpint Utfor, menn"
+   },
+   {
+    "id": "KMNO10023026",
+    "title": "TRAILER: OL 2026: Alpint: slalåm, kvinner"
+   },
+   {
+    "id": "NNFA41200226",
+    "title": "Prinsesse Astrids gravferd"
+   },
+   {
+    "id": "ISPO50440226",
+    "title": "Runfest"
+   },
+   {
+    "id": "KMNO10016226",
+    "title": "TRAILER: OL 2026: Alpint Lagkonkurranse, menn"
+   },
+   {
+    "id": "KMNO10056026",
+    "title": "TRAILER: Debatten"
+   },
+   {
+    "id": "KMNO10019226",
+    "title": "TRAILER: OL 2026: Langrenn: lagsprint, menn"
+   },
+   {
+    "id": "KMDR19091026",
+    "title": "HERO - DR19 HEAD"
+   },
+   {
+    "id": "KMNO10015626",
+    "title": "TRAILER: OL 2026: Hopp Normalbakke, kvinner"
+   },
+   {
+    "id": "KMNO10061226",
+    "title": "TRAILER: NpN S55 E2"
+   },
+   {
+    "id": "KMDR19083026",
+    "title": "HERO - DR19 HEAD"
+   },
+   {
+    "id": "DVNR30003526",
+    "title": "Lisenskontrolløren og Norge Rundt"
+   },
+   {
+    "id": "KMDR19100626",
+    "title": "HERO - DR19 HEAD"
+   },
+   {
+    "id": "KMDR19091826",
+    "title": "HERO - DR19 HEAD"
+   },
+   {
+    "id": "KMDR19091126",
+    "title": "HERO - DR19 HEAD"
+   },
+   {
+    "id": "KMNO10056126",
+    "title": "TRAILER: Debatten"
+   },
+   {
+    "id": "KMDR19090126",
+    "title": "HERO - DR19 HEAD"
+   },
+   {
+    "id": "KMDR19090426",
+    "title": "HERO - DR19 HEAD"
+   },
+   {
+    "id": "KMNO10045426",
+    "title": "TRAILER: Humoretaten S4 E4"
+   },
+   {
+    "id": "KMNO10023126",
+    "title": "TRAILER: OL 2026: Randoné"
+   },
+   {
+    "id": "KMDR19092526",
+    "title": "HERO - DR19 HEAD"
+   },
+   {
+    "id": "KMDR19100226",
+    "title": "HERO - DR19 HEAD"
+   },
+   {
+    "id": "KMNO10016026",
+    "title": "TRAILER: OL 2026: Skøyter 5000 meter, menn"
+   },
+   {
+    "id": "KMDR19092626",
+    "title": "HERO - DR19 HEAD"
+   },
+   {
+    "id": "KMNO10048826",
+    "title": "TRAILER: Bløff"
+   },
+   {
+    "id": "KMNO10016326",
+    "title": "TRAILER: OL 2026: Hopp Normalbakke, menn"
+   },
+   {
+    "id": "KMNO10018526",
+    "title": "TRAILER: OL 2026: Skiskyting, sprint kvinner"
+   }
+  ]
+ },
+ "series": {
+  "standard": [
+   {
+    "id": "underholdningskonsert",
+    "title": "Underholdningskonsert",
+    "seriesType": "standard"
+   },
+   {
+    "id": "filmavisen-innslag-i-utvalg",
+    "title": "Filmavisen - innslag i utvalg",
+    "seriesType": "standard"
+   },
+   {
+    "id": "festnachspiel",
+    "title": "Festnachspiel",
+    "seriesType": "standard"
+   },
+   {
+    "id": "pensjonistene",
+    "title": "Pensjonistene",
+    "seriesType": "standard"
+   },
+   {
+    "id": "syngsalabim",
+    "title": "Syngsalabim",
+    "seriesType": "standard"
+   },
+   {
+    "id": "seks-aar",
+    "title": "Seks år",
+    "seriesType": "standard"
+   },
+   {
+    "id": "skrinet-med-det-rare-i",
+    "title": "Skrinet med det rare i",
+    "seriesType": "standard"
+   },
+   {
+    "id": "dagens-bilde",
+    "title": "Dagens bilde",
+    "seriesType": "standard"
+   },
+   {
+    "id": "portrett-av-jakob-sande",
+    "title": "Portrett av Jakob Sande",
+    "seriesType": "standard"
+   },
+   {
+    "id": "muntre-melodi-grand-prix-skandaler",
+    "title": "Muntre Melodi Grand Prix-skandaler",
+    "seriesType": "standard"
+   },
+   {
+    "id": "oss-maateholdsdrankere-imellom",
+    "title": "Oss \"måteholdsdrankere\" imellom",
+    "seriesType": "standard"
+   },
+   {
+    "id": "norsk-lyrikk",
+    "title": "Norsk lyrikk",
+    "seriesType": "standard"
+   },
+   {
+    "id": "vitenskapen-bak-medaljen",
+    "title": "Vitenskapen bak medaljen",
+    "seriesType": "standard"
+   },
+   {
+    "id": "egentlig",
+    "title": "Egentlig",
+    "seriesType": "standard"
+   },
+   {
+    "id": "blond",
+    "title": "Blond!",
+    "seriesType": "standard"
+   },
+   {
+    "id": "naa-er-det-naa",
+    "title": "Nå er det nå",
+    "seriesType": "standard"
+   },
+   {
+    "id": "mennesker-i-hverdagen",
+    "title": "Mennesker i hverdagen",
+    "seriesType": "standard"
+   },
+   {
+    "id": "trygdekontoret",
+    "title": "Trygdekontoret",
+    "seriesType": "standard"
+   },
+   {
+    "id": "barn-i-europa",
+    "title": "Barn i Europa",
+    "seriesType": "standard"
+   },
+   {
+    "id": "oppriktig-talt",
+    "title": "Oppriktig talt",
+    "seriesType": "standard"
+   },
+   {
+    "id": "buon-appetito",
+    "title": "Buon appetito!",
+    "seriesType": "standard"
+   },
+   {
+    "id": "god-jul-til-deg",
+    "title": "God jul til deg",
+    "seriesType": "standard"
+   },
+   {
+    "id": "gjestespill",
+    "title": "Gjestespill",
+    "seriesType": "standard"
+   },
+   {
+    "id": "fra-gard-og-grend",
+    "title": "Fra gard og grend",
+    "seriesType": "standard"
+   },
+   {
+    "id": "ord-for-natten",
+    "title": "Ord for natten",
+    "seriesType": "standard"
+   },
+   {
+    "id": "fysikk-paa-roterommet",
+    "title": "Fysikk på roterommet",
+    "seriesType": "standard"
+   },
+   {
+    "id": "indokina",
+    "title": "Indokina",
+    "seriesType": "standard"
+   },
+   {
+    "id": "dartmoor-the-threatened-wilderness",
+    "title": "Dartmoor: The Threatened Wilderness",
+    "seriesType": "standard"
+   },
+   {
+    "id": "vinter-i-vest",
+    "title": "Vinter i vest",
+    "seriesType": "standard"
+   },
+   {
+    "id": "p3morgen-live-fra-operaen",
+    "title": "P3morgen live fra Operaen",
+    "seriesType": "standard"
+   },
+   {
+    "id": "p13-a-ha-sessions",
+    "title": "P13 a-ha-sessions",
+    "seriesType": "standard"
+   },
+   {
+    "id": "bilen-byen-mennesket",
+    "title": "Bilen - byen - mennesket",
+    "seriesType": "standard"
+   },
+   {
+    "id": "lekestue-for-de-minste",
+    "title": "Lekestue for de minste",
+    "seriesType": "standard"
+   },
+   {
+    "id": "isbjoernen-et-naturvernproblem-i-arktis",
+    "title": "Isbjørnen - et naturvernproblem i Arktis",
+    "seriesType": "standard"
+   },
+   {
+    "id": "paa-prestekontoret",
+    "title": "På prestekontoret",
+    "seriesType": "standard"
+   },
+   {
+    "id": "melvins-mix",
+    "title": "Melvins Mix",
+    "seriesType": "standard"
+   },
+   {
+    "id": "sommerloerdag",
+    "title": "Sommerlørdag",
+    "seriesType": "standard"
+   },
+   {
+    "id": "vaart-rettsvesen",
+    "title": "Vårt rettsvesen",
+    "seriesType": "standard"
+   },
+   {
+    "id": "sella-re-atag",
+    "title": "Sella re atag",
+    "seriesType": "standard"
+   },
+   {
+    "id": "lys-og-toner-i-en-moerketid",
+    "title": "Lys og toner i en mørketid",
+    "seriesType": "standard"
+   },
+   {
+    "id": "et-tropeparadis",
+    "title": "Et tropeparadis",
+    "seriesType": "standard"
+   },
+   {
+    "id": "fjernsynet-i-lokalsamfunnet",
+    "title": "Fjernsynet i lokalsamfunnet",
+    "seriesType": "standard"
+   },
+   {
+    "id": "ivar-aasen-mannen-og-verket",
+    "title": "Ivar Aasen - mannen og verket",
+    "seriesType": "standard"
+   },
+   {
+    "id": "grimen",
+    "title": "Grimen",
+    "seriesType": "standard"
+   },
+   {
+    "id": "julekonserter",
+    "title": "Julekonserter",
+    "seriesType": "standard"
+   },
+   {
+    "id": "i-vesterled",
+    "title": "I vesterled",
+    "seriesType": "standard"
+   },
+   {
+    "id": "det-var-det-aaret",
+    "title": "Det var det året ...",
+    "seriesType": "standard"
+   },
+   {
+    "id": "usett",
+    "title": "Usett",
+    "seriesType": "standard"
+   },
+   {
+    "id": "forskertokt-i-antarktis",
+    "title": "Forskertokt i Antarktis",
+    "seriesType": "standard"
+   },
+   {
+    "id": "panorama-musikk",
+    "title": "Panorama (musikk)",
+    "seriesType": "standard"
+   },
+   {
+    "id": "foerskole",
+    "title": "Førskole",
+    "seriesType": "standard"
+   },
+   {
+    "id": "familieprogram",
+    "title": "Familieprogram",
+    "seriesType": "standard"
+   },
+   {
+    "id": "barn-i-bedre-klassemiljoe",
+    "title": "Barn i bedre klassemiljø",
+    "seriesType": "standard"
+   },
+   {
+    "id": "sommersprek-med-sofia",
+    "title": "Sommersprek med Sofia",
+    "seriesType": "standard"
+   },
+   {
+    "id": "barn-ingen-hindring",
+    "title": "Barn - ingen hindring",
+    "seriesType": "standard"
+   },
+   {
+    "id": "intervjuer-reaksjoner-og-snakkiser-etter-ol-oevelsen",
+    "title": "Reaksjoner etter OL-øvelser",
+    "seriesType": "standard"
+   },
+   {
+    "id": "barn-i-latin-amerika",
+    "title": "Barn i Latin-Amerika",
+    "seriesType": "standard"
+   },
+   {
+    "id": "rasmus-loeland",
+    "title": "Rasmus Løland",
+    "seriesType": "standard"
+   },
+   {
+    "id": "verdens-vaapen",
+    "title": "Verdens våpen",
+    "seriesType": "standard"
+   },
+   {
+    "id": "aldri-paa-en-loerdag",
+    "title": "Aldri på en lørdag",
+    "seriesType": "standard"
+   },
+   {
+    "id": "fra-jazzarkivet",
+    "title": "Fra jazzarkivet",
+    "seriesType": "standard"
+   },
+   {
+    "id": "naermiljoe-skolen",
+    "title": "Nærmiljø - skolen",
+    "seriesType": "standard"
+   },
+   {
+    "id": "om-barn-i-litteraturen",
+    "title": "Om barn i litteraturen",
+    "seriesType": "standard"
+   },
+   {
+    "id": "sikkerhet-og-arbeidsvilkaar-til-sjoes",
+    "title": "Sikkerhet og arbeidsvilkår til sjøs",
+    "seriesType": "standard"
+   },
+   {
+    "id": "vaar-lille-verden",
+    "title": "Vår lille verden",
+    "seriesType": "standard"
+   },
+   {
+    "id": "aargang-1886",
+    "title": "Aargang 1886",
+    "seriesType": "standard"
+   },
+   {
+    "id": "karl-evang",
+    "title": "Karl Evang",
+    "seriesType": "standard"
+   },
+   {
+    "id": "kroppen-for-foreldre",
+    "title": "Kroppen - For foreldre",
+    "seriesType": "standard"
+   },
+   {
+    "id": "nattergalen",
+    "title": "Nattergalen",
+    "seriesType": "standard"
+   },
+   {
+    "id": "min-tur",
+    "title": "Min tur",
+    "seriesType": "standard"
+   },
+   {
+    "id": "dukkeverkstedet",
+    "title": "Dukkeverkstedet",
+    "seriesType": "standard"
+   },
+   {
+    "id": "to-hus-tett-i-tett-og-vi-som-bor-her",
+    "title": "To hus tett i tett - og vi som bor her",
+    "seriesType": "standard"
+   },
+   {
+    "id": "fire-akter-i-teaterkattens-liv",
+    "title": "Fire akter i teaterkattens liv",
+    "seriesType": "standard"
+   },
+   {
+    "id": "forbrukermagasinet",
+    "title": "Arkiv - Forbrukermagasinet",
+    "seriesType": "standard"
+   },
+   {
+    "id": "norsk-revyfestival",
+    "title": "Norsk Revyfestival",
+    "seriesType": "standard"
+   },
+   {
+    "id": "debatt-fra-litteraturhuset",
+    "title": "Debatt fra litteraturhuset",
+    "seriesType": "standard"
+   },
+   {
+    "id": "ski-vm-vm-studio",
+    "title": "Ski-VM: VM-studio",
+    "seriesType": "standard"
+   },
+   {
+    "id": "festivalspesial",
+    "title": "Festivalspesial",
+    "seriesType": "standard"
+   },
+   {
+    "id": "jakt-maa-laeres",
+    "title": "Jakt må læres",
+    "seriesType": "standard"
+   },
+   {
+    "id": "har-du-sette",
+    "title": "Har du sett?",
+    "seriesType": "standard"
+   },
+   {
+    "id": "en-gaatefull-verden",
+    "title": "En gåtefull verden",
+    "seriesType": "standard"
+   },
+   {
+    "id": "aargang-70",
+    "title": "Årgang 70",
+    "seriesType": "standard"
+   },
+   {
+    "id": "musikalske-perler-fra-nidarosdomen",
+    "title": "Musikalske perler fra Nidarosdomen",
+    "seriesType": "standard"
+   },
+   {
+    "id": "nytt-paa-nytt",
+    "title": "Nytt på nytt",
+    "seriesType": "standard"
+   },
+   {
+    "id": "mennesket-i-norden",
+    "title": "Mennesket i Norden",
+    "seriesType": "standard"
+   },
+   {
+    "id": "filmnytt",
+    "title": "Filmnytt",
+    "seriesType": "standard"
+   },
+   {
+    "id": "smaalaat",
+    "title": "Smålåt",
+    "seriesType": "standard"
+   },
+   {
+    "id": "ungarn",
+    "title": "Ungarn",
+    "seriesType": "standard"
+   },
+   {
+    "id": "viseklubber-mer-enn-visesang",
+    "title": "Viseklubber - mer enn visesang",
+    "seriesType": "standard"
+   },
+   {
+    "id": "kiss-dokumentar",
+    "title": "Kiss dokumentar",
+    "seriesType": "standard"
+   },
+   {
+    "id": "smaagodt-fra-gamle-bergen",
+    "title": "Smågodt fra Gamle Bergen",
+    "seriesType": "standard"
+   },
+   {
+    "id": "unge-nordiske-solister",
+    "title": "Unge nordiske solister",
+    "seriesType": "standard"
+   },
+   {
+    "id": "hurtigruta-riksvei-1",
+    "title": "Hurtigruta - riksvei 1",
+    "seriesType": "standard"
+   },
+   {
+    "id": "festkonsert-for-marie-foss",
+    "title": "Festkonsert for Marie Foss",
+    "seriesType": "standard"
+   },
+   {
+    "id": "musikk-for-fjernsyn",
+    "title": "Musikk for fjernsyn",
+    "seriesType": "standard"
+   },
+   {
+    "id": "dyrenes-kokebok",
+    "title": "Dyrenes kokebok",
+    "seriesType": "standard"
+   },
+   {
+    "id": "min-hage",
+    "title": "Min hage",
+    "seriesType": "standard"
+   },
+   {
+    "id": "under-andre-stjerner",
+    "title": "Under andre stjerner",
+    "seriesType": "standard"
+   },
+   {
+    "id": "italiensk-filmproduksjon",
+    "title": "Italiensk filmproduksjon",
+    "seriesType": "standard"
+   },
+   {
+    "id": "tom-og-morten",
+    "title": "Tom og Morten",
+    "seriesType": "standard"
+   }
+  ],
+  "sequential": [
+   {
+    "id": "ikke-ditt-skjoert",
+    "title": "Ikke ditt skjørt",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "hei-kembo",
+    "title": "Hei Kembo",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "em-i-hageleker",
+    "title": "EM i hageleker",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "min-hund-og-meg",
+    "title": "Min hund og meg",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "mesternes-mester",
+    "title": "Mesternes mester",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "vill-villere-villaveien",
+    "title": "Vill, villere, Villaveien",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "kongen-av-gulset",
+    "title": "Kongen av Gulset",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "krafttaket",
+    "title": "Krafttaket",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "vikingspor-i-russisk-jord",
+    "title": "Vikingspor i russisk jord",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "maks-gass",
+    "title": "Maks gass",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "helmer-og-sigurdson",
+    "title": "Helmer og Sigurdson",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "krem-nasjonal",
+    "title": "Krem Nasjonal",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "ambassadeokkupasjonen-i-stockholm",
+    "title": "Ambassadeokkupasjonen i Stockholm",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "fakta-med-flakse",
+    "title": "Fakta med Flakse",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "jazzeventyret",
+    "title": "Jazzeventyret",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "elias-paa-eventyr",
+    "title": "Elias på eventyr",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "tankesprederen-historier-som-formet-verden",
+    "title": "Tankesprederen: Historier som formet verden",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "makta",
+    "title": "Makta",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "omvendt-verden",
+    "title": "Jorggumáilbmi - Omvendt verden",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "gaata-om-danmarks-fyrste-konge",
+    "title": "Gåta om Danmarks fyrste konge",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "nattdjevelen",
+    "title": "Nattdjevelen",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "helsekost-furuseth",
+    "title": "Helsekost Furuseth",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "eggedoris",
+    "title": "Eggedoris",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "visning",
+    "title": "Visning",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "hodet-i-klemme",
+    "title": "Hodet i klemme",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "soelvsjalet",
+    "title": "Sølvsjalet",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "eldreboelgen",
+    "title": "Eldrebølgen",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "interstellar-ella",
+    "title": "Interstellar Ella",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "oppdrag-sognefjorden",
+    "title": "Oppdrag Sognefjorden",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "the-responder",
+    "title": "The Responder",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "det-usynlige-huset",
+    "title": "Det usynlige huset",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "showtrial",
+    "title": "Showtrial",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "brennpunkt-trailermannen",
+    "title": "Brennpunkt: Trailermannen",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "jordmoedrene",
+    "title": "Jordmødrene",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "mullaen-og-meling",
+    "title": "Mullaen og Meling",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "bitz-og-bob",
+    "title": "Bitz & Bob",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "ville-familier",
+    "title": "Ville familier",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "grunderne",
+    "title": "Gründerne",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "soersamer",
+    "title": "Sørsamer",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "dragen-og-foelelsene",
+    "title": "Dragen og følelsene",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "frifot",
+    "title": "Frifot med Anne Lindmo",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "maur-i-rumpa",
+    "title": "Maur i rumpa",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "overeksponert",
+    "title": "Overeksponert",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "klms-vorspiel",
+    "title": "KLMs Vorspiel",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "det-umulige-landet",
+    "title": "Det umulige landet",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "singelgaaten",
+    "title": "Singelgåten",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "jobben-er-livet",
+    "title": "Jobben er livet",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "leos-reise",
+    "title": "Leos reise",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "sundby-mot-verden",
+    "title": "Sundby mot verden",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "stella-og-sam",
+    "title": "Stella og Sam",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "felicias-roeter",
+    "title": "Felicias røter",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "modig",
+    "title": "Modig",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "paa-tykk-is",
+    "title": "På tykk is",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "lydia-x-norges-toeffeste",
+    "title": "Lydia X Norges tøffeste",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "code-of-silence",
+    "title": "Code of Silence",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "oelhunden-berit",
+    "title": "Ølhunden Berit",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "svarte-penger-hvite-loegner",
+    "title": "Svarte penger - hvite løgner",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "gunn-tar-kampen",
+    "title": "Gunn tar kampen!",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "blank",
+    "title": "Blank",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "kodetropp-o",
+    "title": "Kodetropp O",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "boerste-i-barnehagen",
+    "title": "Børste og barnehagen",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "hurtigruten-365",
+    "title": "Hurtigruten 365",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "snowhow",
+    "title": "Snowhow",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "flekke-united",
+    "title": "Flekke United",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "den-tynne-blaa-linjen",
+    "title": "Den tynne blå linjen",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "bitch-city",
+    "title": "Bitch City",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "verdens-rikeste-land-paa-tv",
+    "title": "Verdens Rikeste Land på TV",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "da-einar-gerhardsen-var-statsminister",
+    "title": "Da Einar Gerhardsen var statsminister",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "musikkparken-presenterer-klimpreinstrumenter",
+    "title": "Musikkparken presenterer klimpreinstrumenter",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "bakemesterskapet-uk",
+    "title": "Bakemesterskapet UK",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "fotobonden",
+    "title": "Fotobonden",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "piia-ealliidgarddis",
+    "title": "Piia ealliidgárddis",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "asylet",
+    "title": "Asylet",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "musikkparken-presenterer-elektroniske-instrument",
+    "title": "Musikkparken presenterer elektroniske instrumenter",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "uti-vaar-hage",
+    "title": "Uti vår hage",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "ultraprosesserte-fristelser",
+    "title": "Ultraprosesserte fristelser",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "zap",
+    "title": "Zap",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "norwhy",
+    "title": "Norwhy",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "teodors-julekalender",
+    "title": "Teodors julekalender",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "yum-yum-med-noman",
+    "title": "Yum Yum med Noman",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "gaaten-i-isdalen",
+    "title": "Gåten i Isdalen",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "stjernestoev-x",
+    "title": "Stjernestøv X",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "amanda-og-alans-greske-roenne",
+    "title": "Amanda og Alans greske rønne",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "vuordin-aigi-ventetiden",
+    "title": "Vuordináigi - Ventetiden",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "kampen-om-tungtvannet",
+    "title": "Kampen om tungtvannet",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "poppeloppane",
+    "title": "Poppeloppane",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "amigo-grande",
+    "title": "Amigo Grande",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "michael-palin-i-nigeria",
+    "title": "Michael Palin i Nigeria",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "historieleterne",
+    "title": "Historieleterne",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "atleticus",
+    "title": "Atleticus",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "blime",
+    "title": "BlimE!",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "underholdningsmaskinen",
+    "title": "Underholdningsmaskinen",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "viten",
+    "title": "Viten",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "narvestad-tar-ferie",
+    "title": "Narvestad tar ferie",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "miisas-graviditet",
+    "title": "Miisas graviditet",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "skolestarterne",
+    "title": "Skolestarterne",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "taxi-taxi",
+    "title": "Taxi, taxi",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "mikkel-og-klara",
+    "title": "Mikkel og Klara",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "fantorangens-tall",
+    "title": "Fantorangens tall",
+    "seriesType": "sequential"
+   },
+   {
+    "id": "pokemon-serien-sol-og-maane",
+    "title": "Pokémon",
+    "seriesType": "sequential"
+   }
+  ],
+  "news": [
+   {
+    "id": "distriktsnyheter-oestfold",
+    "title": "Distriktsnyheter Østfold",
+    "seriesType": "news"
+   },
+   {
+    "id": "samisk-programraad",
+    "title": "Sámi prográmmaráđđi - Samisk programråd",
+    "seriesType": "news"
+   }
+  ]
+ },
+ "curated": {
+  "availableProgram": "FFIL63000263",
+  "noSubtitleProgram": "FMUS20005482",
+  "filmProgram": "OUHA10008102",
+  "geoblockedProgram": "KOID22002624",
+  "expiredProgram": "KMNO10015526",
+  "comingProgram": "KMNO10061426",
+  "standardSeries": "filmavisen-innslag-i-utvalg",
+  "sequentialSeries": "hei-kembo",
+  "newsSeries": "distriktsnyheter-oestfold",
+  "missingProgram": "DOESNOTEXIST",
+  "missingSeries": "finnes-ikke-serie"
+ }
+}

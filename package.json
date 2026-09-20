@@ -2,15 +2,23 @@
   "name": "nrk-klient",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "dist/src/client.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "tsc && node --test \"dist/test/offline/*.test.js\"",
+    "test:live": "tsc && node --test --test-timeout=900000 \"dist/test/live/*.test.js\"",
+    "record": "tsc && node scripts/record-fixtures.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "zod": "^4.6.2"
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.6",
+    "typescript": "^7.0.2"
   }
 }

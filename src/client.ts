@@ -33,6 +33,9 @@ class NrkClient {
                 (a, b) => a.pixelWidth - b.pixelWidth,
             );
             const firstImage = images[0];
+            if (!firstImage) {
+                throw new Error("Missing image for content: " + item.id);
+            }
             const contentItem: ListedContent = {
                 id: item.id,
                 description: item.description ? item.description : "No description",
@@ -143,66 +146,31 @@ class NrkClient {
         seasonName: string,
     ): Promise<SeasonsWithEpisodes> {
         const parsed = await nrkClientParsed.getAllEpisodes(seriesId, seasonName);
-        const episodes: Episode[] = [];
-        if (parsed._embedded.episodes) {
-            const episodesResult: Episode[] = parsed._embedded.episodes.map((e) => {
-                const episode: Episode = {
-                    episodeId: e.id,
-                    prfId: e.prfId,
-                    detailsDisplayValue: e.details.displayValue,
-                    availabilityStatus: e.availability.status,
-                    availableFromDate: e.usageRights.from.date,
-                    availableFromDisplayValue: e.usageRights.from.displayValue,
-                    availableToDate: e.usageRights.to.date,
-                    availableToDisplayValue: e.usageRights.to.displayValue,
-                    duration: e.duration,
-                    durationInSeconds: e.durationInSeconds,
-                    images: e.image,
-                    productionYear: e._embedded.ga.dimension3,
-                    productionMonth: e._embedded.ga.dimension4,
-                    productionDay: e._embedded.ga.dimension5,
-                    episodeNumber: e._embedded.ga.dimension22,
-                    category: e._embedded.ga.dimension23,
-                    subtitle: e.titles.subtitle ?? null,
-                    title: e.titles.title,
-                    seriesId,
-                    seasonName,
-                };
-                return episode;
-            });
-            episodes.push(...episodesResult);
-        }
-        if (parsed._embedded.instalments) {
-            const episodesResult: Episode[] = parsed._embedded.instalments.map(
-                (e) => {
-                    const episode: Episode = {
-                        episodeId: e.id,
-                        prfId: e.prfId,
-                        detailsDisplayValue: e.details.displayValue,
-                        availabilityStatus: e.availability.status,
-                        availableFromDate: e.usageRights.from.date,
-                        availableFromDisplayValue: e.usageRights.from.displayValue,
-                        availableToDate: e.usageRights.to.date,
-                        availableToDisplayValue: e.usageRights.to.displayValue,
-                        duration: e.duration,
-                        durationInSeconds: e.durationInSeconds,
-                        images: e.image,
-                        productionYear: e._embedded.ga.dimension3,
-                        productionMonth: e._embedded.ga.dimension4,
-                        productionDay: e._embedded.ga.dimension5,
-                        episodeNumber: e._embedded.ga.dimension22,
-                        category: e._embedded.ga.dimension23,
-                        subtitle: e.titles.subtitle ?? null,
-                        title: e.titles.title,
-                        seriesId,
-                        seasonName,
-                    };
-
-                    return episode;
-                },
-            );
-            episodes.push(...episodesResult);
-        }
+        const toEpisode = (
+            e: NonNullable<typeof parsed._embedded.episodes>[number],
+        ): Episode => ({
+            episodeId: e.id,
+            prfId: e.prfId,
+            detailsDisplayValue: e.details.displayValue,
+            availabilityStatus: e.availability.status,
+            availableFromDate: e.usageRights.from.date,
+            availableFromDisplayValue: e.usageRights.from.displayValue,
+            availableToDate: e.usageRights.to.date,
+            availableToDisplayValue: e.usageRights.to.displayValue,
+            duration: e.duration,
+            durationInSeconds: e.durationInSeconds,
+            images: e.image,
+            productionYear: e.productionYear ?? null,
+            episodeNumber: e.sequenceNumber ?? null,
+            subtitle: e.titles.subtitle ?? null,
+            title: e.titles.title,
+            seriesId,
+            seasonName,
+        });
+        const episodes: Episode[] = [
+            ...(parsed._embedded.episodes ?? []).map(toEpisode),
+            ...(parsed._embedded.instalments ?? []).map(toEpisode),
+        ];
 
         const returnValue: SeasonsWithEpisodes = {
             seriesId,
@@ -290,7 +258,7 @@ class NrkClient {
      * Will throw
      */
     async getAllLetters(): Promise<NrkLetterResponse> {
-        const legalLetters = "abcdefghijklmnopqrstuvxyzæøå";
+        const legalLetters = "abcdefghijklmnopqrstuvwxyzæøå";
         const all = legalLetters.split("").map(this.letter);
         const resolvedAll = await Promise.all(all);
         const flattend = resolvedAll.flat(1);
@@ -332,9 +300,7 @@ class NrkClient {
         const durationDisplayValue = parsed.moreInformation.duration.displayValue;
         const durationInSeconds = parsed.moreInformation.duration.seconds;
         const category = parsed.moreInformation.category.id;
-        const productionYear = parsed._embedded.ga.dimension3;
-        const productionMonth = parsed._embedded.ga.dimension4;
-        const productionDay = parsed._embedded.ga.dimension5;
+        const productionYear = parsed.moreInformation.productionYear;
         const availableFromDate = parsed.moreInformation.usageRights.from.date;
         const availableFromDisplayValue =
             parsed.moreInformation.usageRights.from.displayValue;
@@ -353,8 +319,6 @@ class NrkClient {
             durationInSeconds,
             category,
             productionYear,
-            productionMonth,
-            productionDay,
             availableFromDate,
             availableFromDisplayValue,
             availableToDate,

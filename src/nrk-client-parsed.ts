@@ -1,7 +1,7 @@
 import * as z from "zod";
 import { nrkClientRaw } from "./nrk-client-raw";
 
-export const productionYear = z.number().nullable();
+export const productionYear = z.number().nullish();
 export const duration = z.string().min(1, "Duration-string can not be empty.");
 export const durationInSeconds = z
     .number()
@@ -36,7 +36,7 @@ const UpstreamSystemInfoParser = z.object({
     payload: z.object({
         id: z.string(),
         name: z.string().min(1),
-        brand: z.string({ description: "" }).nonempty(),
+        brand: z.string().nonempty(),
     }),
 });
 
@@ -111,15 +111,6 @@ export const channelName = z
     .nonempty("Channel name can not be empty")
     .brand("NRK_CHANNEL_NAME.");
 
-const clamp = (min: number, max: number) => {
-    return (toClamp: number) => {
-        return Math.min(Math.max(toClamp, min), max);
-    };
-};
-const clamp1_25 = clamp(1, 25);
-
-const clamp2_95 = clamp(2, 95);
-
 const SeriesRecommendationParser = z.object({
     type: z.literal("series"),
     upstreamSystemInfo: UpstreamSystemInfoParser,
@@ -148,17 +139,6 @@ const RecommendationSchema = z.object({
     }),
 });
 
-const _embedded = z.object({
-    ga: z.object({
-        dimension1: z.string().min(1),
-        dimension3: z.coerce.number(),
-        dimension4: z.coerce.number(),
-        dimension5: z.coerce.number(),
-        dimension22: z.coerce.number(),
-        dimension23: z.string().min(1),
-    }),
-});
-
 const EmbeddedOrInstalledEpisode = z.object({
     id: z.string().min(1),
     prfId: z.string().min(1),
@@ -170,7 +150,7 @@ const EmbeddedOrInstalledEpisode = z.object({
     availability,
     usageRights,
     productionYear,
-    _embedded,
+    sequenceNumber: z.number().nullish(),
 });
 const GetEpisodesParser = z.object({
     seriesType,
@@ -211,7 +191,7 @@ const metaDataParser = z.object({
         }),
         indexPoints: z.array(
             z.object({
-                startPoint: z.string({ description: "ISO8601-duration" }),
+                startPoint: z.string().describe("ISO8601-duration"),
                 title: z.string(),
             }),
         ),
@@ -270,6 +250,7 @@ class NrkClientParsed {
         const body = await nrkClientRaw.getRecommendation(contentId, {
             contentGroup,
             count,
+            ...(options?.age !== undefined && { age: options.age }),
         });
         return RecommendationSchema.parse(body);
     }
@@ -299,15 +280,6 @@ class NrkClientParsed {
                 releaseDateOnDemand: z.string().nullable(),
                 productionYear: z.number().nullable(),
                 usageRights,
-            }),
-            _embedded: z.object({
-                ga: z.object({
-                    dimension3: z.coerce.number(),
-                    dimension4: z.coerce.number(),
-                    dimension5: z.coerce.number(),
-                    dimension21: z.string(),
-                    dimension22: z.string().brand("__EPISODE__NUMBER"),
-                }),
             }),
         });
         return schema.parse(json);

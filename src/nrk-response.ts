@@ -45,10 +45,7 @@ export interface ProgramById {
     readonly durationInSeconds: number;
     readonly durationDisplayValue: string;
     readonly category: string;
-    // readonly productionYear: number | null;
-    readonly productionYear: number;
-    readonly productionMonth: number;
-    readonly productionDay: number;
+    readonly productionYear: number | null;
 }
 
 export type SeriesType = "sequential" | "news" | "standard";
@@ -85,12 +82,8 @@ export interface Episode {
     readonly durationInSeconds: number;
     readonly duration: string;
     readonly detailsDisplayValue: string;
-    readonly category: string;
-    // readonly category: string;
-    readonly episodeNumber: number;
-    readonly productionYear: number;
-    readonly productionMonth: number;
-    readonly productionDay: number;
+    readonly episodeNumber: number | null;
+    readonly productionYear: number | null;
 }
 export interface SeasonsWithEpisodes {
     readonly seriesId: string;
