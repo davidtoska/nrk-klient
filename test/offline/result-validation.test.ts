@@ -1,112 +1,76 @@
 import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { NrkClient, NrkLike } from "../../src/nrk-client";
-import { NRK } from "../../src/client";
-import * as r from "../../src/nrk-response";
-import { NrkValidationError, safeParse } from "../../src/validate";
-import { FetchStub, installFetchMock, installFetchStub } from "../support/fetch-stub";
+import { NrkClient } from "../../src/nrk-client";
+import { FetchStub, installFetchMock } from "../support/fetch-stub";
 import { curated, recordedJson, urls } from "../support/helpers";
 
 /**
- * Both clients check what they return against the declared type. These tests feed the
- * NrkClient a fake NRK that produces values contradicting the types, and check that the
- * caller gets an error instead of a wrong value.
+ * The client checks what NRK sends and what it returns. These tests change NRK's recorded
+ * answers so that they contradict what the client expects, and check that the caller gets an
+ * error result instead of a wrong value.
  */
 
-const validProgram = {
-    id: "ABCD12345678",
-    title: "Title",
-    subtitle: null,
-    availabilityStatus: "available",
-    availableFromDate: null,
-    availableFromDisplayValue: "",
-    availableToDate: null,
-    availableToDisplayValue: "",
-    images: [],
-    durationInSeconds: 1800,
-    durationDisplayValue: "30 min",
-    category: "natur",
-    productionYear: 2000,
-    firstAired: "2000-01-31",
-    contributors: [],
-    seriesId: null,
-};
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const newClient = () => new NrkClient({ minIntervalMs: 0 });
 
-const validEpisode = {
-    episodeId: "e1",
-    prfId: "ABCD12345678",
-    seriesId: "s",
-    seasonName: "1",
-    title: "Ep",
-    subtitle: null,
-    availabilityStatus: "available",
-    availableFromDate: null,
-    availableFromDisplayValue: "",
-    availableToDate: null,
-    availableToDisplayValue: "",
-    images: [],
-    durationInSeconds: 600,
-    duration: "PT10M",
-    detailsDisplayValue: "",
-    episodeNumber: 1,
-    productionYear: null,
-    firstAired: null,
-    contributors: [],
-};
+describe("the client checks NRK's answers and its own results", () => {
+    let stub: FetchStub | undefined;
+    afterEach(() => stub?.restore());
 
-const clientWith = (fake: object) => new NrkClient({ nrk: fake as unknown as NrkLike, minIntervalMs: 0 });
+    const id = curated("availableProgram");
 
-const programFake = (override: object = {}) => ({
-    getProgramById: async () => ({ ...validProgram, ...override }),
-    getMetadata: async () => ({ description: "A description" }),
-});
+    /** Serves the recorded program page and metadata, the page changed by `change`. */
+    const serveProgram = (change: (page: any) => void = () => undefined) => {
+        const page = structuredClone(recordedJson(urls.programPage(id)));
+        change(page);
+        const metadata = recordedJson(urls.metadata(id));
+        stub = installFetchMock(
+            (url) => new Response(JSON.stringify(url.includes("/playback/metadata/") ? metadata : page), { status: 200 }),
+        );
+    };
 
-const rejected = async (result: Promise<{ ok: boolean; error?: { code: string; message: string } }>) => {
-    const r = await result;
-    assert.ok(!r.ok, "expected an error result");
-    assert.equal(r.error?.code, "invalid_response");
-    return r.error?.message ?? "";
-};
+    const rejected = async (result: Promise<{ ok: boolean; error?: { code: string; message: string } }>) => {
+        const r = await result;
+        assert.ok(!r.ok, "expected an error result");
+        assert.equal(r.error?.code, "invalid_response");
+        return r.error?.message ?? "";
+    };
 
-describe("NrkClient checks its results against their declared type", () => {
-    it("passes a value that matches (baseline)", async () => {
-        const result = await clientWith(programFake()).getProgram({ id: "ABCD12345678" });
+    it("passes an answer that matches (baseline)", async () => {
+        serveProgram();
+        const result = await newClient().getProgram({ id });
         assert.ok(result.ok);
-        assert.equal(result.data.durationMinutes, 30);
+        assert.equal(result.data.durationMinutes, Math.round(result.data.durationSeconds / 60));
     });
 
-    it("rejects a number that is not a number", async () => {
-        const message = await rejected(
-            clientWith(programFake({ durationInSeconds: NaN })).getProgram({ id: "ABCD12345678" }),
-        );
-        assert.match(message, /durationSeconds/);
-        assert.match(message, /^Result does not match its type/);
+    it("rejects a duration that is not a number", async () => {
+        serveProgram((page) => {
+            page.moreInformation.duration.seconds = "long";
+        });
+        const message = await rejected(newClient().getProgram({ id }));
+        assert.match(message, /seconds/);
     });
 
     it("rejects a status outside the declared set", async () => {
-        const message = await rejected(
-            clientWith(programFake({ availabilityStatus: "bogus" })).getProgram({ id: "ABCD12345678" }),
-        );
+        serveProgram((page) => {
+            page.programInformation.availability.status = "bogus";
+        });
+        const message = await rejected(newClient().getProgram({ id }));
         assert.match(message, /status/);
     });
 
-    it("rejects a first-aired date that is not YYYY-MM-DD", async () => {
-        const message = await rejected(
-            clientWith(programFake({ firstAired: "yesterday" })).getProgram({ id: "ABCD12345678" }),
-        );
-        assert.match(message, /firstAired/);
-    });
-
     it("reports the problem per program in getPrograms and still returns the good ones", async () => {
-        const fake = {
-            getProgramById: async (id: string) => ({
-                ...validProgram,
-                id,
-                durationInSeconds: id === "BBBB00000002" ? Infinity : 60,
-            }),
-            getMetadata: async () => ({ description: "d" }),
-        };
-        const result = await clientWith(fake).getPrograms({ ids: ["AAAA00000001", "BBBB00000002"] });
+        const good = recordedJson(urls.programPage(id));
+        const bad = structuredClone(good);
+        bad.moreInformation.duration.seconds = "long";
+        const metadata = recordedJson(urls.metadata(id));
+        stub = installFetchMock((url) => {
+            if (url.includes("/playback/metadata/")) return new Response(JSON.stringify(metadata), { status: 200 });
+            return new Response(JSON.stringify(url.endsWith("/BBBB00000002") ? bad : good), { status: 200 });
+        });
+
+        const result = await newClient().getPrograms({ ids: ["AAAA00000001", "BBBB00000002"] });
+
         assert.ok(result.ok);
         assert.deepEqual(result.data.programs.map((p) => p.id), ["AAAA00000001"]);
         assert.equal(result.data.failed.length, 1);
@@ -115,131 +79,57 @@ describe("NrkClient checks its results against their declared type", () => {
     });
 
     it("rejects an episode without an id", async () => {
-        const fake = {
-            getAllEpisodes: async () => ({
-                seriesId: "s",
-                seasonName: "1",
-                seriesType: "standard",
-                seasonType: "season",
-                episodes: [validEpisode, { ...validEpisode, prfId: "" }],
-            }),
-        };
-        const message = await rejected(clientWith(fake).getEpisodes({ seriesId: "s", seasonName: "1" }));
-        assert.match(message, /episodes\.1\.id/);
+        const seriesId = curated("standardSeries");
+        const series = recordedJson(urls.series(seriesId));
+        const seasonName = series._links.seasons[0].name;
+        const season = structuredClone(recordedJson(urls.season(seriesId, seasonName)));
+        const list = season._embedded.episodes ?? season._embedded.instalments;
+        list.push({ ...list[0], prfId: "" });
+        stub = installFetchMock(() => new Response(JSON.stringify(season), { status: 200 }));
+
+        const message = await rejected(newClient().getEpisodes({ seriesId, seasonName }));
+
+        assert.match(message, new RegExp(`\\.${list.length - 1}\\.prfId`));
     });
 
     it("rejects a series type outside the declared set", async () => {
-        const fake = {
-            getSeasons: async () => ({
-                seriesId: "s",
-                imageUrl300: "https://x/y",
-                title: "T",
-                seriesType: "weird",
-                category: null,
-                seasons: [],
-            }),
-        };
-        const message = await rejected(clientWith(fake).getSeries({ id: "s" }));
-        assert.match(message, /seriesType/);
+        const series = structuredClone(recordedJson(urls.series(curated("standardSeries"))));
+        series.seriesType = "weird";
+        stub = installFetchMock(() => new Response(JSON.stringify(series), { status: 200 }));
+
+        await rejected(newClient().getSeries({ id: "s" }));
     });
 
-    it("rejects a catalog item without an id", async () => {
-        const fake = {
-            letter: async (letter: string) => ({
-                letter,
-                programs: [
-                    {
-                        id: "",
-                        type: "programme",
-                        title: "T",
-                        imageUrl: "u",
-                        hasOnDemandRights: true,
-                        isGeoBlocked: false,
-                        description: "d",
-                    },
-                ],
-                series: [],
-            }),
-        };
-        const client = new NrkClient({ nrk: fake as unknown as NrkLike, letters: "a", minIntervalMs: 0 });
-        const message = await rejected(client.listCatalog({}));
-        assert.match(message, /items\.0\.id/);
+    it("reports a letter with an item that has no id as failed, with an invalid_response error", async () => {
+        const letter = structuredClone(recordedJson(urls.letter("w")));
+        letter[0].id = "";
+        stub = installFetchMock(() => new Response(JSON.stringify(letter), { status: 200 }));
+
+        const result = await new NrkClient({ letters: "w", minIntervalMs: 0 }).listCatalog();
+
+        assert.ok(result.ok, "a bad letter is reported in failed, not as a failed call");
+        assert.deepEqual(result.data.items, []);
+        assert.equal(result.data.failed.length, 1);
+        assert.equal(result.data.failed[0]?.letter, "w");
+        assert.equal(result.data.failed[0]?.error.code, "invalid_response");
+        assert.match(result.data.failed[0]?.error.message ?? "", /0\.id: Id can not be empty/);
     });
 
-    it("does not change a value that is valid", async () => {
-        const result = await clientWith(programFake({ contributors: [{ name: "Kari", role: "Programleder" }] })).getProgram({ id: 
-            "ABCD12345678",
-         });
+    it("does not change an answer that is valid: credited people and description come through", async () => {
+        const withPeople = curated("programWithContributors");
+        const page = recordedJson(urls.programPage(withPeople));
+        const metadata = recordedJson(urls.metadata(withPeople));
+        stub = installFetchMock(
+            (url) => new Response(JSON.stringify(url.includes("/playback/metadata/") ? metadata : page), { status: 200 }),
+        );
+
+        const result = await newClient().getProgram({ id: withPeople });
+
         assert.ok(result.ok);
-        assert.deepEqual(result.data.contributors, [{ name: "Kari", role: "Programleder" }]);
-        assert.equal(result.data.description, "A description");
-    });
-});
-
-describe("NRK checks its results against their declared type", () => {
-    let stub: FetchStub | undefined;
-    afterEach(() => stub?.restore());
-
-    it("throws NrkValidationError, labelled as a bad result, when a value contradicts the type", async () => {
-        const page = recordedJson(urls.programPage(curated("availableProgram")));
-        stub = installFetchMock(() => new Response(JSON.stringify(page), { status: 200 }));
-
-        // NRK's page is fine, but an empty id cannot be a ProgramById.id
-        await assert.rejects(NRK.getProgramById(""), (e: unknown) => {
-            assert.ok(e instanceof NrkValidationError);
-            assert.match(e.message, /^Invalid result from NRK\.getProgramById - id: must not be empty/);
-            return true;
-        });
-    });
-
-    it("keeps the response label for shape problems in NRK's own data", async () => {
-        stub = installFetchMock(() => new Response('{"nope":true}', { status: 200 }));
-        await assert.rejects(NRK.getSeriesType("x"), (e: unknown) => {
-            assert.ok(e instanceof NrkValidationError);
-            assert.match(e.message, /^Unexpected response shape/);
-            return true;
-        });
-    });
-
-    it("returns values that pass their own validators, for every recorded program and series", async () => {
-        stub = installFetchStub();
-        for (const role of ["availableProgram", "programWithContributors", "filmProgram", "expiredProgram", "comingProgram"]) {
-            const program = await NRK.getProgramById(curated(role));
-            assert.ok(safeParse(r.programById, program).success, role);
-        }
-        for (const type of ["standard", "sequential", "news"]) {
-            const series = await NRK.getSeasons(curated(`${type}Series`));
-            assert.ok(safeParse(r.seriesWithSeasons, series).success, type);
-            const season = series.seasons[0];
-            assert.ok(season);
-            const episodes = await NRK.getAllEpisodes(curated(`${type}Series`), season.name);
-            assert.ok(safeParse(r.seasonsWithEpisodes, episodes).success, type);
-        }
-    });
-});
-
-describe("the validators reject values that contradict their type", () => {
-    const program = validProgram as unknown;
-
-    it("programById", () => {
-        assert.ok(safeParse(r.programById, program).success);
-        const problems = (bad: object) => {
-            const result = safeParse(r.programById, { ...validProgram, ...bad });
-            return result.success ? [] : result.issues.map((i) => i.path.join("."));
-        };
-        assert.deepEqual(problems({ availabilityStatus: "gone" }), ["availabilityStatus"]);
-        assert.deepEqual(problems({ id: "" }), ["id"]);
-        assert.deepEqual(problems({ productionYear: "2000" }), ["productionYear"]);
-        assert.deepEqual(problems({ firstAired: "2000-1-1" }), ["firstAired"]);
-        assert.deepEqual(problems({ contributors: [{ name: "x" }] }), ["contributors.0.role"]);
-        assert.deepEqual(problems({ images: [{ url: "u" }] }), ["images.0.width"]);
-        assert.equal(safeParse(r.programById, { ...validProgram, subtitle: undefined }).success, false);
-    });
-
-    it("manifest and metadata", () => {
-        assert.ok(safeParse(r.manifest, { prfId: "P", playUrl: "https://x/y.m3u8", format: "HLS" }).success);
-        assert.ok(!safeParse(r.manifest, { prfId: "P", playUrl: "https://x/y.m3u8", format: "DASH" }).success);
-        assert.ok(!safeParse(r.manifest, { prfId: "P", playUrl: "", format: "HLS" }).success);
-        assert.ok(!safeParse(r.metadata, { prfId: "P" }).success);
+        const expected = page.contributors.flatMap((g: { role: string; name: string[] }) =>
+            g.name.map((name) => ({ name, role: g.role })),
+        );
+        assert.deepEqual(result.data.contributors, expected.slice(0, 15));
+        assert.equal(result.data.description, metadata.preplay.description);
     });
 });

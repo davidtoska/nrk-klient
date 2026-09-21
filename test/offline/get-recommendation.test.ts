@@ -1,9 +1,8 @@
 import { afterEach, beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { NrkClient, NrkLike } from "../../src/nrk-client";
-import { NrkHttpError } from "../../src/nrk-client-raw";
+import { NrkClient } from "../../src/nrk-client";
 import type { RecommendedItem } from "../../src/types";
-import { FetchStub, installFetchStub } from "../support/fetch-stub";
+import { FetchStub, installFetchMock, installFetchStub } from "../support/fetch-stub";
 import { recordedJson, BASE } from "../support/helpers";
 
 /**
@@ -101,40 +100,43 @@ describe("getRecommendations against recorded answers", () => {
     });
 });
 
-// ── merging rules, with a fake NRK ───────────────────────────────────
+// ── merging rules, with a fake NRK that answers in NRK's own format ──
 
-const rec = (id: string, type: "program" | "series" = "program", subtitle: string | null = "") => ({
-    id,
+let stub: FetchStub | undefined;
+
+type Rec = { type: "program" | "series"; [body: string]: unknown };
+const rec = (id: string, type: "program" | "series" = "program", subtitle: string | null = ""): Rec => ({
     type,
-    duration: "",
-    name: id,
-    brand: "b",
-    image: null,
-    title: "Title " + id,
-    subtitle,
-    images: [],
+    [type]: {
+        id,
+        ...(type === "program" ? { duration: "" } : {}),
+        image: { webImages: [] },
+        titles: { title: "Title " + id, subtitle },
+    },
 });
 
-type Reply = { programs: ReturnType<typeof rec>[]; series: ReturnType<typeof rec>[] } | Error;
-const fakeNrk = (replies: Record<string, Reply>, calls: Array<{ id: string; options: unknown }> = []) =>
-    new NrkClient({
-        nrk: {
-            getRecommendation: async (id: string, options: unknown) => {
-                calls.push({ id, options });
-                const reply = replies[id];
-                if (reply === undefined) throw new Error("unexpected " + id);
-                if (reply instanceof Error) throw reply;
-                return reply;
-            },
-        } as unknown as NrkLike,
-        minIntervalMs: 0,
+type Reply = Rec[] | Response;
+/** Serves `replies[id]` for a recommendations request. `calls` collects what was asked for. */
+const fakeNrk = (replies: Record<string, Reply>, calls: Array<{ id: string; count: string | null }> = []) => {
+    stub = installFetchMock((url) => {
+        const parsed = new URL(url);
+        const id = decodeURIComponent(parsed.pathname.split("/").pop() ?? "");
+        calls.push({ id, count: parsed.searchParams.get("maxNumber") });
+        const reply = replies[id];
+        if (reply === undefined) throw new Error("unexpected " + id);
+        if (reply instanceof Response) return reply;
+        return new Response(JSON.stringify({ _embedded: { recommendations: reply } }), { status: 200 });
     });
+    return new NrkClient({ minIntervalMs: 0 });
+};
 
 describe("getRecommendations merging", () => {
+    afterEach(() => stub?.restore());
+
     it("puts items recommended for several ids first, keeps NRK's order otherwise, leaves out the given ids", async () => {
         const client = fakeNrk({
-            A: { programs: [rec("P1"), rec("P2"), rec("B")], series: [rec("S1", "series")] },
-            B: { programs: [rec("P3"), rec("P2"), rec("A")], series: [rec("S1", "series")] },
+            A: [rec("P1"), rec("P2"), rec("B"), rec("S1", "series")],
+            B: [rec("P3"), rec("P2"), rec("A"), rec("S1", "series")],
         });
         const result = await client.getRecommendations({ basedOn: ["A", "B"] });
         assert.ok(result.ok);
@@ -149,23 +151,30 @@ describe("getRecommendations merging", () => {
         );
     });
 
+    it("lists programs before series, whatever order NRK sends them in", async () => {
+        const client = fakeNrk({ A: [rec("S1", "series"), rec("P1"), rec("S2", "series"), rec("P2")] });
+        const result = await client.getRecommendations({ basedOn: ["A"] });
+        assert.ok(result.ok);
+        assert.deepEqual(result.data.items.map((i) => i.id), ["P1", "P2", "S1", "S2"]);
+        assert.deepEqual(result.data.items.map((i) => i.type), ["program", "program", "series", "series"]);
+    });
+
     it("asks once per distinct id, with the count", async () => {
-        const calls: Array<{ id: string; options: unknown }> = [];
-        const client = fakeNrk({ A: { programs: [rec("P1")], series: [] } }, calls);
+        const calls: Array<{ id: string; count: string | null }> = [];
+        const client = fakeNrk({ A: [rec("P1")] }, calls);
         const result = await client.getRecommendations({ basedOn: ["A", "A"], count: 5 });
         assert.ok(result.ok);
-        assert.deepEqual(calls, [{ id: "A", options: { count: 5 } }]);
+        assert.deepEqual(calls, [{ id: "A", count: "5" }]);
         assert.deepEqual(result.data.items.map((i) => i.basedOn), [["A"]]);
+        stub?.restore();
 
-        const defaults: Array<{ id: string; options: unknown }> = [];
-        await fakeNrk({ A: { programs: [], series: [] } }, defaults).getRecommendations({ basedOn: ["A"] });
-        assert.deepEqual(defaults, [{ id: "A", options: { count: 10 } }]);
+        const defaults: Array<{ id: string; count: string | null }> = [];
+        await fakeNrk({ A: [] }, defaults).getRecommendations({ basedOn: ["A"] });
+        assert.deepEqual(defaults, [{ id: "A", count: "10" }]);
     });
 
     it("turns an empty or missing subtitle into null and keeps a real one", async () => {
-        const client = fakeNrk({
-            A: { programs: [rec("P1", "program", ""), rec("P2", "program", null), rec("P3", "program", "Del 2")], series: [] },
-        });
+        const client = fakeNrk({ A: [rec("P1", "program", ""), rec("P2", "program", null), rec("P3", "program", "Del 2")] });
         const result = await client.getRecommendations({ basedOn: ["A"] });
         assert.ok(result.ok);
         assert.deepEqual(result.data.items.map((i) => i.subtitle), [null, null, "Del 2"]);
@@ -173,8 +182,8 @@ describe("getRecommendations merging", () => {
 
     it("reports the id that failed and still returns the others", async () => {
         const client = fakeNrk({
-            A: new NrkHttpError(500, "u", null, null),
-            B: { programs: [rec("P1")], series: [] },
+            A: new Response("{}", { status: 500 }),
+            B: [rec("P1")],
         });
         const result = await client.getRecommendations({ basedOn: ["A", "B"] });
         assert.ok(result.ok);
@@ -185,19 +194,19 @@ describe("getRecommendations merging", () => {
     });
 
     it("returns the error when every id fails", async () => {
-        const client = fakeNrk({ A: new NrkHttpError(500, "u", null, null), B: new NrkHttpError(500, "u", null, null) });
+        const client = fakeNrk({ A: new Response("{}", { status: 500 }), B: new Response("{}", { status: 500 }) });
         const result = await client.getRecommendations({ basedOn: ["A", "B"] });
         assert.ok(!result.ok);
         assert.equal(result.error.code, "upstream_error");
     });
 
     it("stops asking on 429", async () => {
-        const calls: Array<{ id: string; options: unknown }> = [];
+        const calls: Array<{ id: string; count: string | null }> = [];
         const client = fakeNrk(
             {
-                A: { programs: [rec("P1")], series: [] },
-                B: new NrkHttpError(429, "u", null, 600),
-                C: { programs: [rec("P2")], series: [] },
+                A: [rec("P1")],
+                B: new Response("{}", { status: 429, headers: { "retry-after": "600" } }),
+                C: [rec("P2")],
             },
             calls,
         );
@@ -210,7 +219,7 @@ describe("getRecommendations merging", () => {
     });
 
     it("says invalid_response when NRK's data breaks the result type", async () => {
-        const client = fakeNrk({ A: { programs: [rec("")], series: [] } });
+        const client = fakeNrk({ A: [rec("")] });
         const result = await client.getRecommendations({ basedOn: ["A"] });
         assert.ok(!result.ok);
         assert.equal(result.error.code, "invalid_response");

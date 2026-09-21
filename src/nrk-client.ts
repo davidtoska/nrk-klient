@@ -1,5 +1,5 @@
-import { NRK } from "./client";
-import { nearestImageUrl } from "./nrk-format";
+import { nrkApi } from "./nrk-api";
+import { flattenContributors, nearestImageUrl, parseFirstAired, parseIsoDuration, seriesIdFromHref } from "./nrk-format";
 import { NrkHttpError } from "./nrk-client-raw";
 import { NrkValidationError, Validator, formatIssues, safeParse } from "./validate";
 import {
@@ -28,10 +28,9 @@ import type {
     ListCatalogInput,
     SearchInput,
     SearchResults,
+    AvailabilityStatus,
     ContentItem,
-    Contributor,
     Catalog,
-    Episode,
     Episodes,
     NrkError,
     Playback,
@@ -42,16 +41,6 @@ import type {
     Result,
     Series,
 } from "./types";
-import type { NrkEpisode, SeasonsWithEpisodes } from "./nrk-response";
-
-/**
- * The part of the raw NRK client that NrkClient uses.
- * @internal
- */
-export type NrkLike = Pick<
-    typeof NRK,
-    "letter" | "getSeasons" | "getAllEpisodes" | "getProgramById" | "getMetadata" | "getPlayback" | "getRecommendation" | "search"
->;
 
 /**
  * Seams for tests. Not part of the public API: the published declarations only have
@@ -59,7 +48,6 @@ export type NrkLike = Pick<
  * @internal
  */
 export interface NrkClientConfig {
-    nrk?: NrkLike;
     letters?: string;
     minIntervalMs?: number;
     maxContributors?: number;
@@ -71,22 +59,15 @@ const MIN_INTERVAL_MS = 250;
 /** Most credited people returned per program or episode (p99 is 17). */
 const MAX_CONTRIBUTORS = 15;
 
-const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-
-const toMinutes = (seconds: number): number => {
-    return Math.round(seconds / 60);
-};
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /** Node's fetch throws TypeError("fetch failed") with a cause; timeouts throw a TimeoutError. */
 const isNetworkFailure = (e: unknown): boolean =>
     (e instanceof TypeError && (e.message === "fetch failed" || "cause" in e)) ||
     (e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError"));
 
-/**
- * Converts anything thrown by the NRK client into an NrkError.
- * @internal
- */
-export const toNrkError = (e: unknown): NrkError => {
+/** Converts anything thrown while talking to NRK into an NrkError. */
+const toNrkError = (e: unknown): NrkError => {
     if (e instanceof NrkHttpError) {
         let where = e.url;
         try {
@@ -120,17 +101,6 @@ export const toNrkError = (e: unknown): NrkError => {
     return { code: "unknown", message: e instanceof Error ? e.message : String(e) };
 };
 
-const parseInput = <T>(validator: Validator<T>, input: unknown): Result<T> => {
-    const parsed = safeParse(validator, input);
-    if (parsed.success) {
-        return { ok: true, data: parsed.data };
-    }
-    return {
-        ok: false,
-        error: { code: "invalid_input", message: formatIssues(parsed.issues, 3) },
-    };
-};
-
 const ok = <T>(data: T): Result<T> => ({ ok: true, data });
 const fail = <T>(error: NrkError): Result<T> => ({ ok: false, error });
 
@@ -147,6 +117,32 @@ const checked = <T>(validator: Validator<T>, value: T): Result<T> => {
         code: "invalid_response",
         message: "Result does not match its type: " + formatIssues(result.issues, 3),
     });
+};
+
+/** Validates the arguments of a call. Bad arguments become an invalid_input error. */
+const parseInput = <T>(validator: Validator<T>, input: unknown): Result<T> => {
+    const parsed = safeParse(validator, input);
+    return parsed.success
+        ? ok(parsed.data)
+        : fail({ code: "invalid_input", message: formatIssues(parsed.issues, 3) });
+};
+
+/**
+ * The shape of every method: check the arguments, do the work, and turn anything thrown
+ * into an error result, so that no method ever throws.
+ */
+const run = async <I, T>(
+    inputValidator: Validator<I>,
+    input: unknown,
+    work: (input: I) => Promise<Result<T>>,
+): Promise<Result<T>> => {
+    const parsed = parseInput(inputValidator, input);
+    if (!parsed.ok) return fail(parsed.error);
+    try {
+        return await work(parsed.data);
+    } catch (e) {
+        return fail(toNrkError(e));
+    }
 };
 
 /**
@@ -178,7 +174,6 @@ const checked = <T>(validator: Validator<T>, value: T): Result<T> => {
  * }
  */
 export class NrkClient {
-    private readonly nrk: NrkLike;
     private readonly letters: string;
     private readonly minIntervalMs: number;
     private readonly maxContributors: number;
@@ -189,7 +184,6 @@ export class NrkClient {
     constructor(config: NrkClientConfig);
     constructor();
     constructor(config: NrkClientConfig = {}) {
-        this.nrk = config.nrk ?? NRK;
         this.letters = config.letters ?? ALPHABET;
         this.minIntervalMs = config.minIntervalMs ?? MIN_INTERVAL_MS;
         this.maxContributors = config.maxContributors ?? MAX_CONTRIBUTORS;
@@ -209,44 +203,46 @@ export class NrkClient {
      * const all = await client.listCatalog();
      * const onlyA = await client.listCatalog({ letters: "a" });
      */
-    listCatalog = async (input: ListCatalogInput = {}): Promise<Result<Catalog>> => {
-        const parsed = parseInput(listCatalogInput, input);
-        if (!parsed.ok) return fail(parsed.error);
-        const letters = [...new Set((parsed.data.letters ?? this.letters).toLowerCase().split(""))];
-
-        const items: ContentItem[] = [];
-        const failed: Array<{ letter: string; error: NrkError }> = [];
-        const seen = new Set<string>();
-        for (const letter of letters) {
-            try {
-                const response = await this.call(() => this.nrk.letter(letter));
-                const listed = [
-                    ...response.programs.map((c) => ({ c, type: "program" as const })),
-                    ...response.series.map((c) => ({ c, type: "series" as const })),
-                ];
-                for (const { c, type } of listed) {
-                    const key = `${type}:${c.id}`;
-                    if (seen.has(key)) continue;
-                    seen.add(key);
-                    items.push({
-                        id: c.id,
-                        type,
-                        title: c.title,
-                        description: c.description,
-                        availableNow: c.hasOnDemandRights,
-                        geoBlocked: c.isGeoBlocked,
-                        imageUrl: c.imageUrl,
-                    });
+    listCatalog = async (input: ListCatalogInput = {}): Promise<Result<Catalog>> =>
+        run(listCatalogInput, input, async ({ letters }) => {
+            const items: ContentItem[] = [];
+            const failed: Array<{ letter: string; error: NrkError }> = [];
+            const seen = new Set<string>();
+            for (const letter of new Set((letters ?? this.letters).toLowerCase())) {
+                try {
+                    const listed = await this.call(() => nrkApi.letter(letter));
+                    // programs first, then series, each in NRK's order
+                    const ordered = [
+                        ...listed.filter((c) => c.type === "programme"),
+                        ...listed.filter((c) => c.type === "series"),
+                    ];
+                    for (const c of ordered) {
+                        const type = c.type === "programme" ? "program" : "series";
+                        if (seen.has(`${type}:${c.id}`)) continue;
+                        seen.add(`${type}:${c.id}`);
+                        items.push({
+                            id: c.id,
+                            type,
+                            title: c.title,
+                            description: c.description ?? "",
+                            availableNow: c.hasOndemandRights,
+                            geoBlocked: c.isGeoBlocked,
+                            // the smallest picture
+                            imageUrl: nearestImageUrl(
+                                c.image.webImages.map((img) => ({ url: img.imageUrl, width: img.pixelWidth })),
+                                0,
+                            ),
+                        });
+                    }
+                } catch (e) {
+                    const error = toNrkError(e);
+                    failed.push({ letter, error });
+                    // no point in hammering NRK when it asks us to slow down
+                    if (error.code === "rate_limited") break;
                 }
-            } catch (e) {
-                const error = toNrkError(e);
-                failed.push({ letter, error });
-                // no point in hammering NRK when it asks us to slow down
-                if (error.code === "rate_limited") break;
             }
-        }
-        return checked(catalogValidator, { items, failed });
-    };
+            return checked(catalogValidator, { items, failed });
+        });
 
     /**
      * Free-text search in NRK TV: series, programs and single episodes, best match first. Use it
@@ -263,34 +259,32 @@ export class NrkClient {
      * const found = await client.search({ query: "norsk historie", limit: 30 });
      * if (found.ok) console.log(found.data.items.map((i) => `${i.type} ${i.id} ${i.title}`));
      */
-    search = async (input: SearchInput): Promise<Result<SearchResults>> => {
-        const parsed = parseInput(searchInput, input);
-        if (!parsed.ok) return fail(parsed.error);
-        const { query, limit } = parsed.data;
-
-        try {
-            const hits = await this.call(() => this.nrk.search(query, limit ?? 20));
+    search = async (input: SearchInput): Promise<Result<SearchResults>> =>
+        run(searchInput, input, async ({ query, limit }) => {
+            const hits = await this.call(() => nrkApi.search(query, limit ?? 20));
             return checked(searchResultsValidator, {
-                items: hits.map((hit) => ({
-                    id: hit.id,
-                    type: hit.type,
-                    title: hit.title,
-                    description: hit.description,
-                    availableNow: hit.hasRights,
-                    geoBlocked: hit.isGeoBlocked,
-                    imageUrl: hit.imageUrl,
-                    ...(hit.seriesId === null
-                        ? {}
-                        : {
-                              seriesId: hit.seriesId,
-                              ...(hit.seriesTitle === null ? {} : { seriesTitle: hit.seriesTitle }),
-                          }),
-                })),
+                items: hits
+                    .filter(({ hit }) => hit.hideInSearchResults !== true)
+                    .map(({ kind, hit }) => ({
+                        id: hit.id,
+                        type: kind,
+                        title: hit.title,
+                        description: hit.description ?? "",
+                        availableNow: hit.usageRights?.hasRightsNow ?? hit.hasRights ?? false,
+                        geoBlocked: hit.usageRights?.isGeoBlocked ?? false,
+                        imageUrl: nearestImageUrl(
+                            (hit.image?.webImages ?? []).map((img) => ({ url: img.imageUrl, width: img.pixelWidth })),
+                        ),
+                        // only episodes name their series
+                        ...(kind === "episode" && hit.seriesId != null
+                            ? {
+                                  seriesId: hit.seriesId,
+                                  ...(hit.seriesTitle != null ? { seriesTitle: hit.seriesTitle } : {}),
+                              }
+                            : {}),
+                    })),
             });
-        } catch (e) {
-            return fail(toNrkError(e));
-        }
-    };
+        });
 
     // ── Series and episodes ─────────────────────────────────────────
 
@@ -301,25 +295,20 @@ export class NrkClient {
      * @example
      * const series = await client.getSeries({ id: "dagsrevyen" });
      */
-    getSeries = async (input: GetSeriesInput): Promise<Result<Series>> => {
-        const parsed = parseInput(getSeriesInput, input);
-        if (!parsed.ok) return fail(parsed.error);
-        const seriesId = parsed.data.id;
-
-        try {
-            const series = await this.call(() => this.nrk.getSeasons(seriesId));
+    getSeries = async (input: GetSeriesInput): Promise<Result<Series>> =>
+        run(getSeriesInput, input, async ({ id }) => {
+            const data = await this.call(() => nrkApi.series(id));
+            const series =
+                data.seriesType === "news" ? data.news : data.seriesType === "standard" ? data.standard : data.sequential;
             return checked(seriesValidator, {
-                id: series.seriesId,
-                title: series.title,
-                seriesType: series.seriesType,
-                category: series.category,
-                seasons: series.seasons.map((s) => ({ name: s.name, title: s.title })),
-                imageUrl: series.imageUrl300,
+                id,
+                title: series.titles.title,
+                seriesType: data.seriesType,
+                category: series.category ?? null,
+                seasons: data._links.seasons,
+                imageUrl: nearestImageUrl(series.image, 300),
             });
-        } catch (e) {
-            return fail(toNrkError(e));
-        }
-    };
+        });
 
     /**
      * All episodes of one season (NRK returns a season in one response, which for a
@@ -336,18 +325,33 @@ export class NrkClient {
      *   availableOn: "2026-10-03",
      * });
      */
-    getEpisodes = async (input: GetEpisodesInput): Promise<Result<Episodes>> => {
-        const parsed = parseInput(getEpisodesInput, input);
-        if (!parsed.ok) return fail(parsed.error);
-        const { seriesId, seasonName, availableOn } = parsed.data;
-
-        try {
-            const season = await this.call(() => this.nrk.getAllEpisodes(seriesId, seasonName));
-            return checked(episodesValidator, toEpisodes(season, availableOn, this.maxContributors));
-        } catch (e) {
-            return fail(toNrkError(e));
-        }
-    };
+    getEpisodes = async (input: GetEpisodesInput): Promise<Result<Episodes>> =>
+        run(getEpisodesInput, input, async ({ seriesId, seasonName, availableOn }) => {
+            const season = await this.call(() => nrkApi.season(seriesId, seasonName));
+            const all = [...(season._embedded.episodes ?? []), ...(season._embedded.instalments ?? [])];
+            return checked(episodesValidator, {
+                seriesId,
+                seasonName,
+                seasonType: season.seasonType,
+                episodes: all
+                    .filter((e) => !availableOn || isAvailableOn(e, availableOn))
+                    .map((e) => ({
+                        id: e.prfId,
+                        title: e.titles.title,
+                        subtitle: e.titles.subtitle ?? null,
+                        durationSeconds: e.durationInSeconds,
+                        durationMinutes: Math.round(e.durationInSeconds / 60),
+                        episodeNumber: e.sequenceNumber ?? null,
+                        availableFrom: e.usageRights.from.date,
+                        availableTo: e.usageRights.to.date,
+                        status: e.availability.status,
+                        productionYear: e.productionYear ?? null,
+                        firstAired: parseFirstAired(e.transmissions?.first?.displayValue, e.firstTransmissionDateDisplayValue),
+                        contributors: (e.contributors ?? []).slice(0, this.maxContributors),
+                        imageUrl: nearestImageUrl(e.image),
+                    })),
+            });
+        });
 
     // ── Programs ────────────────────────────────────────────────────
 
@@ -359,36 +363,31 @@ export class NrkClient {
      * @example
      * const program = await client.getProgram({ id: "MKTF73000514" });
      */
-    getProgram = async (input: GetProgramInput): Promise<Result<Program>> => {
-        const parsed = parseInput(getProgramInput, input);
-        if (!parsed.ok) return fail(parsed.error);
-        const programId = parsed.data.id;
-
-        try {
-            const p = await this.call(() => this.nrk.getProgramById(programId));
-            const description = await this.getDescription(programId);
+    getProgram = async (input: GetProgramInput): Promise<Result<Program>> =>
+        run(getProgramInput, input, async ({ id }) => {
+            const page = await this.call(() => nrkApi.program(id));
+            const description = await this.getDescription(id);
+            const { programInformation: info, moreInformation: more } = page;
+            const subtitle = info.titles.subtitle;
             return checked(programValidator, {
-                id: p.id,
-                title: p.title,
+                id,
+                title: info.titles.title,
                 // NRK often repeats the description as the subtitle; that adds only tokens
-                subtitle: p.subtitle && p.subtitle !== description ? p.subtitle : null,
-                category: p.category,
+                subtitle: subtitle && subtitle !== description ? subtitle : null,
+                category: more.category.id,
                 description,
-                durationSeconds: p.durationInSeconds,
-                durationMinutes: toMinutes(p.durationInSeconds),
-                availableFrom: p.availableFromDate,
-                availableTo: p.availableToDate,
-                status: p.availabilityStatus,
-                productionYear: p.productionYear,
-                firstAired: p.firstAired,
-                contributors: p.contributors.slice(0, this.maxContributors).map(toContributor),
-                seriesId: p.seriesId,
-                imageUrl: nearestImageUrl(p.images),
+                durationSeconds: more.duration.seconds,
+                durationMinutes: Math.round(more.duration.seconds / 60),
+                availableFrom: more.usageRights.from.date,
+                availableTo: more.usageRights.to.date,
+                status: info.availability.status,
+                productionYear: more.productionYear,
+                firstAired: parseFirstAired(more.transmissions?.first?.displayValue),
+                contributors: flattenContributors(page.contributors).slice(0, this.maxContributors),
+                seriesId: seriesIdFromHref(page._links.seriesPage?.href),
+                imageUrl: nearestImageUrl(info.image),
             });
-        } catch (e) {
-            return fail(toNrkError(e));
-        }
-    };
+        });
 
     /**
      * What a player needs to play one episode or program (pass an episode's `id`): the HLS
@@ -401,33 +400,50 @@ export class NrkClient {
      * @example
      * const playback = await client.getPlayback({ id: "MKTF73000514" });
      */
-    getPlayback = async (input: GetProgramInput): Promise<Result<Playback>> => {
-        const parsed = parseInput(getProgramInput, input);
-        if (!parsed.ok) return fail(parsed.error);
-        const programId = parsed.data.id;
-
-        try {
-            const source = await this.call(() => this.nrk.getPlayback(programId));
-            if (!source.playable) {
-                return fail({ code: "not_playable", message: source.message });
+    getPlayback = async (input: GetProgramInput): Promise<Result<Playback>> =>
+        run(getProgramInput, input, async ({ id }) => {
+            const [manifest, metadata] = await this.call(() =>
+                Promise.all([nrkApi.manifest(id), nrkApi.metadata(id)]),
+            );
+            const { playable } = manifest;
+            if (manifest.playability !== "playable" || !playable) {
+                return fail({
+                    code: "not_playable",
+                    message: manifest.nonPlayable?.endUserMessage ?? "Not available for playback.",
+                });
             }
+            const hls = playable.assets.find((asset) => asset.format === "HLS");
+            if (!hls) {
+                return fail({ code: "not_playable", message: "NRK offers no HLS stream for this program." });
+            }
+            if (hls.encrypted === true) {
+                return fail({
+                    code: "not_playable",
+                    message: "The stream is DRM-protected and cannot be played by a plain HLS player.",
+                });
+            }
+            const { preplay, availability } = metadata;
             return checked(playbackValidator, {
-                id: source.prfId,
-                title: source.title,
-                subtitle: source.subtitle === "" ? null : source.subtitle,
-                streamUrl: source.streamUrl,
-                mimeType: source.mimeType,
-                mediaType: source.mediaType,
-                durationSeconds: source.durationSeconds,
-                aspectRatio: source.aspectRatio,
-                posterUrl: source.posterUrl,
-                subtitles: source.subtitles,
-                availableTo: source.availableTo,
+                id,
+                title: preplay.titles.title,
+                subtitle: preplay.titles.subtitle === "" ? null : preplay.titles.subtitle,
+                streamUrl: hls.url,
+                mimeType: hls.mimeType,
+                mediaType: manifest.sourceMedium === "audio" ? "audio" : "video",
+                durationSeconds: parseIsoDuration(playable.duration),
+                aspectRatio: metadata.displayAspectRatio,
+                posterUrl: nearestImageUrl(
+                    preplay.poster.images.map((img) => ({ url: img.url, width: img.pixelWidth })),
+                    960,
+                ),
+                subtitles: (playable.subtitles ?? []).flatMap((track) =>
+                    track.webVtt
+                        ? [{ language: track.language, label: track.label, url: track.webVtt, defaultOn: track.defaultOn ?? false }]
+                        : [],
+                ),
+                availableTo: availability.onDemand?.to ?? availability.live?.transmissionInterval?.to ?? null,
             });
-        } catch (e) {
-            return fail(toNrkError(e));
-        }
-    };
+        });
 
     // ── Recommendations ─────────────────────────────────────────────
 
@@ -448,48 +464,51 @@ export class NrkClient {
      * const recs = await client.getRecommendations({ basedOn: ["MKTF73000514"] });
      * if (recs.ok) console.log(recs.data.items.map((i) => i.title));
      */
-    getRecommendations = async (input: GetRecommendationInput): Promise<Result<Recommendations>> => {
-        const parsed = parseInput(getRecommendationInput, input);
-        if (!parsed.ok) return fail(parsed.error);
-        const { basedOn, count } = parsed.data;
-        const asked = [...new Set(basedOn)];
-
-        const found = new Map<string, { id: string; type: "program" | "series"; title: string; subtitle: string | null; basedOn: string[]; imageUrl: string | null }>();
-        const failed: Array<{ id: string; error: NrkError }> = [];
-        for (const id of asked) {
-            try {
-                const response = await this.call(() => this.nrk.getRecommendation(id, { count: count ?? 10 }));
-                for (const item of [...response.programs, ...response.series]) {
-                    if (asked.includes(item.id)) continue;
-                    const known = found.get(item.id);
-                    if (known) {
-                        known.basedOn.push(id);
-                    } else {
-                        found.set(item.id, {
-                            id: item.id,
-                            type: item.type,
-                            title: item.title,
-                            subtitle: item.subtitle === "" || item.subtitle === null ? null : item.subtitle,
-                            basedOn: [id],
-                            imageUrl: nearestImageUrl(item.images),
-                        });
+    getRecommendations = async (input: GetRecommendationInput): Promise<Result<Recommendations>> =>
+        run(getRecommendationInput, input, async ({ basedOn, count }) => {
+            const asked = [...new Set(basedOn)];
+            const found = new Map<string, RecommendedItem>();
+            const failed: Array<{ id: string; error: NrkError }> = [];
+            for (const id of asked) {
+                try {
+                    const response = await this.call(() => nrkApi.recommendations(id, count ?? 10));
+                    // programs first, then series, each in NRK's order
+                    const listed = response._embedded.recommendations;
+                    const items = [
+                        ...listed.flatMap((r) => (r.type === "program" ? [{ type: r.type, body: r.program }] : [])),
+                        ...listed.flatMap((r) => (r.type === "series" ? [{ type: r.type, body: r.series }] : [])),
+                    ];
+                    for (const { type, body } of items) {
+                        if (asked.includes(body.id)) continue;
+                        const known = found.get(body.id);
+                        found.set(
+                            body.id,
+                            known
+                                ? { ...known, basedOn: [...known.basedOn, id] }
+                                : {
+                                      id: body.id,
+                                      type,
+                                      title: body.titles.title,
+                                      subtitle: body.titles.subtitle || null,
+                                      basedOn: [id],
+                                      imageUrl: nearestImageUrl(body.image.webImages),
+                                  },
+                        );
                     }
+                } catch (e) {
+                    const error = toNrkError(e);
+                    failed.push({ id, error });
+                    // no point in hammering NRK when it asks us to slow down
+                    if (error.code === "rate_limited") break;
                 }
-            } catch (e) {
-                failed.push({ id, error: toNrkError(e) });
-                // no point in hammering NRK when it asks us to slow down
-                if (failed[failed.length - 1]?.error.code === "rate_limited") break;
             }
-        }
-        if (failed.length === asked.length) {
             const first = failed[0];
-            if (first) return fail(first.error);
-        }
-        // more of your ids behind an item means a stronger match; Array.sort is stable, so
-        // NRK's own order decides between equals
-        const items: RecommendedItem[] = [...found.values()].sort((a, b) => b.basedOn.length - a.basedOn.length);
-        return checked(recommendationsValidator, { items, failed });
-    };
+            if (first && failed.length === asked.length) return fail(first.error);
+            // more of your ids behind an item means a stronger match; Array.sort is stable, so
+            // NRK's own order decides between equals
+            const items = [...found.values()].sort((a, b) => b.basedOn.length - a.basedOn.length);
+            return checked(recommendationsValidator, { items, failed });
+        });
 
     /**
      * Several programs at once. Partial success: programs that could not be
@@ -499,24 +518,22 @@ export class NrkClient {
      * @example
      * const many = await client.getPrograms({ ids: ["MKTF73000514", "FFIL63000263"] });
      */
-    getPrograms = async (input: GetProgramsInput): Promise<Result<Programs>> => {
-        const parsed = parseInput(getProgramsInput, input);
-        if (!parsed.ok) return fail(parsed.error);
-
-        const programs: Program[] = [];
-        const failed: Array<{ id: string; error: NrkError }> = [];
-        for (const id of parsed.data.ids) {
-            const result = await this.getProgram({ id });
-            if (result.ok) {
-                programs.push(result.data);
-            } else {
-                failed.push({ id, error: result.error });
-                // no point in hammering NRK when it asks us to slow down
-                if (result.error.code === "rate_limited") break;
+    getPrograms = async (input: GetProgramsInput): Promise<Result<Programs>> =>
+        run(getProgramsInput, input, async ({ ids }) => {
+            const programs: Program[] = [];
+            const failed: Array<{ id: string; error: NrkError }> = [];
+            for (const id of ids) {
+                const result = await this.getProgram({ id });
+                if (result.ok) {
+                    programs.push(result.data);
+                } else {
+                    failed.push({ id, error: result.error });
+                    // no point in hammering NRK when it asks us to slow down
+                    if (result.error.code === "rate_limited") break;
+                }
             }
-        }
-        return checked(programsValidator, { programs, failed });
-    };
+            return checked(programsValidator, { programs, failed });
+        });
 
     // ── Internals ───────────────────────────────────────────────────
 
@@ -527,8 +544,8 @@ export class NrkClient {
      */
     private getDescription = async (programId: string): Promise<string | null> => {
         try {
-            const meta = await this.call(() => this.nrk.getMetadata(programId));
-            return meta.description;
+            const meta = await this.call(() => nrkApi.metadata(programId));
+            return meta.preplay.description;
         } catch (e) {
             const code = toNrkError(e).code;
             if (code === "rate_limited" || code === "network" || code === "upstream_error") {
@@ -550,48 +567,14 @@ export class NrkClient {
     };
 }
 
-const toContributor = (c: { name: string; role: string }): Contributor => {
-    return { name: c.name, role: c.role };
-};
-
-const toEpisode = (e: NrkEpisode, maxContributors: number): Episode => {
-    return {
-        id: e.prfId,
-        title: e.title,
-        subtitle: e.subtitle,
-        durationSeconds: e.durationInSeconds,
-        durationMinutes: toMinutes(e.durationInSeconds),
-        episodeNumber: e.episodeNumber,
-        availableFrom: e.availableFromDate,
-        availableTo: e.availableToDate,
-        status: e.availabilityStatus,
-        productionYear: e.productionYear,
-        firstAired: e.firstAired,
-        contributors: e.contributors.slice(0, maxContributors).map(toContributor),
-        imageUrl: nearestImageUrl(e.images),
-    };
-};
-
 /** Dates are compared as calendar days (the date part NRK sends, Oslo time). */
-const isAvailableOn = (e: NrkEpisode, day: string): boolean => {
-    if (e.availabilityStatus === "notAvailableOnline") return false;
-    if (e.availableFromDate !== null && e.availableFromDate.slice(0, 10) > day) return false;
-    if (e.availableToDate !== null && e.availableToDate.slice(0, 10) < day) return false;
+const isAvailableOn = (
+    e: { availability: { status: AvailabilityStatus }; usageRights: { from: { date: string | null }; to: { date: string | null } } },
+    day: string,
+): boolean => {
+    if (e.availability.status === "notAvailableOnline") return false;
+    const { from, to } = e.usageRights;
+    if (from.date !== null && from.date.slice(0, 10) > day) return false;
+    if (to.date !== null && to.date.slice(0, 10) < day) return false;
     return true;
-};
-
-const toEpisodes = (
-    season: SeasonsWithEpisodes,
-    availableOn: string | undefined,
-    maxContributors: number,
-): Episodes => {
-    const matching = availableOn
-        ? season.episodes.filter((e) => isAvailableOn(e, availableOn))
-        : season.episodes;
-    return {
-        seriesId: season.seriesId,
-        seasonName: season.seasonName,
-        seasonType: season.seasonType,
-        episodes: matching.map((e) => toEpisode(e, maxContributors)),
-    };
 };

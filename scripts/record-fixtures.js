@@ -15,8 +15,9 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const dist = path.resolve(__dirname, "../build");
-const { NRK } = require(path.join(dist, "src/client.js"));
-const { NrkHttpError, nrkClientRaw } = require(path.join(dist, "src/nrk-client-raw.js"));
+const { NrkClient } = require(path.join(dist, "src/nrk-client.js"));
+const { NrkHttpError } = require(path.join(dist, "src/nrk-client-raw.js"));
+const { nrkApi } = require(path.join(dist, "src/nrk-api.js"));
 const { writeRecorded, FIXTURES_DIR, RAW_DIR } = require(
     path.join(dist, "test/support/fixtures.js"),
 );
@@ -111,18 +112,24 @@ const record = async (fn) => {
 
 // ---------- main ----------
 
+// katalogen hentes gjennom NrkClient; resten gjennom endepunktene i nrk-api (samme URL-er som klienten bruker)
+const client = new NrkClient({ minIntervalMs: 0 });
+const unwrap = (result) => {
+    if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`);
+    return result.data;
+};
+const contributorNames = (page) => (page.contributors ?? []).flatMap((group) => group.name);
+
 (async () => {
     fs.rmSync(RAW_DIR, { recursive: true, force: true });
 
     // 1. Alle bokstavlister
-    const letters = "abcdefghijklmnopqrstuvwxyzæøå".split("");
-    const programs = [];
-    const series = [];
-    await pool(letters, async (l) => {
-        const r = await NRK.letter(l);
-        programs.push(...r.programs);
-        series.push(...r.series);
-    });
+    const catalog = unwrap(await client.listCatalog());
+    if (catalog.failed.length > 0) {
+        throw new Error("Bokstavlister feilet: " + catalog.failed.map((f) => f.letter).join(", "));
+    }
+    const programs = catalog.items.filter((i) => i.type === "program");
+    const series = catalog.items.filter((i) => i.type === "series");
     // stabil rekkefølge uavhengig av nettverkstiming
     const byId = (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
     programs.sort(byId);
@@ -130,9 +137,9 @@ const record = async (fn) => {
     log(`Bokstavlister: ${programs.length} programmer, ${series.length} serier`);
 
     // 2. Programmer
-    const onDemand = programs.filter((p) => p.hasOnDemandRights && !p.isGeoBlocked);
-    const geoblockedAll = programs.filter((p) => p.hasOnDemandRights && p.isGeoBlocked);
-    const unavailableAll = programs.filter((p) => !p.hasOnDemandRights);
+    const onDemand = programs.filter((p) => p.availableNow && !p.geoBlocked);
+    const geoblockedAll = programs.filter((p) => p.availableNow && p.geoBlocked);
+    const unavailableAll = programs.filter((p) => !p.availableNow);
     const pick = (list, n) => shuffled(list).slice(0, n).map(({ id, title }) => ({ id, title }));
 
     const available = pick(onDemand, 220);
@@ -144,8 +151,8 @@ const record = async (fn) => {
     const filmCandidates = shuffled(onDemand.filter((p) => !availableIds.has(p.id))).slice(0, 400);
     const filmChecked = await pool(filmCandidates, async (p) => {
         try {
-            const x = await NRK.getProgramById(p.id);
-            return { id: p.id, title: p.title, durationInSeconds: x.durationInSeconds };
+            const x = await nrkApi.program(p.id);
+            return { id: p.id, title: p.title, durationInSeconds: x.moreInformation.duration.seconds };
         } catch {
             swallowed++;
             return null;
@@ -161,7 +168,7 @@ const record = async (fn) => {
     const seriesSample = shuffled(series).slice(0, 400);
     const typed = await pool(seriesSample, async (s) => {
         try {
-            return { id: s.id, title: s.title, seriesType: await NRK.getSeriesType(s.id) };
+            return { id: s.id, title: s.title, seriesType: (await nrkApi.series(s.id)).seriesType };
         } catch {
             swallowed++;
             return null;
@@ -184,8 +191,8 @@ const record = async (fn) => {
     curated.availableProgram = firstAvailable.id;
     for (const p of available.slice(0, 60)) {
         try {
-            const x = await NRK.getProgramById(p.id);
-            if (!x.subtitle) {
+            const x = await nrkApi.program(p.id);
+            if (!x.programInformation.titles.subtitle) {
                 curated.noSubtitleProgram = p.id;
                 break;
             }
@@ -196,8 +203,8 @@ const record = async (fn) => {
     // program med flere medvirkende (tester mapping av contributors)
     for (const p of available.slice(0, 150)) {
         try {
-            const x = await NRK.getProgramById(p.id);
-            if (x.contributors.length >= 3) {
+            const x = await nrkApi.program(p.id);
+            if (contributorNames(x).length >= 3) {
                 curated.programWithContributors = p.id;
                 break;
             }
@@ -225,8 +232,8 @@ const record = async (fn) => {
     for (const t of ["standard", "sequential", "news"]) {
         let best = null;
         for (const s of seriesOut[t].slice(0, 25)) {
-            const info = await NRK.getSeasons(s.id).catch(() => null);
-            if (info && info.seasons.length >= 2) {
+            const info = await nrkApi.series(s.id).catch(() => null);
+            if (info && info._links.seasons.length >= 2) {
                 best = s;
                 break;
             }
@@ -237,11 +244,12 @@ const record = async (fn) => {
     // serie der episodene har medvirkende
     search: for (const s of [...seriesOut.standard, ...seriesOut.sequential].slice(0, 150)) {
         try {
-            const info = await NRK.getSeasons(s.id);
-            const season = info.seasons[0];
+            const info = await nrkApi.series(s.id);
+            const season = info._links.seasons[0];
             if (!season) continue;
-            const eps = await NRK.getAllEpisodes(s.id, season.name);
-            if (eps.episodes.some((e) => e.contributors.length > 0)) {
+            const eps = await nrkApi.season(s.id, season.name);
+            const episodes = [...(eps._embedded.episodes ?? []), ...(eps._embedded.instalments ?? [])];
+            if (episodes.some((e) => (e.contributors ?? []).length > 0)) {
                 curated.contributorSeries = s.id;
                 curated.contributorSeason = season.name;
                 break search;
@@ -267,57 +275,46 @@ const record = async (fn) => {
     ]) {
         const id = curated[role];
         if (!id) continue;
-        await record(() => NRK.getProgramById(id));
-        await record(() => NRK.getManifest(id));
-        await record(() => NRK.getMetadata(id));
+        await record(() => nrkApi.program(id));
+        await record(() => nrkApi.manifest(id));
+        await record(() => nrkApi.metadata(id));
     }
     // avspilling: manifest og metadata for de 20 id-ene i playback-ids.json
     const playbackIds = JSON.parse(
         fs.readFileSync(path.join(FIXTURES_DIR, "playback-ids.json"), "utf8"),
     ).ids;
     for (const id of playbackIds) {
-        await record(() => NRK.getManifest(id));
-        await record(() => NRK.getMetadata(id));
+        await record(() => nrkApi.manifest(id));
+        await record(() => nrkApi.metadata(id));
     }
     for (const t of ["standard", "sequential", "news"]) {
         const id = curated[`${t}Series`];
         if (!id) continue;
-        await record(() => NRK.getSeriesType(id));
-        const seasons = await NRK.getSeasons(id);
-        await record(() => NRK.getSeasons(id));
-        for (const season of seasons.seasons.slice(0, 2)) {
-            await record(() => NRK.getAllEpisodes(id, season.name));
+        const info = await nrkApi.series(id);
+        await record(() => nrkApi.series(id));
+        for (const season of info._links.seasons.slice(0, 2)) {
+            await record(() => nrkApi.season(id, season.name));
         }
     }
     if (curated.contributorSeries) {
-        await record(() => NRK.getSeasons(curated.contributorSeries));
-        await record(() => NRK.getAllEpisodes(curated.contributorSeries, curated.contributorSeason));
+        await record(() => nrkApi.series(curated.contributorSeries));
+        await record(() => nrkApi.season(curated.contributorSeries, curated.contributorSeason));
     }
-    const missing = await record(() => NRK.getProgramById(curated.missingProgram));
-    const missingSeries = await record(() => NRK.getSeasons(curated.missingSeries));
+    const missing = await record(() => nrkApi.program(curated.missingProgram));
+    const missingSeries = await record(() => nrkApi.series(curated.missingSeries));
     if (!(missing.error instanceof NrkHttpError) || !(missingSeries.error instanceof NrkHttpError)) {
         throw new Error("Forventet NrkHttpError for ikke-eksisterende ID-er");
     }
-    // anbefalinger (udokumentert endepunkt)
-    await record(() => NRK.getRecommendation(curated.availableProgram, {}));
-    await record(() =>
-        NRK.getRecommendation(curated.availableProgram, {
-            count: 5,
-            contentGroup: "children",
-            age: 9,
-        }),
-    );
-    await record(() => NRK.getRecommendation(curated.standardSeries, { count: 10 }));
-    // anbefalinger som NrkClient.getRecommendation ber om (10 per id, for voksne)
+    // anbefalinger som NrkClient.getRecommendations ber om (10 per id, for voksne)
     for (const id of ["FFIL63000263", "OCUH11002809", "filmavisen-innslag-i-utvalg", "DOESNOTEXIST"]) {
-        await record(() => NRK.getRecommendation(id, { count: 10 }));
+        await record(() => nrkApi.recommendations(id, 10));
     }
     // fritekstsøk som NrkClient.search ber om (20 treff per søk)
     for (const query of ["norsk historie", "Ivar Aasen", "fotball", "krigen", "qzxwvyk"]) {
-        await record(() => nrkClientRaw.search(query, 20));
+        await record(() => nrkApi.search(query, 20));
     }
     // små bokstavlister
-    for (const l of ["w", "x", "y", "æ"]) await record(() => NRK.letter(l));
+    for (const l of ["w", "x", "y", "æ"]) await record(() => nrkApi.letter(l));
 
     // 6. ids.json
     const ids = {

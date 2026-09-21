@@ -1,12 +1,19 @@
 import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { NrkClient, NrkLike } from "../../src/nrk-client";
-import { NrkHttpError } from "../../src/nrk-client-raw";
-import type { ListedContent, NrkLetterResponse } from "../../src/nrk-response";
+import { NrkClient } from "../../src/nrk-client";
 import { FetchStub, installFetchMock, installFetchStub } from "../support/fetch-stub";
 import { curated, first, recordedJson, urls } from "../support/helpers";
 
-// ── A fake NRK with known content ───────────────────────────────────
+// ── A fake NRK with known content, served as NRK's own letter lists ──
+
+interface Listed {
+    id: string;
+    type: "programme" | "series";
+    title: string;
+    description: string;
+    hasOndemandRights: boolean;
+    isGeoBlocked: boolean;
+}
 
 const listed = (
     id: string,
@@ -14,20 +21,19 @@ const listed = (
     title: string,
     description: string,
     flags: { onDemand?: boolean; geo?: boolean } = {},
-): ListedContent => {
+): Listed => {
     return {
         id,
         type,
         title,
         description,
-        imageUrl: "https://gfx.nrk.no/x",
-        hasOnDemandRights: flags.onDemand ?? true,
+        hasOndemandRights: flags.onDemand ?? true,
         isGeoBlocked: flags.geo ?? false,
     };
 };
 
 /** What the fake NRK lists under each letter. "b" repeats P1 to test de-duplication. */
-const BY_LETTER: Record<string, ListedContent[]> = {
+const BY_LETTER: Record<string, Listed[]> = {
     a: [
         listed("P1", "programme", "Fotball-VM", "Kampen om pokalen."),
         listed("S1", "series", "Skiskyting", "Vinter i Holmenkollen.", { onDemand: false }),
@@ -41,22 +47,29 @@ const BY_LETTER: Record<string, ListedContent[]> = {
     ],
 };
 
-const fakeNrk = (calls: string[] = []): NrkLike => {
-    return {
-        letter: async (letter: string): Promise<NrkLetterResponse> => {
-            calls.push(letter);
-            const mine = BY_LETTER[letter] ?? [];
-            return {
-                letter,
-                programs: mine.filter((c) => c.type === "programme"),
-                series: mine.filter((c) => c.type === "series"),
-            };
-        },
-    } as unknown as NrkLike;
-};
+const asNrkLetter = (item: Listed) => ({
+    ...item,
+    sortLetter: item.title.slice(0, 1),
+    image: { webImages: [{ imageUrl: "https://gfx.nrk.no/x", pixelWidth: 300 }] },
+});
 
-const newClient = (nrk: NrkLike = fakeNrk()) =>
-    new NrkClient({ nrk, letters: "ab", minIntervalMs: 0 });
+const letterOf = (url: string): string => decodeURIComponent(url.split("/letters/")[1]?.split("/")[0] ?? "");
+
+/** Installs a fetch that answers with `answer(letter)` for a letter list. `calls` collects the letters asked for. */
+const serveLetters = (
+    answer: (letter: string) => Response | Listed[],
+    calls: string[] = [],
+): FetchStub =>
+    installFetchMock((url) => {
+        const letter = letterOf(url);
+        calls.push(letter);
+        const reply = answer(letter);
+        return reply instanceof Response ? reply : new Response(JSON.stringify(reply.map(asNrkLetter)), { status: 200 });
+    });
+
+const knownLetters = (letter: string) => BY_LETTER[letter] ?? [];
+
+const newClient = () => new NrkClient({ letters: "ab", minIntervalMs: 0 });
 
 const unwrap = <T>(result: { ok: true; data: T } | { ok: false; error: unknown }): T => {
     assert.ok(result.ok, "expected ok result, got " + JSON.stringify(result));
@@ -64,7 +77,11 @@ const unwrap = <T>(result: { ok: true; data: T } | { ok: false; error: unknown }
 };
 
 describe("NrkClient.listCatalog", () => {
+    let stub: FetchStub | undefined;
+    afterEach(() => stub?.restore());
+
     it("lists programs and series with only the documented fields", async () => {
+        stub = serveLetters(knownLetters);
         const catalog = unwrap(await newClient().listCatalog({ letters: "a" }));
         assert.deepEqual(catalog.items.map((i) => i.id), ["P1", "P3", "P4", "P5", "S1"]);
         assert.deepEqual(Object.keys(first(catalog.items)).sort(), [
@@ -93,54 +110,59 @@ describe("NrkClient.listCatalog", () => {
     });
 
     it("returns everything, unfiltered and with full descriptions", async () => {
+        stub = serveLetters(knownLetters);
         const catalog = unwrap(await newClient().listCatalog({ letters: "a" }));
         assert.equal(catalog.items.length, 5, "streamable, geoblocked and unavailable items are all listed");
         assert.equal(catalog.items.find((i) => i.id === "P5")?.description, "x".repeat(500));
     });
 
     it("keeps an empty description empty", async () => {
+        stub = serveLetters(knownLetters);
         const catalog = unwrap(await newClient().listCatalog({ letters: "a" }));
         assert.equal(catalog.items.find((i) => i.id === "P4")?.description, "");
     });
 
     it("lists an item once even when it appears under several letters", async () => {
+        stub = serveLetters(knownLetters);
         const catalog = unwrap(await newClient().listCatalog({ letters: "ab" }));
         assert.deepEqual(catalog.items.map((i) => i.id).sort(), ["P1", "P3", "P4", "P5", "P6", "S1"]);
     });
 
     it("uses the whole alphabet by default and only the given letters when asked", async () => {
         const all: string[] = [];
-        unwrap(await new NrkClient({ nrk: fakeNrk(all), minIntervalMs: 0 }).listCatalog());
+        stub = serveLetters(knownLetters, all);
+        unwrap(await new NrkClient({ minIntervalMs: 0 }).listCatalog());
         assert.deepEqual(all.sort(), "abcdefghijklmnopqrstuvwxyzæøå".split("").sort());
+        stub.restore();
 
         const some: string[] = [];
-        unwrap(await newClient(fakeNrk(some)).listCatalog({ letters: "b" }));
+        stub = serveLetters(knownLetters, some);
+        unwrap(await newClient().listCatalog({ letters: "b" }));
         assert.deepEqual(some, ["b"]);
     });
 
     it("ignores case and repeated letters", async () => {
         const calls: string[] = [];
-        unwrap(await newClient(fakeNrk(calls)).listCatalog({ letters: "AAb" }));
+        stub = serveLetters(knownLetters, calls);
+        unwrap(await newClient().listCatalog({ letters: "AAb" }));
         assert.deepEqual(calls, ["a", "b"]);
     });
 
     it("stores nothing: every call goes to NRK", async () => {
         const calls: string[] = [];
-        const client = newClient(fakeNrk(calls));
+        stub = serveLetters(knownLetters, calls);
+        const client = newClient();
         await client.listCatalog({ letters: "ab" });
         await client.listCatalog({ letters: "ab" });
         assert.deepEqual(calls, ["a", "b", "a", "b"]);
     });
 
     it("returns the letters that worked and reports the ones that did not", async () => {
-        const nrk = {
-            letter: async (letter: string) => {
-                if (letter === "a") throw new NrkHttpError(404, "https://psapi.nrk.no/x/a", {});
-                return { letter, programs: [listed("P6", "programme", "Bok", "Om en bok.")], series: [] };
-            },
-        } as unknown as NrkLike;
+        stub = serveLetters((letter) =>
+            letter === "a" ? new Response("{}", { status: 404 }) : [listed("P6", "programme", "Bok", "Om en bok.")],
+        );
 
-        const catalog = unwrap(await newClient(nrk).listCatalog({ letters: "ab" }));
+        const catalog = unwrap(await newClient().listCatalog({ letters: "ab" }));
 
         assert.deepEqual(catalog.items.map((i) => i.id), ["P6"]);
         assert.equal(catalog.failed.length, 1);
@@ -150,15 +172,15 @@ describe("NrkClient.listCatalog", () => {
 
     it("stops asking NRK once it is rate limited", async () => {
         const calls: string[] = [];
-        const nrk = {
-            letter: async (letter: string) => {
-                calls.push(letter);
-                if (letter === "b") throw new NrkHttpError(429, "https://psapi.nrk.no/x/b", {}, 600);
-                return { letter, programs: [listed("P6", "programme", "Bok", "Om en bok.")], series: [] };
-            },
-        } as unknown as NrkLike;
+        stub = serveLetters(
+            (letter) =>
+                letter === "b"
+                    ? new Response("{}", { status: 429, headers: { "retry-after": "600" } })
+                    : [listed("P6", "programme", "Bok", "Om en bok.")],
+            calls,
+        );
 
-        const catalog = unwrap(await newClient(nrk).listCatalog({ letters: "abc" }));
+        const catalog = unwrap(await newClient().listCatalog({ letters: "abc" }));
 
         assert.deepEqual(calls, ["a", "b"], "c must not be requested after the 429");
         assert.deepEqual(catalog.items.map((i) => i.id), ["P6"]);

@@ -9,20 +9,18 @@
  *   NRK_LIVE_LIMIT        max ids per group (default: all)
  *   NRK_LIVE_INTERVAL_MS  minimum ms between requests (default: 350)
  *
- * Content on NRK expires and moves, so "gone" errors (403/404/410 or "not
- * playable") are counted separately and only fail the run above a threshold.
- * Anything else - validation errors, unexpected shapes - fails immediately.
+ * Content on NRK expires and moves, so "gone" errors (not_found, forbidden or not_playable)
+ * are counted separately and only fail the run above a threshold.
+ * Anything else - invalid responses, unexpected shapes - fails immediately.
  */
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import * as path from "node:path";
-import { NRK } from "../../src/client";
-import { NrkHttpError } from "../../src/nrk-client-raw";
-import type { ProgramById, SeasonsWithEpisodes } from "../../src/nrk-response";
+import { NrkClient } from "../../src/nrk-client";
+import type { Episodes, Program, Result } from "../../src/types";
 import { IdEntry, readIds } from "../support/fixtures";
 import { installPoliteFetch } from "../support/polite-fetch";
 import { isHttpUrl } from "../support/helpers";
-import { NrkClient } from "../../src/nrk-client";
 
 const LIMIT = Number(process.env.NRK_LIVE_LIMIT) || Infinity;
 const INTERVAL_MS = Number(process.env.NRK_LIVE_INTERVAL_MS) || 350;
@@ -31,18 +29,26 @@ const MAX_GONE_RATIO = 0.1;
 
 const ids = readIds();
 const limited = <T>(list: ReadonlyArray<T>) => list.slice(0, LIMIT);
+const client = new NrkClient({ minIntervalMs: 0 }); // the polite fetch already paces requests
+
+/** An error result, thrown so that runAll can count it. */
+class ResultError extends Error {
+    constructor(
+        readonly code: string,
+        message: string,
+    ) {
+        super(`${code}: ${message}`);
+    }
+}
+const unwrap = <T>(result: Result<T>): T => {
+    if (!result.ok) throw new ResultError(result.error.code, result.error.message);
+    return result.data;
+};
 
 type Outcome = { id: string; kind: "ok" | "gone" | "hard"; message: string };
 
-const classify = (e: unknown): "gone" | "hard" => {
-    if (e instanceof NrkHttpError && [403, 404, 410].includes(e.status)) {
-        return "gone";
-    }
-    if (e instanceof Error && /Missing (playable|availability)/.test(e.message)) {
-        return "gone";
-    }
-    return "hard";
-};
+const isGone = (code: string) => ["not_found", "forbidden", "not_playable"].includes(code);
+const classify = (e: unknown): "gone" | "hard" => (e instanceof ResultError && isGone(e.code) ? "gone" : "hard");
 
 const runAll = async <T extends { id: string }>(
     items: ReadonlyArray<T>,
@@ -107,47 +113,40 @@ const checkPersonalizationFields = (x: {
     }
 };
 
-const checkProgramPage = (p: ProgramById) => {
+const checkPicture = (imageUrl: string | null) => {
+    assert.ok(imageUrl === null || isHttpUrl(imageUrl), "imageUrl is " + imageUrl);
+};
+
+const checkProgram = (p: Program) => {
     checkPersonalizationFields(p);
     assert.ok(p.seriesId === null || p.seriesId.length > 0, "seriesId");
     assert.ok(p.title.length > 0, "title");
-    assert.equal(typeof p.subtitle, "string");
-    assert.ok(p.images.length > 0, "images");
-    assert.ok(p.images.every((i) => isHttpUrl(i.url) && i.width > 0), "image urls");
-    assert.ok(p.durationInSeconds > 0, "duration");
+    checkPicture(p.imageUrl);
+    assert.ok(p.durationSeconds > 0, "duration");
     assert.ok(p.category.length > 0, "category");
-    assert.ok(
-        p.productionYear === null || Number.isInteger(p.productionYear),
-        "productionYear is " + p.productionYear,
-    );
-    assert.ok(
-        ["coming", "available", "expires", "expired", "notAvailableOnline"].includes(
-            p.availabilityStatus,
-        ),
-    );
+    assert.ok(p.productionYear === null || Number.isInteger(p.productionYear), "productionYear is " + p.productionYear);
+    assert.ok(["coming", "available", "expires", "expired", "notAvailableOnline"].includes(p.status));
 };
 
 const checkPlayableProgram = async (id: string) => {
-    const program = await NRK.getProgramById(id);
-    checkProgramPage(program);
-    // playback endpoints are only meaningful while the program can be played
-    const meta = await NRK.getMetadata(id);
-    assert.equal(meta.prfId, id);
-    assert.ok(meta.title.length > 0, "metadata title");
-    assert.ok(meta.images.every((i) => isHttpUrl(i.url)));
-    const manifest = await NRK.getManifest(id);
-    assert.equal(manifest.format, "HLS");
-    assert.ok(isHttpUrl(manifest.playUrl), "playUrl");
+    const program = unwrap(await client.getProgram({ id }));
+    checkProgram(program);
+    // playback is only meaningful while the program can be played
+    const playback = unwrap(await client.getPlayback({ id }));
+    assert.equal(playback.id, id);
+    assert.ok(playback.title.length > 0, "playback title");
+    assert.ok(isHttpUrl(playback.streamUrl), "streamUrl");
+    checkPicture(playback.posterUrl);
     return program;
 };
 
-const checkEpisodes = (result: SeasonsWithEpisodes) => {
+const checkEpisodes = (result: Episodes) => {
     for (const e of result.episodes) {
         checkPersonalizationFields(e);
-        assert.ok(e.prfId.length > 0, "prfId");
+        assert.ok(e.id.length > 0, "id");
         assert.ok(e.title.length > 0, "episode title");
-        assert.ok(e.durationInSeconds > 0, "episode duration");
-        assert.ok(e.images.every((i) => isHttpUrl(i.url)), "episode image urls");
+        assert.ok(e.durationSeconds > 0, "episode duration");
+        checkPicture(e.imageUrl);
         for (const n of [e.productionYear, e.episodeNumber]) {
             assert.ok(n === null || Number.isInteger(n), "number is " + n);
         }
@@ -166,13 +165,15 @@ describe("live: psapi.nrk.no", () => {
     after(() => restore());
 
     it("lists thousands of programs and series across the whole alphabet", async () => {
-        const all = await NRK.getAllLetters();
-        console.log(`  letters: ${all.programs.length} programs, ${all.series.length} series`);
-        assert.ok(all.programs.length > 5000, "programs: " + all.programs.length);
-        assert.ok(all.series.length > 3000, "series: " + all.series.length);
-        assert.ok(all.letter.includes("w"), "letter w is part of the alphabet");
-        const programIds = new Set(all.programs.map((p) => p.id));
-        assert.equal(programIds.size, all.programs.length, "program ids are unique");
+        const catalog = unwrap(await client.listCatalog());
+        const programs = catalog.items.filter((i) => i.type === "program");
+        const series = catalog.items.filter((i) => i.type === "series");
+        console.log(`  catalog: ${programs.length} programs, ${series.length} series`);
+        assert.deepEqual(catalog.failed, []);
+        assert.ok(programs.length > 5000, "programs: " + programs.length);
+        assert.ok(series.length > 3000, "series: " + series.length);
+        const keys = catalog.items.map((i) => i.type + ":" + i.id);
+        assert.equal(new Set(keys).size, keys.length, "every item is listed once");
     });
 
     it(`available programs (${limited(ids.programs.available).length})`, async () => {
@@ -186,47 +187,40 @@ describe("live: psapi.nrk.no", () => {
     it(`films (${limited(ids.programs.films).length})`, async () => {
         const outcomes = await runAll(limited(ids.programs.films), async (f) => {
             const program = await checkPlayableProgram(f.id);
-            assert.ok(
-                program.durationInSeconds >= 60 * 60,
-                `film is only ${program.durationInSeconds}s`,
-            );
+            assert.ok(program.durationSeconds >= 60 * 60, `film is only ${program.durationSeconds}s`);
         });
         assertOutcomes("films", outcomes);
     });
 
     it(`geoblocked programs (${limited(ids.programs.geoblocked).length})`, async () => {
         const outcomes = await runAll(limited(ids.programs.geoblocked), async (p) => {
-            checkProgramPage(await NRK.getProgramById(p.id));
+            checkProgram(unwrap(await client.getProgram({ id: p.id })));
         });
         assertOutcomes("geoblocked programs", outcomes);
     });
 
     it(`expired / upcoming programs (${limited(ids.programs.unavailable).length})`, async () => {
         const outcomes = await runAll(limited(ids.programs.unavailable), async (p) => {
-            const program = await NRK.getProgramById(p.id);
-            checkProgramPage(program);
-            // an unavailable program must fail cleanly: 404 or "Missing playable", never a parse error
-            if (program.availabilityStatus === "available") {
+            const program = unwrap(await client.getProgram({ id: p.id }));
+            checkProgram(program);
+            // an unavailable program must fail cleanly: not_found or not_playable, never an invalid response
+            if (program.status === "available") {
                 return; // it became available since the recording
             }
-            await assert.rejects(NRK.getManifest(p.id), (e: unknown) => classify(e) === "gone");
+            const playback = await client.getPlayback({ id: p.id });
+            assert.ok(!playback.ok, "playback of an unavailable program");
+            assert.ok(isGone(playback.error.code), "expected not_found or not_playable, got " + playback.error.code);
         });
         assertOutcomes("unavailable programs", outcomes);
     });
 
-    it("NrkClient: list the catalog -> series -> episodes available today", async () => {
-        const client = new NrkClient({ minIntervalMs: 0 }); // the polite fetch already paces requests
+    it("list the catalog -> series -> episodes available today", async () => {
         const today = new Date().toISOString().slice(0, 10);
 
-        const catalog = await client.listCatalog();
-        assert.ok(catalog.ok, JSON.stringify(catalog));
-        assert.deepEqual(catalog.data.failed, []);
-        assert.ok(catalog.data.items.length > 10000, "catalog size " + catalog.data.items.length);
-        const ids = catalog.data.items.map((i) => i.type + ":" + i.id);
-        assert.equal(new Set(ids).size, ids.length, "every item is listed once");
+        const catalog = unwrap(await client.listCatalog());
+        assert.ok(catalog.items.length > 10000, "catalog size " + catalog.items.length);
 
-        // NRK has no search: picking content is done on the listing
-        const candidates = catalog.data.items
+        const candidates = catalog.items
             .filter((i) => i.type === "series" && i.availableNow && !i.geoBlocked)
             .filter((i) => /natur|dyr|dokumentar/i.test(i.title + " " + i.description))
             .slice(0, 5);
@@ -234,17 +228,15 @@ describe("live: psapi.nrk.no", () => {
 
         let withEpisodes = 0;
         for (const item of candidates) {
-            const series = await client.getSeries({ id: item.id });
-            assert.ok(series.ok, item.id + ": " + JSON.stringify(series));
-            const season = series.data.seasons[0];
+            const series = unwrap(await client.getSeries({ id: item.id }));
+            const season = series.seasons[0];
             if (!season) continue;
-            const result = await client.getEpisodes({ seriesId: item.id, seasonName: season.name, availableOn: today });
-            assert.ok(result.ok, item.id + ": " + JSON.stringify(result));
-            for (const episode of result.data.episodes) {
+            const result = unwrap(await client.getEpisodes({ seriesId: item.id, seasonName: season.name, availableOn: today }));
+            for (const episode of result.episodes) {
                 assert.ok(episode.durationMinutes >= 0 && episode.id.length > 0);
                 assert.ok(episode.availableTo === null || episode.availableTo.slice(0, 10) >= today);
             }
-            withEpisodes += result.data.episodes.length > 0 ? 1 : 0;
+            withEpisodes += result.episodes.length > 0 ? 1 : 0;
         }
         assert.ok(withEpisodes > 0, "at least one series should have episodes available today");
     });
@@ -253,19 +245,15 @@ describe("live: psapi.nrk.no", () => {
         const group = limited(ids.series[type]);
         it(`${type} series (${group.length})`, async () => {
             const outcomes = await runAll(group, async (s) => {
-                assert.equal(await NRK.getSeriesType(s.id), type);
-
-                const series = await NRK.getSeasons(s.id);
+                const series = unwrap(await client.getSeries({ id: s.id }));
                 assert.equal(series.seriesType, type);
                 assert.ok(series.title.length > 0, "title");
-                assert.ok(series.imageUrl300 === null || isHttpUrl(series.imageUrl300), "imageUrl300");
+                checkPicture(series.imageUrl);
                 assert.ok(series.seasons.length > 0, "seasons");
 
                 const season = series.seasons[0];
                 assert.ok(season, "first season");
-                const episodes = await NRK.getAllEpisodes(s.id, season.name);
-                assert.equal(episodes.seriesType, type);
-                checkEpisodes(episodes);
+                checkEpisodes(unwrap(await client.getEpisodes({ seriesId: s.id, seasonName: season.name })));
             });
             assertOutcomes(`${type} series`, outcomes);
         });

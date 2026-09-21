@@ -1,6 +1,4 @@
 import * as v from "./validate";
-import { AVAILABILITY_STATUSES, SEASON_TYPES, SERIES_TYPES, isoDate } from "./nrk-response";
-import type { NrkAvailabilityStatus, SeasonType, SeriesType } from "./nrk-response";
 
 // What NrkClient accepts and returns. Deliberately small: only what an agent needs to pick
 // content and build a schedule. One small image per item, no display strings or HAL links.
@@ -11,15 +9,29 @@ import type { NrkAvailabilityStatus, SeasonType, SeriesType } from "./nrk-respon
 // out, so a caller never gets a value that contradicts the declared type. The validators
 // carry the internal tag and are stripped from the published declarations.
 
-// ── Input ───────────────────────────────────────────────────────────
+// ── Values NRK uses ─────────────────────────────────────────────────
 
-/**
- * What the validators produce: defaults applied, so only the truly optional fields may be missing.
- * @internal
- */
-export type WithDefaults<I, Optional extends keyof I = never> = {
-    [K in Exclude<keyof I, Optional>]-?: Exclude<I[K], undefined>;
-} & { [K in Optional]?: I[K] };
+export type AvailabilityStatus = "coming" | "available" | "expires" | "expired" | "notAvailableOnline";
+/** @internal */
+export const AVAILABILITY_STATUSES = v.allOf<AvailabilityStatus>({
+    coming: true,
+    available: true,
+    expires: true,
+    expired: true,
+    notAvailableOnline: true,
+});
+
+export type SeriesType = "sequential" | "news" | "standard";
+/** @internal */
+export const SERIES_TYPES = v.allOf<SeriesType>({ sequential: true, news: true, standard: true });
+
+export type SeasonType = "latest" | "extramaterial" | "season";
+/** @internal */
+export const SEASON_TYPES = v.allOf<SeasonType>({ latest: true, extramaterial: true, season: true });
+
+const isoDate = v.stringOf({ pattern: /^\d{4}-\d{2}-\d{2}$/, patternMessage: "expected YYYY-MM-DD" });
+
+// ── Input ───────────────────────────────────────────────────────────
 
 /** Arguments for NrkClient.listCatalog. */
 export interface ListCatalogInput {
@@ -30,9 +42,7 @@ export interface ListCatalogInput {
     letters?: string | undefined;
 }
 /** @internal */
-export type ListCatalogQuery = WithDefaults<ListCatalogInput, "letters">;
-/** @internal */
-export const listCatalogInput: v.Validator<ListCatalogQuery> = v.object({
+export const listCatalogInput: v.Validator<ListCatalogInput> = v.object({
     letters: v.optional(
         v.stringOf({ min: 1, max: 29, pattern: /^\p{L}+$/u, patternMessage: "letters only, e.g. \"abc\"" }),
     ),
@@ -55,9 +65,7 @@ export interface GetEpisodesInput {
     availableOn?: string | undefined;
 }
 /** @internal */
-export type GetEpisodesQuery = WithDefaults<GetEpisodesInput, "availableOn">;
-/** @internal */
-export const getEpisodesInput: v.Validator<GetEpisodesQuery> = v.object({
+export const getEpisodesInput: v.Validator<GetEpisodesInput> = v.object({
     seriesId: v.stringOf({ min: 1, max: 200 }),
     seasonName: v.stringOf({ min: 1, max: 200 }),
     availableOn: v.optional(
@@ -107,8 +115,7 @@ export type NrkErrorCode =
     | "not_playable"
     | "network"
     | "unknown";
-/** @internal */
-export const ERROR_CODES = v.allOf<NrkErrorCode>({
+const ERROR_CODES = v.allOf<NrkErrorCode>({
     not_found: true,
     forbidden: true,
     rate_limited: true,
@@ -125,12 +132,15 @@ export interface NrkError {
     readonly message: string;
     readonly retryAfterSeconds?: number | undefined;
 }
-/** @internal */
-export const nrkErrorValidator: v.Validator<NrkError> = v.object({
+const nrkErrorValidator: v.Validator<NrkError> = v.object({
     code: v.oneOf(...ERROR_CODES),
     message: v.string,
     retryAfterSeconds: v.optional(v.number),
 });
+
+// what a call reports in `failed`: what it asked for, and why that part failed
+const failedLetters = v.array(v.object({ letter: v.string, error: nrkErrorValidator }));
+const failedIds = v.array(v.object({ id: v.string, error: nrkErrorValidator }));
 
 export type Result<T> =
     | { readonly ok: true; readonly data: T }
@@ -164,8 +174,7 @@ export interface ContentItem {
      */
     readonly imageUrl: string | null;
 }
-/** @internal */
-export const contentItemValidator: v.Validator<ContentItem> = v.object({
+const contentItemValidator: v.Validator<ContentItem> = v.object({
     id: v.nonEmptyString(),
     type: v.oneOf("program", "series", "episode"),
     title: v.string,
@@ -186,7 +195,7 @@ export interface Catalog {
 /** @internal */
 export const catalogValidator: v.Validator<Catalog> = v.object({
     items: v.array(contentItemValidator),
-    failed: v.array(v.object({ letter: v.string, error: nrkErrorValidator })),
+    failed: failedLetters,
 });
 
 // ── Series and episodes ─────────────────────────────────────────────
@@ -196,8 +205,7 @@ export interface Season {
     readonly name: string;
     readonly title: string;
 }
-/** @internal */
-export const seasonValidator: v.Validator<Season> = v.object({ name: v.string, title: v.string });
+const seasonValidator: v.Validator<Season> = v.object({ name: v.string, title: v.string });
 
 export interface Series {
     readonly id: string;
@@ -223,16 +231,13 @@ export const seriesValidator: v.Validator<Series> = v.object({
     imageUrl: v.nullable(v.url),
 });
 
-export type AvailabilityStatus = NrkAvailabilityStatus;
-
 /** A person credited on a program: presenter, performer, actor, ... */
 export interface Contributor {
     readonly name: string;
     /** NRK's label: "Medvirkende", "Programleder", "Artister/Utøvere", "Skuespillere", ... */
     readonly role: string;
 }
-/** @internal */
-export const contributorValidator: v.Validator<Contributor> = v.object({ name: v.string, role: v.string });
+const contributorValidator: v.Validator<Contributor> = v.object({ name: v.string, role: v.string });
 
 export interface Episode {
     /** Program id - use this in a schedule and with getPrograms. */
@@ -258,8 +263,7 @@ export interface Episode {
      */
     readonly imageUrl: string | null;
 }
-/** @internal */
-export const episodeValidator: v.Validator<Episode> = v.object({
+const episodeValidator: v.Validator<Episode> = v.object({
     id: v.nonEmptyString(),
     title: v.string,
     subtitle: v.nullable(v.string),
@@ -348,7 +352,7 @@ export interface Programs {
 /** @internal */
 export const programsValidator: v.Validator<Programs> = v.object({
     programs: v.array(programValidator),
-    failed: v.array(v.object({ id: v.string, error: nrkErrorValidator })),
+    failed: failedIds,
 });
 
 // ── Playback ────────────────────────────────────────────────────────
@@ -364,8 +368,7 @@ export interface SubtitleTrack {
     /** NRK's advice: show this track by default. */
     readonly defaultOn: boolean;
 }
-/** @internal */
-export const subtitleTrackValidator: v.Validator<SubtitleTrack> = v.object({
+const subtitleTrackValidator: v.Validator<SubtitleTrack> = v.object({
     language: v.nonEmptyString(),
     label: v.string,
     url: v.url,
@@ -420,9 +423,7 @@ export interface GetRecommendationInput {
     count?: 5 | 10 | 15 | 20 | 25 | undefined;
 }
 /** @internal */
-export type GetRecommendationQuery = WithDefaults<GetRecommendationInput, "count">;
-/** @internal */
-export const getRecommendationInput: v.Validator<GetRecommendationQuery> = v.object({
+export const getRecommendationInput: v.Validator<GetRecommendationInput> = v.object({
     basedOn: v.array(v.stringOf({ min: 1, max: 200 }), { min: 1, max: 5 }),
     count: v.optional(v.oneOf(5, 10, 15, 20, 25)),
 });
@@ -442,8 +443,7 @@ export interface RecommendedItem {
      */
     readonly imageUrl: string | null;
 }
-/** @internal */
-export const recommendedItemValidator: v.Validator<RecommendedItem> = v.object({
+const recommendedItemValidator: v.Validator<RecommendedItem> = v.object({
     id: v.nonEmptyString(),
     type: v.oneOf("program", "series"),
     title: v.string,
@@ -465,7 +465,7 @@ export interface Recommendations {
 /** @internal */
 export const recommendationsValidator: v.Validator<Recommendations> = v.object({
     items: v.array(recommendedItemValidator),
-    failed: v.array(v.object({ id: v.string, error: nrkErrorValidator })),
+    failed: failedIds,
 });
 
 // ── Search ──────────────────────────────────────────────────────────
@@ -478,9 +478,7 @@ export interface SearchInput {
     limit?: number | undefined;
 }
 /** @internal */
-export type SearchQuery = WithDefaults<SearchInput, "limit">;
-/** @internal */
-export const searchInput: v.Validator<SearchQuery> = v.object({
+export const searchInput: v.Validator<SearchInput> = v.object({
     query: v.stringOf({ min: 1, max: 200, pattern: /\S/, patternMessage: "must not be blank" }),
     limit: v.optional(v.integer({ min: 1, max: 100 })),
 });
