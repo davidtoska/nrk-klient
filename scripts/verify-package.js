@@ -132,11 +132,13 @@ console.log("esm import ok");`,
     fs.writeFileSync(
         path.join(app, "check.ts"),
         `import { NrkClient } from "narko-klient";
-import type { Result, Program, NrkError, Playback, ListCatalogInput } from "narko-klient";
+import type { Result, Program, NrkError, Playback } from "narko-klient";
+// @ts-expect-error the input types are not exported; the methods document what they accept
+import type { ListCatalogInput } from "narko-klient";
 
 export const main = async (): Promise<void> => {
   const ai = new NrkClient();
-  const input: ListCatalogInput = { letters: "abc" };
+  const input: Parameters<NrkClient["listCatalog"]>[0] = { letters: "abc" };
   const found = await ai.listCatalog(input);
   if (found.ok) {
     const count: number = found.data.items.length;

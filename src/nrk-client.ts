@@ -149,6 +149,19 @@ const checked = <T>(validator: Validator<T>, value: T): Result<T> => {
  *
  * It stores nothing. Every call goes to NRK, so keeping a copy of the catalog, searching
  * it, and caching what has been fetched is up to the code that uses this class.
+ *
+ * Ids: a program or episode id is a "prfId" such as "MKTF73000514"; a series id is a
+ * slug such as "dagsrevyen". Catalog items and episodes carry the ids to pass on.
+ * Typical flow: listCatalog -> getSeries -> getEpisodes -> getPlayback (or getProgram).
+ *
+ * @example
+ * const client = new NrkClient();
+ * const playback = await client.getPlayback("MKTF73000514");
+ * if (playback.ok) {
+ *   player.load(playback.data.streamUrl);
+ * } else {
+ *   console.log(playback.error.code, playback.error.message);
+ * }
  */
 export class NrkClient {
     private readonly nrk: NrkLike;
@@ -175,6 +188,12 @@ export class NrkClient {
      * 30 requests and roughly 12,000 items). NRK has no search endpoint, so this listing is
      * what an index is built from. Letters that could not be fetched are reported in
      * `failed` and the rest are returned; the call stops early on rate limiting.
+     *
+     * @param input.letters Letters to list, for instance `"abc"` (letters only, a-z, æ, ø, å).
+     *   Default: the whole alphabet.
+     * @example
+     * const all = await client.listCatalog();
+     * const onlyA = await client.listCatalog({ letters: "a" });
      */
     listCatalog = async (input: ListCatalogInput = {}): Promise<Result<Catalog>> => {
         const parsed = parseInput(listCatalogInput, input);
@@ -216,6 +235,13 @@ export class NrkClient {
 
     // ── Series and episodes ─────────────────────────────────────────
 
+    /**
+     * A series with its title, type, category and seasons. Pass a season's `name` to getEpisodes.
+     *
+     * @param input.seriesId Series id from listCatalog (`type: "series"`), for instance `"dagsrevyen"`.
+     * @example
+     * const series = await client.getSeries({ seriesId: "dagsrevyen" });
+     */
     getSeries = async (input: GetSeriesInput): Promise<Result<Series>> => {
         const parsed = parseInput(getSeriesInput, input);
         if (!parsed.ok) return fail(parsed.error);
@@ -235,7 +261,21 @@ export class NrkClient {
         }
     };
 
-    /** All episodes of one season (NRK returns a season in one response). */
+    /**
+     * All episodes of one season (NRK returns a season in one response, which for a
+     * long-running news series can be a few hundred episodes).
+     *
+     * @param input.seriesId Series id, for instance `"dagsrevyen"`.
+     * @param input.seasonName A season's `name` from getSeries, for instance `"2024"`.
+     * @param input.availableOn Optional date, `YYYY-MM-DD`. Only episodes that can be streamed on
+     *   that day are returned (useful when building a schedule).
+     * @example
+     * const season = await client.getEpisodes({
+     *   seriesId: "dagsrevyen",
+     *   seasonName: "2024",
+     *   availableOn: "2026-10-03",
+     * });
+     */
     getEpisodes = async (input: GetEpisodesInput): Promise<Result<SeasonEpisodes>> => {
         const parsed = parseInput(getEpisodesInput, input);
         if (!parsed.ok) return fail(parsed.error);
@@ -251,6 +291,14 @@ export class NrkClient {
 
     // ── Programs ────────────────────────────────────────────────────
 
+    /**
+     * One program or episode with NRK's description, credited people, duration, availability
+     * window, production year and first broadcast date. Two requests.
+     *
+     * @param programId Program id, or an episode's `id`, for instance `"MKTF73000514"`.
+     * @example
+     * const program = await client.getProgram("MKTF73000514");
+     */
     getProgram = async (programId: string): Promise<Result<Program>> => {
         const parsed = parseInput(getProgramsInput, { programIds: [programId] });
         if (!parsed.ok) return fail(parsed.error);
@@ -284,7 +332,12 @@ export class NrkClient {
      * What a player needs to play one episode or program (pass an episode's `id`): the HLS
      * stream, subtitles, poster, duration and title. Hand the data to the player as it is.
      * A program NRK will not stream now (expired, not published yet) gives `not_playable`,
-     * with NRK's text for the end user as the message.
+     * with NRK's text for the end user as the message. The stream address is not permanent:
+     * ask for it when the viewer presses play, and do not store it.
+     *
+     * @param programId Program id, or an episode's `id`, for instance `"MKTF73000514"`.
+     * @example
+     * const playback = await client.getPlayback("MKTF73000514");
      */
     getPlayback = async (programId: string): Promise<Result<Playback>> => {
         const parsed = parseInput(getProgramsInput, { programIds: [programId] });
@@ -315,7 +368,11 @@ export class NrkClient {
 
     /**
      * Several programs at once. Partial success: programs that could not be
-     * fetched are listed in `failed`, the rest are returned.
+     * fetched are listed in `failed`, the rest are returned. Two requests per program.
+     *
+     * @param input.programIds 1-20 program ids.
+     * @example
+     * const many = await client.getPrograms({ programIds: ["MKTF73000514", "FFIL63000263"] });
      */
     getPrograms = async (input: GetProgramsInput): Promise<Result<ProgramsResult>> => {
         const parsed = parseInput(getProgramsInput, input);
