@@ -55,27 +55,29 @@ Methods: `letter`, `getAllLetters`, `getProgramById`, `getManifest`, `getMetadat
 
 ## AiClient
 
-Made for agents that pick content and build schedules.
+An API against NRK, made for agents that pick content and build schedules.
 
 - **Small results**: ids, titles, descriptions, duration, availability window, category, production
   year, first broadcast date and credited people. No images or links.
-- **Keyword search**: NRK has no search endpoint, so the client loads the letter index once (about
-  30 requests, roughly 12,000 programs and series) and searches it in memory.
 - **Never throws**: every method returns `{ ok: true, data }` or `{ ok: false, error }`.
-- **Paged**: `total`, `offset` and `hasMore` tell the agent what it did not see.
-- **Gentle**: requests are spaced out (250 ms) and lookups are cached.
+- **Partial results**: where one call needs several requests (`listCatalog`, `getPrograms`) you get what
+  could be fetched, plus a `failed` list.
+- **Gentle**: requests are spaced 250 ms apart, and it stops asking when NRK answers 429.
+- **Stores nothing.** Every call goes to NRK. NRK has no search endpoint, so `listCatalog` gives you the
+  archive to build your own index from, and keeping a copy of it or caching what you fetch is up to you.
 
 ```ts
 import { AiClient } from "nrk-klient";
 
 const ai = new AiClient();
 
-const found = await ai.searchCatalog({ query: "natur, dyr", type: "series", limit: 10 });
-if (!found.ok) throw new Error(found.error.message);
-
-for (const item of found.data.items) {
-  console.log(item.id, item.title, item.description);
+// The whole archive: about 30 requests and roughly 12,000 items. Store it and search it yourself.
+const catalog = await ai.listCatalog();
+if (!catalog.ok) throw new Error(catalog.error.message);
+for (const item of catalog.data.items) {
+  console.log(item.id, item.type, item.title, item.description);
 }
+console.log(catalog.data.failed); // letters that could not be fetched, if any
 
 const series = await ai.getSeries({ seriesId: "dagsrevyen" });
 const episodes = await ai.getEpisodes({
@@ -90,11 +92,10 @@ const programs = await ai.getPrograms({ programIds: ["MKTF73000514"] });
 
 | Method | Returns |
 | --- | --- |
-| `searchCatalog(input?)` | ranked items with `total` / `hasMore` |
+| `listCatalog({ letters? }?)` | every program and series NRK lists, one request per letter |
 | `getSeries({ seriesId })` | title, type, category, seasons |
-| `getEpisodes({ seriesId, seasonName, availableOn?, limit?, offset? })` | episodes with duration and availability |
+| `getEpisodes({ seriesId, seasonName, availableOn? })` | all episodes of the season, with duration and availability |
 | `getProgram(id)` / `getPrograms({ programIds })` | one or more programs with description and credited people |
-| `refreshCatalog()` | drops the cached index |
 
 Error codes: `not_found`, `forbidden`, `rate_limited` (with `retryAfterSeconds`), `upstream_error`,
 `invalid_response`, `invalid_input`, `network`, `unknown`.
@@ -112,7 +113,8 @@ error instead of throwing. Arguments to `AiClient` are validated the same way (`
 
 - About 1 in 10 items has no description at NRK; `description` is then an empty string.
 - `getPrograms` costs two requests per program (the page and the playback metadata, which carries the
-  description). Episode lists cost one request per season.
+  description). `getEpisodes` costs one request per season and returns the whole season, which for a
+  long-running news series can be a few hundred episodes.
 - NRK's Google Analytics fields are filled with placeholders, so production year, category and
   episode number are read from other fields. `productionMonth` / `productionDay` are not available.
 

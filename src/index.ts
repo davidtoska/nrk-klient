@@ -34,11 +34,11 @@ export type {
 // AiClient
 export type {
     AiAvailabilityStatus,
+    AiCatalog,
     AiCatalogItem,
-    AiCatalogPage,
     AiContributor,
     AiEpisode,
-    AiEpisodesPage,
+    AiEpisodes,
     AiError,
     AiErrorCode,
     AiProgram,
@@ -49,5 +49,5 @@ export type {
     GetEpisodesInput,
     GetProgramsInput,
     GetSeriesInput,
-    SearchCatalogInput,
+    ListCatalogInput,
 } from "./ai-types";

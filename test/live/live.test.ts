@@ -214,28 +214,37 @@ describe("live: psapi.nrk.no", () => {
         assertOutcomes("unavailable programs", outcomes);
     });
 
-    it("AiClient: keyword search -> series -> episodes available today", async () => {
+    it("AiClient: list the catalog -> series -> episodes available today", async () => {
         const ai = new AiClient({ minIntervalMs: 0 }); // the polite fetch already paces requests
         const today = new Date().toISOString().slice(0, 10);
 
-        const search = await ai.searchCatalog({ query: "natur, dyr, dokumentar", type: "series", limit: 5 });
-        assert.ok(search.ok, JSON.stringify(search));
-        assert.ok(search.data.total > 0, "expected series matching the keywords");
-        assert.ok(search.data.catalogSize > 10000, "catalog size " + search.data.catalogSize);
+        const catalog = await ai.listCatalog();
+        assert.ok(catalog.ok, JSON.stringify(catalog));
+        assert.deepEqual(catalog.data.failed, []);
+        assert.ok(catalog.data.items.length > 10000, "catalog size " + catalog.data.items.length);
+        const ids = catalog.data.items.map((i) => i.type + ":" + i.id);
+        assert.equal(new Set(ids).size, ids.length, "every item is listed once");
+
+        // NRK has no search: picking content is done on the listing
+        const candidates = catalog.data.items
+            .filter((i) => i.type === "series" && i.availableNow && !i.geoBlocked)
+            .filter((i) => /natur|dyr|dokumentar/i.test(i.title + " " + i.description))
+            .slice(0, 5);
+        assert.ok(candidates.length > 0, "expected series matching the keywords");
 
         let withEpisodes = 0;
-        for (const item of search.data.items) {
+        for (const item of candidates) {
             const series = await ai.getSeries({ seriesId: item.id });
             assert.ok(series.ok, item.id + ": " + JSON.stringify(series));
             const season = series.data.seasons[0];
             if (!season) continue;
-            const page = await ai.getEpisodes({ seriesId: item.id, seasonName: season.name, availableOn: today });
-            assert.ok(page.ok, item.id + ": " + JSON.stringify(page));
-            for (const e of page.data.episodes) {
-                assert.ok(e.durationMinutes >= 0 && e.id.length > 0);
-                assert.ok(e.availableTo === null || e.availableTo.slice(0, 10) >= today);
+            const result = await ai.getEpisodes({ seriesId: item.id, seasonName: season.name, availableOn: today });
+            assert.ok(result.ok, item.id + ": " + JSON.stringify(result));
+            for (const episode of result.data.episodes) {
+                assert.ok(episode.durationMinutes >= 0 && episode.id.length > 0);
+                assert.ok(episode.availableTo === null || episode.availableTo.slice(0, 10) >= today);
             }
-            withEpisodes += page.data.episodes.length > 0 ? 1 : 0;
+            withEpisodes += result.data.episodes.length > 0 ? 1 : 0;
         }
         assert.ok(withEpisodes > 0, "at least one series should have episodes available today");
     });

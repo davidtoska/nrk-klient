@@ -2,26 +2,26 @@ import { NRK } from "./client";
 import { NrkHttpError } from "./nrk-client-raw";
 import { NrkValidationError, Validator, formatIssues, safeParse } from "./validate";
 import {
-    aiCatalogPage,
-    aiEpisodesPage,
+    aiCatalog,
+    aiEpisodes,
     aiProgram,
     aiProgramsResult,
     aiSeries,
     getEpisodesInput,
     getProgramsInput,
     getSeriesInput,
-    searchCatalogInput,
+    listCatalogInput,
 } from "./ai-types";
 import type {
     GetEpisodesInput,
     GetProgramsInput,
     GetSeriesInput,
-    SearchCatalogInput,
+    ListCatalogInput,
     AiCatalogItem,
     AiContributor,
-    AiCatalogPage,
+    AiCatalog,
     AiEpisode,
-    AiEpisodesPage,
+    AiEpisodes,
     AiError,
     AiProgram,
     AiProgramsResult,
@@ -48,48 +48,18 @@ export interface AiClientConfig {
     nrk?: NrkLike;
     letters?: string;
     minIntervalMs?: number;
-    catalogTtlMs?: number;
     maxContributors?: number;
-    now?: () => number;
 }
 
 const ALPHABET = "abcdefghijklmnopqrstuvwxyzæøå";
 /** Minimum time between two requests to NRK: NRK answers 429 when it is hit hard. */
 const MIN_INTERVAL_MS = 250;
-/** How long series, season and program lookups are cached. */
-const CACHE_TTL_MS = 10 * 60 * 1000;
-/** How long the catalog index is kept before it is reloaded. */
-const CATALOG_TTL_MS = 6 * 60 * 60 * 1000;
 /** Most credited people returned per program or episode (p99 is 17). */
 const MAX_CONTRIBUTORS = 15;
 /** ListedContent.description falls back to this when NRK has none. */
 const NO_DESCRIPTION = "No description";
 
-interface IndexEntry {
-    readonly item: AiCatalogItem;
-    readonly title: string; // lower-case
-    readonly description: string; // lower-case
-}
-
-interface Catalog {
-    readonly entries: ReadonlyArray<IndexEntry>;
-    readonly loadedAt: number;
-}
-
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-
-const truncate = (text: string, max: number): string => {
-    return text.length <= max ? text : text.slice(0, max - 1).trimEnd() + "…";
-};
-
-const tokenize = (query: string | undefined): string[] => {
-    if (!query) return [];
-    const terms = query
-        .toLowerCase()
-        .split(/[\s,;]+/)
-        .filter((t) => t.length >= 2);
-    return [...new Set(terms)];
-};
 
 const toMinutes = (seconds: number): number => {
     return Math.round(seconds / 60);
@@ -160,30 +130,25 @@ const checked = <T>(validator: Validator<T>, value: T): AiResult<T> => {
 };
 
 /**
- * A wrapper around the NRK client that is shaped for an AI agent:
+ * An API against NRK, shaped for an AI agent:
  *
  *  - small, flat results with only the fields needed to pick content and build
- *    a schedule (ids, titles, duration, availability window),
- *  - keyword search over the whole archive (NRK has no search endpoint, so the
- *    letter index is loaded once and searched in memory),
- *  - paging with total/hasMore so the agent knows what it did not see,
+ *    a schedule (ids, titles, duration, availability window, credited people),
  *  - methods never throw: they return { ok, data } or { ok: false, error },
  *    with error codes an agent can act on (for instance rate_limited),
- *  - requests are spaced out and lookups cached, because NRK answers 429 when
- *    it is hit hard.
+ *  - partial results where a call covers several requests (listCatalog, getPrograms),
+ *  - requests are spaced 250 ms apart, because NRK answers 429 when it is hit hard.
+ *
+ * It stores nothing. Every call goes to NRK, so keeping a copy of the catalog, searching
+ * it, and caching what has been fetched is up to the code that uses this class.
  */
 export class AiClient {
     private readonly nrk: NrkLike;
     private readonly letters: string;
     private readonly minIntervalMs: number;
-    private readonly catalogTtlMs: number;
     private readonly maxContributors: number;
-    private readonly now: () => number;
 
     private nextRequestAt = 0;
-    private catalog: Catalog | null = null;
-    private catalogLoading: Promise<AiResult<Catalog>> | null = null;
-    private readonly cache = new Map<string, { at: number; value: unknown }>();
 
     /** @internal */
     constructor(config: AiClientConfig);
@@ -192,72 +157,53 @@ export class AiClient {
         this.nrk = config.nrk ?? NRK;
         this.letters = config.letters ?? ALPHABET;
         this.minIntervalMs = config.minIntervalMs ?? MIN_INTERVAL_MS;
-        this.catalogTtlMs = config.catalogTtlMs ?? CATALOG_TTL_MS;
         this.maxContributors = config.maxContributors ?? MAX_CONTRIBUTORS;
-        this.now = config.now ?? Date.now;
     }
 
     // ── Catalog ─────────────────────────────────────────────────────
 
     /**
-     * Keyword search over the archive (programs and series).
-     * The first call loads the index (about 30 requests), later calls are instant.
+     * The archive's programs and series, one request per letter (the whole alphabet is about
+     * 30 requests and roughly 12,000 items). NRK has no search endpoint, so this listing is
+     * what an index is built from. Letters that could not be fetched are reported in
+     * `failed` and the rest are returned; the call stops early on rate limiting.
      */
-    searchCatalog = async (input: SearchCatalogInput = {}): Promise<AiResult<AiCatalogPage>> => {
-        const parsed = parseInput(searchCatalogInput, input);
+    listCatalog = async (input: ListCatalogInput = {}): Promise<AiResult<AiCatalog>> => {
+        const parsed = parseInput(listCatalogInput, input);
         if (!parsed.ok) return fail(parsed.error);
-        const q = parsed.data;
+        const letters = [...new Set((parsed.data.letters ?? this.letters).toLowerCase().split(""))];
 
-        const catalog = await this.getCatalog();
-        if (!catalog.ok) return fail(catalog.error);
-
-        const terms = tokenize(q.query);
-        const scored: Array<{ entry: IndexEntry; score: number }> = [];
-        for (const entry of catalog.data.entries) {
-            const { item } = entry;
-            if (q.type !== "any" && item.type !== q.type) continue;
-            if (q.onDemandOnly && !item.availableNow) continue;
-            if (!q.includeGeoBlocked && item.geoBlocked) continue;
-
-            let score = 0;
-            let matched = 0;
-            for (const term of terms) {
-                const inTitle = entry.title.includes(term);
-                const inDescription = entry.description.includes(term);
-                if (inTitle || inDescription) matched++;
-                if (inTitle) score += 3;
-                if (inDescription) score += 1;
+        const items: AiCatalogItem[] = [];
+        const failed: Array<{ letter: string; error: AiError }> = [];
+        const seen = new Set<string>();
+        for (const letter of letters) {
+            try {
+                const response = await this.call(() => this.nrk.letter(letter));
+                const listed = [
+                    ...response.programs.map((c) => ({ c, type: "program" as const })),
+                    ...response.series.map((c) => ({ c, type: "series" as const })),
+                ];
+                for (const { c, type } of listed) {
+                    const key = `${type}:${c.id}`;
+                    if (seen.has(key)) continue;
+                    seen.add(key);
+                    items.push({
+                        id: c.id,
+                        type,
+                        title: c.title,
+                        description: c.description === NO_DESCRIPTION ? "" : c.description,
+                        availableNow: c.hasOnDemandRights,
+                        geoBlocked: c.isGeoBlocked,
+                    });
+                }
+            } catch (e) {
+                const error = toAiError(e);
+                failed.push({ letter, error });
+                // no point in hammering NRK when it asks us to slow down
+                if (error.code === "rate_limited") break;
             }
-            if (terms.length > 0) {
-                if (q.matchAll ? matched < terms.length : matched === 0) continue;
-            }
-            scored.push({ entry, score });
         }
-
-        scored.sort(
-            (a, b) =>
-                b.score - a.score || a.entry.item.title.localeCompare(b.entry.item.title, "nb"),
-        );
-        const max = q.descriptionMaxChars;
-        const items = scored
-            .slice(q.offset, q.offset + q.limit)
-            .map(({ entry }) =>
-                max === undefined
-                    ? entry.item
-                    : { ...entry.item, description: truncate(entry.item.description, max) },
-            );
-        return checked(aiCatalogPage, {
-            items,
-            total: scored.length,
-            offset: q.offset,
-            hasMore: q.offset + items.length < scored.length,
-            catalogSize: catalog.data.entries.length,
-        });
-    };
-
-    /** Drops the cached index so the next search reloads it. */
-    refreshCatalog = (): void => {
-        this.catalog = null;
+        return checked(aiCatalog, { items, failed });
     };
 
     // ── Series and episodes ─────────────────────────────────────────
@@ -268,9 +214,7 @@ export class AiClient {
         const { seriesId } = parsed.data;
 
         try {
-            const series = await this.memo(`series:${seriesId}`, () =>
-                this.call(() => this.nrk.getSeasons(seriesId)),
-            );
+            const series = await this.call(() => this.nrk.getSeasons(seriesId));
             return checked(aiSeries, {
                 id: series.seriesId,
                 title: series.title,
@@ -283,19 +227,15 @@ export class AiClient {
         }
     };
 
-    getEpisodes = async (input: GetEpisodesInput): Promise<AiResult<AiEpisodesPage>> => {
+    /** All episodes of one season (NRK returns a season in one response). */
+    getEpisodes = async (input: GetEpisodesInput): Promise<AiResult<AiEpisodes>> => {
         const parsed = parseInput(getEpisodesInput, input);
         if (!parsed.ok) return fail(parsed.error);
-        const { seriesId, seasonName, availableOn, limit, offset } = parsed.data;
+        const { seriesId, seasonName, availableOn } = parsed.data;
 
         try {
-            const season = await this.memo(`season:${seriesId}/${seasonName}`, () =>
-                this.call(() => this.nrk.getAllEpisodes(seriesId, seasonName)),
-            );
-            return checked(
-                aiEpisodesPage,
-                toEpisodesPage(season, availableOn, limit, offset, this.maxContributors),
-            );
+            const season = await this.call(() => this.nrk.getAllEpisodes(seriesId, seasonName));
+            return checked(aiEpisodes, toEpisodes(season, availableOn, this.maxContributors));
         } catch (e) {
             return fail(toAiError(e));
         }
@@ -308,9 +248,7 @@ export class AiClient {
         if (!parsed.ok) return fail(parsed.error);
 
         try {
-            const p = await this.memo(`program:${programId}`, () =>
-                this.call(() => this.nrk.getProgramById(programId)),
-            );
+            const p = await this.call(() => this.nrk.getProgramById(programId));
             const description = await this.getDescription(programId);
             return checked(aiProgram, {
                 id: p.id,
@@ -359,55 +297,6 @@ export class AiClient {
 
     // ── Internals ───────────────────────────────────────────────────
 
-    private getCatalog = async (): Promise<AiResult<Catalog>> => {
-        if (this.catalog && this.now() - this.catalog.loadedAt < this.catalogTtlMs) {
-            return ok(this.catalog);
-        }
-        // concurrent searches share one load
-        this.catalogLoading ??= this.loadCatalog().finally(() => {
-            this.catalogLoading = null;
-        });
-        return this.catalogLoading;
-    };
-
-    private loadCatalog = async (): Promise<AiResult<Catalog>> => {
-        try {
-            const responses = await Promise.all(
-                this.letters.split("").map((l) => this.call(() => this.nrk.letter(l))),
-            );
-            const seen = new Set<string>();
-            const entries: IndexEntry[] = [];
-            for (const response of responses) {
-                const listed = [
-                    ...response.programs.map((c) => ({ c, type: "program" as const })),
-                    ...response.series.map((c) => ({ c, type: "series" as const })),
-                ];
-                for (const { c, type } of listed) {
-                    const key = `${type}:${c.id}`;
-                    if (seen.has(key)) continue;
-                    seen.add(key);
-                    const description = c.description === NO_DESCRIPTION ? "" : c.description;
-                    entries.push({
-                        item: {
-                            id: c.id,
-                            type,
-                            title: c.title,
-                            description,
-                            availableNow: c.hasOnDemandRights,
-                            geoBlocked: c.isGeoBlocked,
-                        },
-                        title: c.title.toLowerCase(),
-                        description: description.toLowerCase(),
-                    });
-                }
-            }
-            this.catalog = { entries, loadedAt: this.now() };
-            return ok(this.catalog);
-        } catch (e) {
-            return fail(toAiError(e));
-        }
-    };
-
     /**
      * The program page has no text; the playback metadata does (one extra request).
      * Programs that are not published yet have no metadata, which gives null.
@@ -415,9 +304,7 @@ export class AiClient {
      */
     private getDescription = async (programId: string): Promise<string | null> => {
         try {
-            const meta = await this.memo(`meta:${programId}`, () =>
-                this.call(() => this.nrk.getMetadata(programId)),
-            );
+            const meta = await this.call(() => this.nrk.getMetadata(programId));
             return meta.description;
         } catch (e) {
             const code = toAiError(e).code;
@@ -437,16 +324,6 @@ export class AiClient {
             await sleep(start - now);
         }
         return fn();
-    };
-
-    private memo = async <T>(key: string, fn: () => Promise<T>): Promise<T> => {
-        const hit = this.cache.get(key);
-        if (hit && this.now() - hit.at < CACHE_TTL_MS) {
-            return hit.value as T;
-        }
-        const value = await fn();
-        this.cache.set(key, { at: this.now(), value });
-        return value;
     };
 }
 
@@ -479,24 +356,18 @@ const isAvailableOn = (e: Episode, day: string): boolean => {
     return true;
 };
 
-const toEpisodesPage = (
+const toEpisodes = (
     season: SeasonsWithEpisodes,
     availableOn: string | undefined,
-    limit: number,
-    offset: number,
     maxContributors: number,
-): AiEpisodesPage => {
+): AiEpisodes => {
     const matching = availableOn
         ? season.episodes.filter((e) => isAvailableOn(e, availableOn))
         : season.episodes;
-    const episodes = matching.slice(offset, offset + limit).map((e) => toEpisode(e, maxContributors));
     return {
         seriesId: season.seriesId,
         seasonName: season.seasonName,
         seasonType: season.seasonType,
-        total: matching.length,
-        offset,
-        hasMore: offset + episodes.length < matching.length,
-        episodes,
+        episodes: matching.map((e) => toEpisode(e, maxContributors)),
     };
 };

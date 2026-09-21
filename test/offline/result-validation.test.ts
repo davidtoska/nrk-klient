@@ -162,7 +162,7 @@ describe("AiClient checks its results against their declared type", () => {
             }),
         };
         const client = new AiClient({ nrk: fake as unknown as NrkLike, letters: "a", minIntervalMs: 0 });
-        const message = await rejected(client.searchCatalog({}));
+        const message = await rejected(client.listCatalog({}));
         assert.match(message, /items\.0\.id/);
     });
 

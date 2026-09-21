@@ -21,37 +21,21 @@ export type WithDefaults<I, Optional extends keyof I = never> = {
     [K in Exclude<keyof I, Optional>]-?: Exclude<I[K], undefined>;
 } & { [K in Optional]?: I[K] };
 
-/** Arguments for AiClient.searchCatalog. Everything is optional. */
-export interface SearchCatalogInput {
-    /** Keywords separated by space or comma; matches title and description. Omit to browse. */
-    query?: string | undefined;
-    /** Default "any". */
-    type?: "program" | "series" | "any" | undefined;
-    /** Require all keywords to match instead of any. Default false. */
-    matchAll?: boolean | undefined;
-    /** Only items that can be streamed now. Default true. */
-    onDemandOnly?: boolean | undefined;
-    /** Include items that are geoblocked outside Norway. Default false. */
-    includeGeoBlocked?: boolean | undefined;
-    /** Shorten descriptions to this many characters (20-5000). Default: full text. */
-    descriptionMaxChars?: number | undefined;
-    /** 1-50, default 20. */
-    limit?: number | undefined;
-    /** Default 0. */
-    offset?: number | undefined;
+/** Arguments for AiClient.listCatalog. */
+export interface ListCatalogInput {
+    /**
+     * Which letters to list, e.g. "abc". Default: the whole alphabet (a-z, æ, ø, å),
+     * which is about 30 requests and roughly 12,000 items.
+     */
+    letters?: string | undefined;
 }
 /** @internal */
-export type SearchCatalogQuery = WithDefaults<SearchCatalogInput, "query" | "descriptionMaxChars">;
+export type ListCatalogQuery = WithDefaults<ListCatalogInput, "letters">;
 /** @internal */
-export const searchCatalogInput: v.Validator<SearchCatalogQuery> = v.object({
-    query: v.optional(v.stringOf({ max: 200 })),
-    type: v.withDefault(v.oneOf("program", "series", "any"), "any"),
-    matchAll: v.withDefault(v.boolean, false),
-    onDemandOnly: v.withDefault(v.boolean, true),
-    includeGeoBlocked: v.withDefault(v.boolean, false),
-    descriptionMaxChars: v.optional(v.integer({ min: 20, max: 5000 })),
-    limit: v.withDefault(v.integer({ min: 1, max: 50 }), 20),
-    offset: v.withDefault(v.integer({ min: 0 }), 0),
+export const listCatalogInput: v.Validator<ListCatalogQuery> = v.object({
+    letters: v.optional(
+        v.stringOf({ min: 1, max: 29, pattern: /^\p{L}+$/u, patternMessage: "letters only, e.g. \"abc\"" }),
+    ),
 });
 
 export interface GetSeriesInput {
@@ -68,10 +52,6 @@ export interface GetEpisodesInput {
     seasonName: string;
     /** YYYY-MM-DD: only episodes that can be streamed on this date. */
     availableOn?: string | undefined;
-    /** 1-200, default 50. */
-    limit?: number | undefined;
-    /** Default 0. */
-    offset?: number | undefined;
 }
 /** @internal */
 export type GetEpisodesQuery = WithDefaults<GetEpisodesInput, "availableOn">;
@@ -82,8 +62,6 @@ export const getEpisodesInput: v.Validator<GetEpisodesQuery> = v.object({
     availableOn: v.optional(
         v.stringOf({ pattern: /^\d{4}-\d{2}-\d{2}$/, patternMessage: "Use YYYY-MM-DD" }),
     ),
-    limit: v.withDefault(v.integer({ min: 1, max: 200 }), 50),
-    offset: v.withDefault(v.integer({ min: 0 }), 0),
 });
 
 export interface GetProgramsInput {
@@ -152,7 +130,7 @@ export interface AiCatalogItem {
     readonly type: "program" | "series";
     readonly title: string;
     /**
-     * NRK's own text, complete unless descriptionMaxChars was given. Empty when NRK
+     * NRK's own text, complete. Empty when NRK
      * has none (about 1 in 10). Nothing richer exists at NRK for a single program;
      * per-episode text is only available through getProgram(s).
      */
@@ -171,22 +149,16 @@ export const aiCatalogItem: v.Validator<AiCatalogItem> = v.object({
     geoBlocked: v.boolean,
 });
 
-export interface AiCatalogPage {
+/** The archive's programs and series (one entry per program or series, from NRK's letter index). */
+export interface AiCatalog {
     readonly items: ReadonlyArray<AiCatalogItem>;
-    /** Number of items matching the filters (before offset/limit). */
-    readonly total: number;
-    readonly offset: number;
-    readonly hasMore: boolean;
-    /** Number of items in the whole catalog index. */
-    readonly catalogSize: number;
+    /** Letters that could not be fetched; the rest are still returned. */
+    readonly failed: ReadonlyArray<{ readonly letter: string; readonly error: AiError }>;
 }
 /** @internal */
-export const aiCatalogPage: v.Validator<AiCatalogPage> = v.object({
+export const aiCatalog: v.Validator<AiCatalog> = v.object({
     items: v.array(aiCatalogItem),
-    total: v.integer({ min: 0 }),
-    offset: v.integer({ min: 0 }),
-    hasMore: v.boolean,
-    catalogSize: v.integer({ min: 0 }),
+    failed: v.array(v.object({ letter: v.string, error: aiError })),
 });
 
 // ── Series and episodes ─────────────────────────────────────────────
@@ -263,24 +235,18 @@ export const aiEpisode: v.Validator<AiEpisode> = v.object({
     contributors: v.array(aiContributor),
 });
 
-export interface AiEpisodesPage {
+/** All episodes of one season (NRK returns a season in one response). */
+export interface AiEpisodes {
     readonly seriesId: string;
     readonly seasonName: string;
     readonly seasonType: SeasonType;
-    /** Number of episodes matching the filters (before offset/limit). */
-    readonly total: number;
-    readonly offset: number;
-    readonly hasMore: boolean;
     readonly episodes: ReadonlyArray<AiEpisode>;
 }
 /** @internal */
-export const aiEpisodesPage: v.Validator<AiEpisodesPage> = v.object({
+export const aiEpisodes: v.Validator<AiEpisodes> = v.object({
     seriesId: v.nonEmptyString(),
     seasonName: v.string,
     seasonType: v.oneOf(...SEASON_TYPES),
-    total: v.integer({ min: 0 }),
-    offset: v.integer({ min: 0 }),
-    hasMore: v.boolean,
     episodes: v.array(aiEpisode),
 });
 

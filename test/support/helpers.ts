@@ -10,7 +10,7 @@ export const urls = {
     season: (id: string, season: string) =>
         `${BASE}/tv/catalog/series/${id}/seasons/${season}`,
     letter: (letter: string) =>
-        `${BASE}/medium/tv/letters/${letter}/indexelements`,
+        `${BASE}/medium/tv/letters/${encodeURIComponent(letter)}/indexelements`,
 };
 
 /** The recorded JSON body for a URL. Fails if it was not recorded as JSON. */

@@ -100,13 +100,13 @@ globalThis.fetch = async (url) => {
   // AiClient: search, details, and error mapping - none of it throws
   // (letters and minIntervalMs are an internal test seam, not public API: they only keep this smoke test fast)
   const ai = new pkg.AiClient({ letters: "f", minIntervalMs: 0 });
-  const found = await ai.searchCatalog({ query: "fotball" });
-  assert.ok(found.ok && found.data.items[0].id === "P1" && found.data.total === 1);
+  const listing = await ai.listCatalog({ letters: "f" });
+  assert.ok(listing.ok && listing.data.items.length === 1 && listing.data.items[0].id === "P1" && listing.data.failed.length === 0);
   const one = await ai.getProgram("${ids.availableProgram}");
   assert.ok(one.ok && typeof one.data.description === "string");
   const missing = await ai.getSeries({ seriesId: "finnes-ikke" });
   assert.ok(!missing.ok && missing.error.code === "not_found");
-  const bad = await ai.searchCatalog({ limit: 0 });
+  const bad = await ai.listCatalog({ letters: "1" });
   assert.ok(!bad.ok && bad.error.code === "invalid_input");
   console.log("smoke test passed");
 })().catch((e) => { console.error(e); process.exit(1); });
@@ -130,16 +130,17 @@ console.log("esm import ok");`,
     fs.writeFileSync(
         path.join(app, "check.ts"),
         `import { AiClient, NRK, NrkHttpError } from "nrk-klient";
-import type { AiResult, AiProgram, AiError, ProgramById, SearchCatalogInput } from "nrk-klient";
+import type { AiResult, AiProgram, AiError, ProgramById, ListCatalogInput } from "nrk-klient";
 
 export const main = async (): Promise<void> => {
   const ai = new AiClient();
-  const input: SearchCatalogInput = { query: "natur", type: "series", limit: 5 };
-  const found = await ai.searchCatalog(input);
+  const input: ListCatalogInput = { letters: "abc" };
+  const found = await ai.listCatalog(input);
   if (found.ok) {
-    const total: number = found.data.total;
+    const count: number = found.data.items.length;
     const title: string = found.data.items[0]?.title ?? "";
-    void [total, title];
+    const failedLetters: string[] = found.data.failed.map((f) => f.letter);
+    void [count, title, failedLetters];
   } else {
     const code: AiError["code"] = found.error.code;
     void code;
@@ -158,8 +159,10 @@ export const main = async (): Promise<void> => {
   new AiClient({ nope: 1 });
   // @ts-expect-error not even the internal test seams are part of the public types
   new AiClient({ minIntervalMs: 0 });
-  // @ts-expect-error limit must be a number
-  await ai.searchCatalog({ limit: "5" });
+  // @ts-expect-error letters must be a string
+  await ai.listCatalog({ letters: 5 });
+  // @ts-expect-error there is no search or cache any more
+  ai.searchCatalog({ query: "natur" });
 };
 `,
     );
