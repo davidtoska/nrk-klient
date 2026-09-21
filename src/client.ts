@@ -54,10 +54,8 @@ class NrkClient {
             };
             if (item.type === "programme") {
                 responseObject.programs.push(contentItem);
-            } else if (item.type === "series") {
-                responseObject.series.push(contentItem);
             } else {
-                console.error("UNKNOWN CONTENT TYPE: " + item.type);
+                responseObject.series.push(contentItem);
             }
         });
 
@@ -126,7 +124,6 @@ class NrkClient {
                 throw Error("Missing image at index 0");
             }
             if (first.width !== 300) {
-                console.log(first);
                 throw new Error("Width of image is not 300 px");
             }
             const url = first.url;

@@ -31,6 +31,12 @@ export class NrkHttpError extends Error {
     }
 }
 
+/**
+ * Ids come from callers (for an AiClient: from an agent), so every value that becomes a
+ * path segment is encoded. Otherwise "x/../live" or "x?y" would change which endpoint is called.
+ */
+const segment = encodeURIComponent;
+
 class NrkClientRaw {
     constructor() {}
 
@@ -39,33 +45,33 @@ class NrkClientRaw {
      * @param letter a letter between a-å
      */
     letter = (letter: string): Promise<unknown> => {
-        const url = [BASE, MEDIUM, TV, LETTERS, letter, INDEXELEMENTS].join("/");
+        const url = [BASE, MEDIUM, TV, LETTERS, segment(letter), INDEXELEMENTS].join("/");
         return this.fetchData(url);
     };
 
     getManifest = (prfId: string): Promise<unknown> => {
-        const url = [BASE, PLAYBACK, MANIFEST, PROGRAM, prfId].join("/");
+        const url = [BASE, PLAYBACK, MANIFEST, PROGRAM, segment(prfId)].join("/");
         return this.fetchData(url);
     };
 
     getMetadata = (prfId: string): Promise<unknown> => {
-        const url = [BASE, PLAYBACK, METADATA, PROGRAM, prfId].join("/");
+        const url = [BASE, PLAYBACK, METADATA, PROGRAM, segment(prfId)].join("/");
         return this.fetchData(url);
     };
 
     getSeasons = (seriesId: string): Promise<unknown> => {
-        const url = [BASE, TV, CATALOG, SERIES, seriesId].join("/");
+        const url = [BASE, TV, CATALOG, SERIES, segment(seriesId)].join("/");
         return this.fetchData(url);
     };
 
     getAllEpisodes = (seriesId: string, seasonName: string): Promise<unknown> => {
-        const url = [BASE, TV, CATALOG, SERIES, seriesId, SEASONS, seasonName].join(
+        const url = [BASE, TV, CATALOG, SERIES, segment(seriesId), SEASONS, segment(seasonName)].join(
             "/",
         );
         return this.fetchData(url);
     };
     getSeriesType = (seriesId: string): Promise<unknown> => {
-        const url = [BASE, TV, CATALOG, SERIES, seriesId, "type"].join("/");
+        const url = [BASE, TV, CATALOG, SERIES, segment(seriesId), "type"].join("/");
         return this.fetchData(url);
     };
 
@@ -81,7 +87,7 @@ class NrkClientRaw {
             age?: number;
         },
     ) => {
-        const rootUrl = [BASE, TV, RECOMMENDATIONS, contentId].join("/");
+        const rootUrl = [BASE, TV, RECOMMENDATIONS, segment(contentId)].join("/");
         const url = new URL(rootUrl);
         const count = options?.count ?? 10;
         const contentGroup = options?.contentGroup ?? "adults";
@@ -95,12 +101,12 @@ class NrkClientRaw {
     };
 
     getProgramById = (id: string) => {
-        const url = [BASE, TV, CATALOG, PROGRAMS, id].join("/");
+        const url = [BASE, TV, CATALOG, PROGRAMS, segment(id)].join("/");
         return this.fetchData(url);
     };
 
     getManifestForChannel = (channelName: string) => {
-        const url = [BASE, PLAYBACK, MANIFEST, CHANNEL, channelName].join("/");
+        const url = [BASE, PLAYBACK, MANIFEST, CHANNEL, segment(channelName)].join("/");
         return this.fetchData(url);
     };
 
