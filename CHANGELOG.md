@@ -13,6 +13,7 @@ listed as fixes.
   never throws (`listCatalog`, `getSeries`, `getEpisodes`, `getProgram`, `getPrograms`).
 - `NrkClient.getPlayback(id)`: the stream (HLS), subtitles, poster, duration and title a player
   needs, or a `not_playable` error with NRK's text for the viewer.
+- `NrkClient.search({ query })`: free-text search in NRK TV (series, programs and episodes).
 - `NrkClient.getRecommendation({ basedOn })`: recommendations from NRK for what the viewer likes,
   merged over 1-5 ids.
 - The types its methods return (`Result`, `Program`, `Catalog`, ...).

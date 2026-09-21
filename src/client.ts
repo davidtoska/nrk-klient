@@ -8,6 +8,7 @@ import {
     ProgramById,
     Recommendation,
     RecommendationResponse,
+    SearchHit,
     SeasonsWithEpisodes,
     SeriesType,
     SeriesWithSeasons,
@@ -187,6 +188,27 @@ export class Client {
 
         return checked("getSeriesType", seriesTypeValidator, seriesType);
     };
+    /**
+     * Free-text search in NRK TV: series, programs and single episodes, best match first.
+     * A hit that NRK hides from its own search results is left out.
+     */
+    search = async (query: string, limit: number): Promise<SearchHit[]> => {
+        const parsed = await nrkClientParsed.search(query, limit);
+        const hits: SearchHit[] = parsed
+            .filter(({ hit }) => hit.hideInSearchResults !== true)
+            .map(({ kind, hit }) => ({
+                id: hit.id,
+                type: kind,
+                title: hit.title,
+                description: hit.description ?? "",
+                hasRights: hit.usageRights?.hasRightsNow ?? hit.hasRights ?? false,
+                isGeoBlocked: hit.usageRights?.isGeoBlocked ?? false,
+                seriesId: kind === "episode" ? (hit.seriesId ?? null) : null,
+                seriesTitle: kind === "episode" ? (hit.seriesTitle ?? null) : null,
+            }));
+        return checked("search", v.array(r.searchHit), hits);
+    };
+
     getRecommendation = async (contentId: string, options: RecommendationOptions = {}) => {
         const parerResult = await nrkClientParsed.getRecommendation(
             contentId,

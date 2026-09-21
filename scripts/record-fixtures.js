@@ -16,7 +16,7 @@ const path = require("node:path");
 
 const dist = path.resolve(__dirname, "../build");
 const { NRK } = require(path.join(dist, "src/client.js"));
-const { NrkHttpError } = require(path.join(dist, "src/nrk-client-raw.js"));
+const { NrkHttpError, nrkClientRaw } = require(path.join(dist, "src/nrk-client-raw.js"));
 const { writeRecorded, FIXTURES_DIR, RAW_DIR } = require(
     path.join(dist, "test/support/fixtures.js"),
 );
@@ -311,6 +311,10 @@ const record = async (fn) => {
     // anbefalinger som NrkClient.getRecommendation ber om (10 per id, for voksne)
     for (const id of ["FFIL63000263", "OCUH11002809", "filmavisen-innslag-i-utvalg", "DOESNOTEXIST"]) {
         await record(() => NRK.getRecommendation(id, { count: 10 }));
+    }
+    // fritekstsøk som NrkClient.search ber om (20 treff per søk)
+    for (const query of ["norsk historie", "Ivar Aasen", "fotball", "krigen", "qzxwvyk"]) {
+        await record(() => nrkClientRaw.search(query, 20));
     }
     // små bokstavlister
     for (const l of ["w", "x", "y", "æ"]) await record(() => NRK.letter(l));

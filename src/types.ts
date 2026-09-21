@@ -419,3 +419,55 @@ export const recommendationsValidator: v.Validator<Recommendations> = v.object({
     items: v.array(recommendedItemValidator),
     failed: v.array(v.object({ id: v.string, error: nrkErrorValidator })),
 });
+
+// ── Search ──────────────────────────────────────────────────────────
+
+/** Arguments for NrkClient.search. */
+export interface SearchInput {
+    /** What to look for: a theme, a title or a person, in Norwegian, e.g. "norsk historie". */
+    query: string;
+    /** Most hits to return, 1-100. Default 20. */
+    limit?: number | undefined;
+}
+/** @internal */
+export type SearchQuery = WithDefaults<SearchInput, "limit">;
+/** @internal */
+export const searchInput: v.Validator<SearchQuery> = v.object({
+    query: v.stringOf({ min: 1, max: 200, pattern: /\S/, patternMessage: "must not be blank" }),
+    limit: v.optional(v.integer({ min: 1, max: 100 })),
+});
+
+export interface SearchItem {
+    /** A program or episode id (use it with getProgram or getPlayback) or a series id (use it with getSeries). */
+    readonly id: string;
+    readonly type: "program" | "series" | "episode";
+    readonly title: string;
+    /** NRK's own text. Empty when NRK has none. */
+    readonly description: string;
+    /** false when it cannot currently be streamed on demand. */
+    readonly availableNow: boolean;
+    readonly geoBlocked: boolean;
+    /** Episodes only: the series it belongs to, otherwise null. */
+    readonly seriesId: string | null;
+    readonly seriesTitle: string | null;
+}
+/** @internal */
+export const searchItemValidator: v.Validator<SearchItem> = v.object({
+    id: v.nonEmptyString(),
+    type: v.oneOf("program", "series", "episode"),
+    title: v.string,
+    description: v.string,
+    availableNow: v.boolean,
+    geoBlocked: v.boolean,
+    seriesId: v.nullable(v.string),
+    seriesTitle: v.nullable(v.string),
+});
+
+export interface SearchResults {
+    /** Best match first. Empty when nothing matches. */
+    readonly items: ReadonlyArray<SearchItem>;
+}
+/** @internal */
+export const searchResultsValidator: v.Validator<SearchResults> = v.object({
+    items: v.array(searchItemValidator),
+});

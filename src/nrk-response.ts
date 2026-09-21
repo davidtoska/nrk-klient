@@ -313,3 +313,27 @@ export type PlaybackSource =
           /** NRK's text for the end user, in Norwegian. */
           readonly message: string;
       };
+
+/** One hit in NRK's free-text search: a series, a program or a single episode of a series. */
+export interface SearchHit {
+    readonly id: string;
+    readonly type: "program" | "series" | "episode";
+    readonly title: string;
+    readonly description: string;
+    readonly hasRights: boolean;
+    readonly isGeoBlocked: boolean;
+    /** Episodes only. */
+    readonly seriesId: string | null;
+    readonly seriesTitle: string | null;
+}
+/** @internal */
+export const searchHit: v.Validator<SearchHit> = v.object({
+    id: v.nonEmptyString(),
+    type: v.oneOf("program", "series", "episode"),
+    title: v.string,
+    description: v.string,
+    hasRights: v.boolean,
+    isGeoBlocked: v.boolean,
+    seriesId: v.nullable(v.string),
+    seriesTitle: v.nullable(v.string),
+});

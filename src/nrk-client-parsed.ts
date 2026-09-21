@@ -244,6 +244,25 @@ const programPageParser = v.object({
     }),
 });
 
+// NRK's search returns series ("serie"), programs ("program") and episodes ("episode"). A hit
+// of any other kind is skipped, so a new kind cannot make the whole search unreadable.
+const anything: v.Validator<unknown> = (input) => input;
+const searchParser = v.object({
+    hits: v.array(v.object({ type: v.string, hit: anything })),
+});
+const searchHitParser = v.object({
+    id: v.nonEmptyString(),
+    title: v.string,
+    description: v.nullish(v.string),
+    hasRights: v.optional(v.boolean),
+    // series hits have none of this
+    usageRights: v.nullish(v.object({ isGeoBlocked: v.boolean, hasRightsNow: v.boolean })),
+    seriesId: v.nullish(v.string),
+    seriesTitle: v.nullish(v.string),
+    hideInSearchResults: v.optional(v.boolean),
+});
+const SEARCH_KINDS = { serie: "series", program: "program", episode: "episode" } as const;
+
 const liveChannelsParser = v.array(
     v.object({
         id: channelName,
@@ -304,6 +323,16 @@ class NrkClientParsed {
             ...(options.age !== undefined && { age: options.age }),
         });
         return v.parse(RecommendationSchema, body);
+    };
+
+    search = async (query: string, limit: number) => {
+        const body = await nrkClientRaw.search(query, limit);
+        const { hits } = v.parse(searchParser, body);
+        return hits.flatMap((entry) => {
+            const kind = SEARCH_KINDS[entry.type as keyof typeof SEARCH_KINDS];
+            if (kind === undefined) return [];
+            return [{ kind, hit: v.parse(searchHitParser, entry.hit, "Unexpected search hit") }];
+        });
     };
 
     getProgramById = async (id: string) => {

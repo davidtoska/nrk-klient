@@ -21,6 +21,8 @@ export type {
     RecommendedItem,
     Recommendations,
     Result,
+    SearchItem,
+    SearchResults,
     Season,
     Series,
     SubtitleTrack,

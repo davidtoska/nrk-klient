@@ -113,6 +113,14 @@ class NrkClientRaw {
         return this.fetchData(url.toString());
     };
 
+    /** Free-text search (an endpoint that is not in NRK's swagger files). TV only. */
+    search = (query: string, limit: number): Promise<unknown> => {
+        const url = new URL([BASE, "search"].join("/"));
+        url.searchParams.set("q", query);
+        url.searchParams.set("maxResultsPerPage", String(limit));
+        return this.fetchData(url.toString());
+    };
+
     getProgramById = (id: string): Promise<unknown> => {
         const url = [BASE, TV, CATALOG, PROGRAMS, segment(id)].join("/");
         return this.fetchData(url);

@@ -29,8 +29,8 @@ An API against NRK, made for agents that pick content and build schedules.
 - **Partial results**: where one call needs several requests (`listCatalog`, `getPrograms`) you get what
   could be fetched, plus a `failed` list.
 - **Gentle**: requests are spaced 250 ms apart, and it stops asking when NRK answers 429.
-- **Stores nothing.** Every call goes to NRK. NRK has no search endpoint, so `listCatalog` gives you the
-  archive to build your own index from, and keeping a copy of it or caching what you fetch is up to you.
+- **Stores nothing.** Every call goes to NRK. `listCatalog` gives you the whole
+  archive to build your own index from, `search` looks up one theme; keeping a copy or caching what you fetch is up to you.
 
 ```ts
 import { NrkClient } from "narko-klient";
@@ -55,6 +55,12 @@ const episodes = await client.getEpisodes({
 // Full details, including NRK's description and credited people (max 20 ids per call)
 const programs = await client.getPrograms({ programIds: ["MKTF73000514"] });
 
+// Free-text search: a theme, a title or a person. Series, programs and single episodes.
+const found = await client.search({ query: "norsk historie" });
+if (found.ok) {
+  for (const item of found.data.items) console.log(item.type, item.id, item.title, item.availableNow);
+}
+
 // More of what the viewer likes, from ids they liked or watched (1-5 program, episode or series ids)
 const recs = await client.getRecommendation({ basedOn: ["MKTF73000514", "dagsrevyen"] });
 if (recs.ok) {
@@ -77,6 +83,7 @@ if (playback.ok) {
 | `getSeries({ seriesId })` | title, type, category, seasons |
 | `getEpisodes({ seriesId, seasonName, availableOn? })` | all episodes of the season, with duration and availability |
 | `getProgram(id)` / `getPrograms({ programIds })` | one or more programs with description and credited people |
+| `search({ query, limit? })` | free-text search in NRK TV (title and description words, small typos forgiven): series, programs and single episodes with their ids, best match first |
 | `getRecommendation({ basedOn, count? })` | what NRK recommends for 1-5 ids the viewer likes: merged, without the ids you gave, strongest matches first, each with the ids that led to it (no descriptions: follow up with `getProgram`) |
 | `getPlayback(id)` | what a player needs: HLS `streamUrl`, `mimeType`, subtitle tracks (WebVTT), poster, duration, aspect ratio, title and end of the streaming window |
 
@@ -94,6 +101,10 @@ instead of throwing. Arguments are validated the same way (`invalid_input`).
 ### Good to know
 
 - About 1 in 10 items has no description at NRK; `description` is then an empty string.
+- `search` is one request. NRK's search is by words, not meaning: "norsk historie" finds titles and
+  descriptions with those words, not everything about the subject, so try several phrasings.
+  It uses an endpoint that is not in NRK's swagger files, so it is the most likely to change.
+  There is no paging; ask for up to 100 hits with `limit`.
 - `getRecommendation` costs one request per id in `basedOn`. NRK does not say whether a recommended item
   can be streamed now, so check with `getProgram` (`status`) or `getPlayback` before scheduling it.
 - `getPlayback` costs two requests (the manifest and the playback metadata). The stream address NRK

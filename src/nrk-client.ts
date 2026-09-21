@@ -14,6 +14,8 @@ import {
     getRecommendationInput,
     getSeriesInput,
     listCatalogInput,
+    searchInput,
+    searchResultsValidator,
 } from "./types";
 import type {
     GetEpisodesInput,
@@ -21,6 +23,8 @@ import type {
     GetRecommendationInput,
     GetSeriesInput,
     ListCatalogInput,
+    SearchInput,
+    SearchResults,
     CatalogItem,
     Contributor,
     Catalog,
@@ -43,7 +47,7 @@ import type { NrkEpisode, SeasonsWithEpisodes } from "./nrk-response";
  */
 export type NrkLike = Pick<
     typeof NRK,
-    "letter" | "getSeasons" | "getAllEpisodes" | "getProgramById" | "getMetadata" | "getPlayback" | "getRecommendation"
+    "letter" | "getSeasons" | "getAllEpisodes" | "getProgramById" | "getMetadata" | "getPlayback" | "getRecommendation" | "search"
 >;
 
 /**
@@ -158,7 +162,8 @@ const checked = <T>(validator: Validator<T>, value: T): Result<T> => {
  * Ids: a program or episode id is a "prfId" such as "MKTF73000514"; a series id is a
  * slug such as "dagsrevyen". Catalog items and episodes carry the ids to pass on.
  * Typical flow: listCatalog -> getSeries -> getEpisodes -> getPlayback (or getProgram).
- * getRecommendation finds more of what a viewer might like, from ids they liked.
+ * search finds content from free text; getRecommendation finds more of what a viewer
+ * might like, from ids they liked.
  *
  * @example
  * const client = new NrkClient();
@@ -191,8 +196,8 @@ export class NrkClient {
 
     /**
      * The archive's programs and series, one request per letter (the whole alphabet is about
-     * 30 requests and roughly 12,000 items). NRK has no search endpoint, so this listing is
-     * what an index is built from. Letters that could not be fetched are reported in
+     * 30 requests and roughly 12,000 items). This listing is what to build your own
+     * index from (use `search` to look up a single theme). Letters that could not be fetched are reported in
      * `failed` and the rest are returned; the call stops early on rate limiting.
      *
      * @param input.letters Letters to list, for instance `"abc"` (letters only, a-z, æ, ø, å).
@@ -237,6 +242,45 @@ export class NrkClient {
             }
         }
         return checked(catalogValidator, { items, failed });
+    };
+
+    /**
+     * Free-text search in NRK TV: series, programs and single episodes, best match first. Use it
+     * to look for a theme, a title or a person without holding a copy of the catalog. One request.
+     * An episode hit has its own program id (use it with getPlayback) and the series it belongs to.
+     *
+     * NRK matches words in titles and descriptions and forgives small spelling mistakes, but it
+     * is not a semantic search: "norsk historie" finds programs with those words, not everything
+     * about the subject. Try several phrasings. Nothing matching gives an empty list, not an error.
+     *
+     * @param input.query Text to search for, for instance `"norsk historie"` (max 200 characters).
+     * @param input.limit Most hits to return, 1-100. Default 20.
+     * @example
+     * const found = await client.search({ query: "norsk historie", limit: 30 });
+     * if (found.ok) console.log(found.data.items.map((i) => `${i.type} ${i.id} ${i.title}`));
+     */
+    search = async (input: SearchInput): Promise<Result<SearchResults>> => {
+        const parsed = parseInput(searchInput, input);
+        if (!parsed.ok) return fail(parsed.error);
+        const { query, limit } = parsed.data;
+
+        try {
+            const hits = await this.call(() => this.nrk.search(query, limit ?? 20));
+            return checked(searchResultsValidator, {
+                items: hits.map((hit) => ({
+                    id: hit.id,
+                    type: hit.type,
+                    title: hit.title,
+                    description: hit.description,
+                    availableNow: hit.hasRights,
+                    geoBlocked: hit.isGeoBlocked,
+                    seriesId: hit.seriesId,
+                    seriesTitle: hit.seriesTitle,
+                })),
+            });
+        } catch (e) {
+            return fail(toNrkError(e));
+        }
     };
 
     // ── Series and episodes ─────────────────────────────────────────

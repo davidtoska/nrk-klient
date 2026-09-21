@@ -1,4 +1,7 @@
+
+# INSTRUKSER
 Ikke rør testene som er skrevet. Bruk dem som de er.
+Dokumentasjon på apiet vi bruker ligger her. https://psapi.nrk.no/documentation/  Bare undersøk api om STRENGT NØDVENDIG.
 
 # Formål
 - Typesikker klient for NRK-apiet.

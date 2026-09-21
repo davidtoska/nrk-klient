@@ -132,7 +132,7 @@ console.log("esm import ok");`,
     fs.writeFileSync(
         path.join(app, "check.ts"),
         `import { NrkClient } from "narko-klient";
-import type { Result, Program, NrkError, Playback, Recommendations } from "narko-klient";
+import type { Result, Program, NrkError, Playback, Recommendations, SearchResults } from "narko-klient";
 // @ts-expect-error the input types are not exported; the methods document what they accept
 import type { ListCatalogInput } from "narko-klient";
 
@@ -172,6 +172,15 @@ export const main = async (): Promise<void> => {
     const because: ReadonlyArray<string> | undefined = recs.data.items[0]?.basedOn;
     void [ids, because];
   }
+  const hits: Result<SearchResults> = await client.search({ query: "norsk historie", limit: 30 });
+  if (hits.ok) {
+    const first: string | undefined = hits.data.items[0]?.id;
+    const kind: "program" | "series" | "episode" | undefined = hits.data.items[0]?.type;
+    void [first, kind];
+  }
+  // @ts-expect-error query is required
+  await client.search({ limit: 5 });
+
   // @ts-expect-error count must be 5, 10, 15, 20 or 25
   await client.getRecommendation({ basedOn: ["x"], count: 7 });
 
