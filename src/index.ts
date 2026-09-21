@@ -32,7 +32,6 @@ export type {
 } from "./nrk-response";
 
 // AiClient
-export type { AiClientOptions, NrkLike } from "./ai-client";
 export type {
     AiAvailabilityStatus,
     AiCatalogItem,

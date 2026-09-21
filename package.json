@@ -1,17 +1,8 @@
 {
   "name": "nrk-klient",
-  "version": "1.0.0",
-  "description": "Client for NRK TV (psapi.nrk.no), plus an AiClient with compact results for AI agents. No runtime dependencies.",
+  "version": "0.0.1",
+  "description": "",
   "keywords": [
-    "nrk",
-    "nrk-tv",
-    "norway",
-    "tv",
-    "streaming",
-    "ai",
-    "llm",
-    "agent",
-    "client"
   ],
   "homepage": "https://github.com/davidtoska/nrk-klient#readme",
   "bugs": {
@@ -54,7 +45,6 @@
   "devDependencies": {
     "@types/node": "^24.13.6",
     "esbuild": "^0.28.2",
-    "typescript": "^7.0.2",
-    "zod": "^4.6.5"
+    "typescript": "^7.0.2"
   }
 }

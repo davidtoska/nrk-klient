@@ -8,7 +8,7 @@ describe("HTTP error handling", () => {
     let stub: FetchStub | undefined;
     afterEach(() => stub?.restore());
 
-    it("turns a 404 JSON body into NrkHttpError instead of a zod error", async () => {
+    it("turns a 404 JSON body into NrkHttpError instead of a validation error", async () => {
         stub = installFetchMock(
             () =>
                 new Response(JSON.stringify({ message: "not found", statusCode: 404 }), {

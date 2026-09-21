@@ -1,8 +1,8 @@
 # nrk-klient
 
 A TypeScript client for NRK TV (`psapi.nrk.no`), plus an `AiClient` that returns small, flat results
-for AI agents. No runtime dependencies: the schema validation library is bundled, so you never have
-to think about versions of it.
+for AI agents. No dependencies at all: response validation is built in, so there is nothing else to
+install or keep in sync.
 
 > Unofficial. This package is not affiliated with NRK. It uses NRK's public API, which is not
 > versioned or guaranteed to stay the same, and NRK answers `429 Too Many Requests` when it is hit
@@ -26,7 +26,8 @@ Everything else is a TypeScript type (`ProgramById`, `AiResult`, ...) and does n
 
 ## NRK
 
-The methods validate NRK's responses and throw if the shape is not what is expected.
+The methods validate NRK's responses. If the shape is not what is expected they throw an error named
+`NrkValidationError` that lists the offending fields (check `error.name`).
 
 ```ts
 import { NRK, NrkHttpError } from "nrk-klient";
@@ -62,7 +63,7 @@ Made for agents that pick content and build schedules.
   30 requests, roughly 12,000 programs and series) and searches it in memory.
 - **Never throws**: every method returns `{ ok: true, data }` or `{ ok: false, error }`.
 - **Paged**: `total`, `offset` and `hasMore` tell the agent what it did not see.
-- **Gentle**: requests are spaced out (250 ms by default) and lookups are cached.
+- **Gentle**: requests are spaced out (250 ms) and lookups are cached.
 
 ```ts
 import { AiClient } from "nrk-klient";
@@ -98,8 +99,14 @@ const programs = await ai.getPrograms({ programIds: ["MKTF73000514"] });
 Error codes: `not_found`, `forbidden`, `rate_limited` (with `retryAfterSeconds`), `upstream_error`,
 `invalid_response`, `invalid_input`, `network`, `unknown`.
 
-Options for the constructor: `minIntervalMs`, `cacheTtlMs`, `catalogTtlMs`, `maxContributors`,
-`letters`, and `nrk` (inject your own client, for tests).
+The client takes no options: `new AiClient()`.
+
+### Results are checked
+
+Both clients check what they return against the declared TypeScript type before handing it over, so
+a value that contradicts a signature never reaches you. `NRK` throws a `NrkValidationError` whose
+message starts with `Invalid result from NRK.<method>`; `AiClient` returns an `invalid_response`
+error instead of throwing. Arguments to `AiClient` are validated the same way (`invalid_input`).
 
 ### Good to know
 
@@ -111,4 +118,4 @@ Options for the constructor: `minIntervalMs`, `cacheTtlMs`, `catalogTtlMs`, `max
 
 ## License
 
-ISC. The bundled third-party software is listed in `dist/THIRD_PARTY_LICENSES.md`.
+ISC.

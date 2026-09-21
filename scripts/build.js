@@ -4,11 +4,11 @@
  *
  *   npm run build
  *
- * - dist/index.js   one CommonJS file with all dependencies (zod) bundled in
+ * - dist/index.js   one CommonJS file
  * - dist/*.d.ts     only the declarations reachable from index.d.ts
- * - dist/THIRD_PARTY_LICENSES.md
  *
- * The build fails if zod (or any other package) would be needed by the consumer.
+ * The package has no dependencies. The build fails if any third-party code ended up in
+ * the bundle, or if a consumer would need a package at runtime or for the types.
  */
 const fs = require("node:fs");
 const path = require("node:path");
@@ -46,11 +46,9 @@ const kb = (bytes) => (bytes / 1024).toFixed(1) + " KB";
         metafile: true,
         logLevel: "warning",
     });
-    const outputs = Object.values(result.metafile.outputs);
-    const bundled = Object.keys(outputs[0].inputs);
-    const zodBytes = Object.entries(outputs[0].inputs)
-        .filter(([file]) => file.includes("node_modules/zod/"))
-        .reduce((n, [, v]) => n + v.bytesInOutput, 0);
+    const bundled = Object.keys(Object.values(result.metafile.outputs)[0].inputs);
+    const thirdParty = bundled.filter((file) => file.includes("node_modules"));
+    if (thirdParty.length > 0) fail("third-party code was bundled: " + thirdParty.slice(0, 5).join(", "));
 
     // 2. Declarations
     const tsc = spawnSync("npx tsc -p tsconfig.build.json", {
@@ -75,11 +73,11 @@ const kb = (bytes) => (bytes / 1024).toFixed(1) + " KB";
         if (!reachable.has(file)) fs.rmSync(file);
     }
 
-    // 4. Nothing may depend on zod or on any other package
+    // 4. Nothing may depend on any package
     for (const file of walk(dist).filter((f) => f.endsWith(".d.ts"))) {
         const text = fs.readFileSync(file, "utf8");
-        if (/["']zod["']|\bz\.(Zod|input|output|infer)/.test(text)) {
-            fail(`${path.relative(root, file)} references zod - it would leak into the consumer's types`);
+        if (/@internal|Validator<|from\s+["']\.\/validate["']/.test(text)) {
+            fail(`${path.relative(root, file)} exposes internal validation code`);
         }
         const bare = [...text.matchAll(/from\s+["']([^."'][^"']*)["']/g)].map((m) => m[1]);
         if (bare.length > 0) fail(`${path.relative(root, file)} imports packages: ${bare.join(", ")}`);
@@ -89,21 +87,12 @@ const kb = (bytes) => (bytes / 1024).toFixed(1) + " KB";
     const packages = requires.filter((r) => !r.startsWith("node:") && !r.startsWith("."));
     if (packages.length > 0) fail("index.js requires packages at runtime: " + [...new Set(packages)].join(", "));
 
-    // 5. Third-party notice for what is bundled
-    const zodPkg = JSON.parse(fs.readFileSync(path.join(root, "node_modules/zod/package.json"), "utf8"));
-    const zodLicense = fs.readFileSync(path.join(root, "node_modules/zod/LICENSE"), "utf8").trim();
-    fs.writeFileSync(
-        path.join(dist, "THIRD_PARTY_LICENSES.md"),
-        `# Third-party licenses\n\nThis package bundles the following software.\n\n` +
-            `## zod ${zodPkg.version}\n\n${zodPkg.homepage ?? ""}\n\n\`\`\`\n${zodLicense}\n\`\`\`\n`,
-    );
-
-    // 6. Report
+    // 5. Report
     const files = walk(dist).map((f) => [path.relative(root, f), fs.statSync(f).size]);
-    console.log("\nBuilt dist/ with zod " + zodPkg.version + " bundled in:");
+    console.log("\nBuilt dist/:");
     for (const [name, size] of files) console.log("  " + name.padEnd(40) + kb(size));
-    console.log(`\n  ${bundled.length} source files bundled, of which zod is ~${kb(zodBytes)} of the output`);
-    console.log("  no runtime dependencies, no zod in the declarations");
+    console.log(`\n  ${bundled.length} source files bundled, no third-party code`);
+    console.log("  no runtime dependencies, no package imports in the declarations");
 })().catch((e) => {
     console.error(e);
     process.exit(1);

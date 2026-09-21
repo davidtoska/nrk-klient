@@ -5,7 +5,7 @@
  *   npm run build && npm run verify:package
  *
  * 1. `npm pack`, and check what ends up in the tarball
- * 2. install the tarball into an empty project (no zod there) and run it
+ * 2. install the tarball into an empty project and run it
  * 3. type-check a small TypeScript program against the installed package
  */
 const fs = require("node:fs");
@@ -41,7 +41,6 @@ try {
     check(names.every(allowed), `only dist/, README, LICENSE and package.json are shipped (${names.length} files)`);
     check(!names.some((n) => /swagger|fixtures|^src\/|^test\//i.test(n)), "no sources, tests, fixtures or swagger files");
     check(names.includes("dist/index.js") && names.includes("dist/index.d.ts"), "index.js and index.d.ts are present");
-    check(names.includes("dist/THIRD_PARTY_LICENSES.md"), "third-party license notice is present");
     console.log(`  ${(info.size / 1024).toFixed(1)} KB packed, ${(info.unpackedSize / 1024).toFixed(1)} KB unpacked`);
     const tarball = path.join(tmp, info.filename);
 
@@ -54,7 +53,7 @@ try {
     if (install.status !== 0) throw new Error("npm install failed:\n" + install.stderr);
     const installed = JSON.parse(fs.readFileSync(path.join(app, "node_modules/nrk-klient/package.json"), "utf8"));
     check(!installed.dependencies && !installed.peerDependencies, "package declares no dependencies or peer dependencies");
-    check(!fs.existsSync(path.join(app, "node_modules/zod")), "zod is not installed for the consumer");
+    check(!installed.dependencies && !installed.peerDependencies && !installed.optionalDependencies, "package declares no dependencies of any kind");
     const installedPackages = fs.readdirSync(path.join(app, "node_modules")).filter((n) => !n.startsWith("."));
     check(installedPackages.join() === "nrk-klient", "nothing else was installed (found: " + installedPackages.join(", ") + ")");
 
@@ -90,7 +89,7 @@ globalThis.fetch = async (url) => {
 };
 
 (async () => {
-  // NRK: real recorded program page through the bundled zod schemas
+  // NRK: real recorded program page through the built-in validators
   const program = await pkg.NRK.getProgramById("${ids.availableProgram}");
   assert.equal(program.id, "${ids.availableProgram}");
   assert.ok(program.title.length > 0 && program.durationInSeconds > 0);
@@ -99,6 +98,7 @@ globalThis.fetch = async (url) => {
   await assert.rejects(pkg.NRK.getSeriesType("finnes-ikke"), (e) => e instanceof pkg.NrkHttpError && e.status === 404);
 
   // AiClient: search, details, and error mapping - none of it throws
+  // (letters and minIntervalMs are an internal test seam, not public API: they only keep this smoke test fast)
   const ai = new pkg.AiClient({ letters: "f", minIntervalMs: 0 });
   const found = await ai.searchCatalog({ query: "fotball" });
   assert.ok(found.ok && found.data.items[0].id === "P1" && found.data.total === 1);
@@ -113,7 +113,7 @@ globalThis.fetch = async (url) => {
 `,
     );
     const smoke = run("node smoke.js", app);
-    check(smoke.status === 0, "CommonJS require: NRK, AiClient and error handling work without zod installed");
+    check(smoke.status === 0, "CommonJS require: NRK, AiClient and error handling work with nothing else installed");
     if (smoke.status !== 0) console.log((smoke.stdout + smoke.stderr).split("\n").map((l) => "    " + l).join("\n"));
 
     fs.writeFileSync(
@@ -133,7 +133,7 @@ console.log("esm import ok");`,
 import type { AiResult, AiProgram, AiError, ProgramById, SearchCatalogInput } from "nrk-klient";
 
 export const main = async (): Promise<void> => {
-  const ai = new AiClient({ minIntervalMs: 0 });
+  const ai = new AiClient();
   const input: SearchCatalogInput = { query: "natur", type: "series", limit: 5 };
   const found = await ai.searchCatalog(input);
   if (found.ok) {
@@ -154,8 +154,10 @@ export const main = async (): Promise<void> => {
   const e: unknown = new NrkHttpError(500, "u", null);
   void [p.title, e];
 
-  // @ts-expect-error unknown option
+  // @ts-expect-error the client takes no options
   new AiClient({ nope: 1 });
+  // @ts-expect-error not even the internal test seams are part of the public types
+  new AiClient({ minIntervalMs: 0 });
   // @ts-expect-error limit must be a number
   await ai.searchCatalog({ limit: "5" });
 };

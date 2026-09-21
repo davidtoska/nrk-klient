@@ -1,12 +1,17 @@
-import * as z from "zod";
 import { NRK } from "./client";
 import { NrkHttpError } from "./nrk-client-raw";
+import { NrkValidationError, Validator, formatIssues, safeParse } from "./validate";
 import {
+    aiCatalogPage,
+    aiEpisodesPage,
+    aiProgram,
+    aiProgramsResult,
+    aiSeries,
     getEpisodesInput,
     getProgramsInput,
     getSeriesInput,
     searchCatalogInput,
-} from "./ai-schemas";
+} from "./ai-types";
 import type {
     GetEpisodesInput,
     GetProgramsInput,
@@ -25,29 +30,38 @@ import type {
 } from "./ai-types";
 import type { Episode, SeasonsWithEpisodes } from "./nrk-response";
 
-/** The part of NrkClient that AiClient uses. Lets tests inject a fake. */
+/**
+ * The part of NrkClient that AiClient uses.
+ * @internal
+ */
 export type NrkLike = Pick<
     typeof NRK,
     "letter" | "getSeasons" | "getAllEpisodes" | "getProgramById" | "getMetadata"
 >;
 
-export interface AiClientOptions {
-    readonly nrk?: NrkLike;
-    /** Letters that make up the catalog index. Default: a-z, æ, ø, å. */
-    readonly letters?: string;
-    /** Minimum time between two requests to NRK. Default 250 ms. */
-    readonly minIntervalMs?: number;
-    /** How long series/season/program lookups are cached. Default 10 min. */
-    readonly cacheTtlMs?: number;
-    /** How long the catalog index is kept before it is reloaded. Default 6 h. */
-    readonly catalogTtlMs?: number;
-    /** Max credited people returned per program/episode. Default 15 (p99 is 17). */
-    readonly maxContributors?: number;
-    /** Clock, for tests. */
-    readonly now?: () => number;
+/**
+ * Seams for tests. Not part of the public API: the published declarations only have
+ * `new AiClient()`.
+ * @internal
+ */
+export interface AiClientConfig {
+    nrk?: NrkLike;
+    letters?: string;
+    minIntervalMs?: number;
+    catalogTtlMs?: number;
+    maxContributors?: number;
+    now?: () => number;
 }
 
 const ALPHABET = "abcdefghijklmnopqrstuvwxyzæøå";
+/** Minimum time between two requests to NRK: NRK answers 429 when it is hit hard. */
+const MIN_INTERVAL_MS = 250;
+/** How long series, season and program lookups are cached. */
+const CACHE_TTL_MS = 10 * 60 * 1000;
+/** How long the catalog index is kept before it is reloaded. */
+const CATALOG_TTL_MS = 6 * 60 * 60 * 1000;
+/** Most credited people returned per program or episode (p99 is 17). */
+const MAX_CONTRIBUTORS = 15;
 /** ListedContent.description falls back to this when NRK has none. */
 const NO_DESCRIPTION = "No description";
 
@@ -81,13 +95,6 @@ const toMinutes = (seconds: number): number => {
     return Math.round(seconds / 60);
 };
 
-const describeIssues = (error: z.ZodError): string => {
-    return error.issues
-        .slice(0, 3)
-        .map((i) => `${i.path.join(".") || "input"}: ${i.message}`)
-        .join("; ");
-};
-
 /** Converts anything thrown by the NRK client into an AiError. */
 export const toAiError = (e: unknown): AiError => {
     if (e instanceof NrkHttpError) {
@@ -111,10 +118,10 @@ export const toAiError = (e: unknown): AiError => {
         }
         return { code: "upstream_error", message };
     }
-    if (e instanceof z.ZodError) {
+    if (e instanceof NrkValidationError) {
         return {
             code: "invalid_response",
-            message: "NRK returned an unexpected response shape: " + describeIssues(e),
+            message: "NRK returned an unexpected response shape: " + formatIssues(e.issues, 3),
         };
     }
     if (e instanceof TypeError) {
@@ -123,19 +130,34 @@ export const toAiError = (e: unknown): AiError => {
     return { code: "unknown", message: e instanceof Error ? e.message : String(e) };
 };
 
-const parseInput = <S extends z.ZodType>(schema: S, input: unknown): AiResult<z.output<S>> => {
-    const parsed = schema.safeParse(input);
+const parseInput = <T>(validator: Validator<T>, input: unknown): AiResult<T> => {
+    const parsed = safeParse(validator, input);
     if (parsed.success) {
         return { ok: true, data: parsed.data };
     }
     return {
         ok: false,
-        error: { code: "invalid_input", message: describeIssues(parsed.error) },
+        error: { code: "invalid_input", message: formatIssues(parsed.issues, 3) },
     };
 };
 
 const ok = <T>(data: T): AiResult<T> => ({ ok: true, data });
 const fail = <T>(error: AiError): AiResult<T> => ({ ok: false, error });
+
+/**
+ * Every result is checked against its declared type before it is returned. A value that
+ * does not match becomes an invalid_response error instead of reaching the caller.
+ */
+const checked = <T>(validator: Validator<T>, value: T): AiResult<T> => {
+    const result = safeParse(validator, value);
+    if (result.success) {
+        return ok(result.data);
+    }
+    return fail({
+        code: "invalid_response",
+        message: "Result does not match its type: " + formatIssues(result.issues, 3),
+    });
+};
 
 /**
  * A wrapper around the NRK client that is shaped for an AI agent:
@@ -154,7 +176,6 @@ export class AiClient {
     private readonly nrk: NrkLike;
     private readonly letters: string;
     private readonly minIntervalMs: number;
-    private readonly cacheTtlMs: number;
     private readonly catalogTtlMs: number;
     private readonly maxContributors: number;
     private readonly now: () => number;
@@ -164,14 +185,16 @@ export class AiClient {
     private catalogLoading: Promise<AiResult<Catalog>> | null = null;
     private readonly cache = new Map<string, { at: number; value: unknown }>();
 
-    constructor(options: AiClientOptions = {}) {
-        this.nrk = options.nrk ?? NRK;
-        this.letters = options.letters ?? ALPHABET;
-        this.minIntervalMs = options.minIntervalMs ?? 250;
-        this.cacheTtlMs = options.cacheTtlMs ?? 10 * 60 * 1000;
-        this.catalogTtlMs = options.catalogTtlMs ?? 6 * 60 * 60 * 1000;
-        this.maxContributors = options.maxContributors ?? 15;
-        this.now = options.now ?? Date.now;
+    /** @internal */
+    constructor(config: AiClientConfig);
+    constructor();
+    constructor(config: AiClientConfig = {}) {
+        this.nrk = config.nrk ?? NRK;
+        this.letters = config.letters ?? ALPHABET;
+        this.minIntervalMs = config.minIntervalMs ?? MIN_INTERVAL_MS;
+        this.catalogTtlMs = config.catalogTtlMs ?? CATALOG_TTL_MS;
+        this.maxContributors = config.maxContributors ?? MAX_CONTRIBUTORS;
+        this.now = config.now ?? Date.now;
     }
 
     // ── Catalog ─────────────────────────────────────────────────────
@@ -223,7 +246,7 @@ export class AiClient {
                     ? entry.item
                     : { ...entry.item, description: truncate(entry.item.description, max) },
             );
-        return ok({
+        return checked(aiCatalogPage, {
             items,
             total: scored.length,
             offset: q.offset,
@@ -248,7 +271,7 @@ export class AiClient {
             const series = await this.memo(`series:${seriesId}`, () =>
                 this.call(() => this.nrk.getSeasons(seriesId)),
             );
-            return ok({
+            return checked(aiSeries, {
                 id: series.seriesId,
                 title: series.title,
                 seriesType: series.seriesType,
@@ -269,7 +292,10 @@ export class AiClient {
             const season = await this.memo(`season:${seriesId}/${seasonName}`, () =>
                 this.call(() => this.nrk.getAllEpisodes(seriesId, seasonName)),
             );
-            return ok(toEpisodesPage(season, availableOn, limit, offset, this.maxContributors));
+            return checked(
+                aiEpisodesPage,
+                toEpisodesPage(season, availableOn, limit, offset, this.maxContributors),
+            );
         } catch (e) {
             return fail(toAiError(e));
         }
@@ -286,7 +312,7 @@ export class AiClient {
                 this.call(() => this.nrk.getProgramById(programId)),
             );
             const description = await this.getDescription(programId);
-            return ok({
+            return checked(aiProgram, {
                 id: p.id,
                 title: p.title,
                 // NRK often repeats the description as the subtitle; that adds only tokens
@@ -328,7 +354,7 @@ export class AiClient {
                 if (result.error.code === "rate_limited") break;
             }
         }
-        return ok({ programs, failed });
+        return checked(aiProgramsResult, { programs, failed });
     };
 
     // ── Internals ───────────────────────────────────────────────────
@@ -415,7 +441,7 @@ export class AiClient {
 
     private memo = async <T>(key: string, fn: () => Promise<T>): Promise<T> => {
         const hit = this.cache.get(key);
-        if (hit && this.now() - hit.at < this.cacheTtlMs) {
+        if (hit && this.now() - hit.at < CACHE_TTL_MS) {
             return hit.value as T;
         }
         const value = await fn();

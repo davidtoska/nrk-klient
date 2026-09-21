@@ -11,8 +11,17 @@ import {
     SeriesType,
     SeriesWithSeasons,
 } from "./nrk-response";
-import { nrkClientParsed } from "./nrk-client-parsed";
+import * as r from "./nrk-response";
+import { nrkClientParsed, seriesType as seriesTypeValidator } from "./nrk-client-parsed";
 import { flattenContributors, parseFirstAired, seriesIdFromHref } from "./nrk-format";
+import * as v from "./validate";
+
+/**
+ * Every public method runs its result through the validator for its declared type before
+ * returning it, so a caller never receives a value that contradicts the signature.
+ */
+const checked = <T>(method: string, validator: v.Validator<T>, value: T): T =>
+    v.parse(validator, value, `Invalid result from NRK.${method}`);
 
 class NrkClient {
     /**
@@ -52,7 +61,7 @@ class NrkClient {
             }
         });
 
-        return responseObject;
+        return checked("letter", r.nrkLetterResponse, responseObject);
     };
 
     getManifest = async (prfId: string): Promise<Manifest> => {
@@ -73,7 +82,7 @@ class NrkClient {
             // rawJSON: JSON.stringify(json),
         };
 
-        return manifest;
+        return checked("getManifest", r.manifest, manifest);
     };
     getMetadata = async (prfId: string): Promise<Metadata> => {
         const parsed = await nrkClientParsed.getMetadata(prfId);
@@ -97,7 +106,7 @@ class NrkClient {
             subTitle: parsed.preplay.titles.subtitle,
             title: parsed.preplay.titles.title,
         };
-        return metaData;
+        return checked("getMetadata", r.metadata, metaData);
     };
 
     getSeasons = async (seriesId: string) => {
@@ -132,7 +141,7 @@ class NrkClient {
             category,
             seasons: data._links.seasons,
         };
-        return seriesWithSeasons;
+        return checked("getSeasons", r.seriesWithSeasons, seriesWithSeasons);
     };
 
     getAllEpisodes = async (
@@ -182,12 +191,12 @@ class NrkClient {
             episodes,
         };
 
-        return returnValue;
+        return checked("getAllEpisodes", r.seasonsWithEpisodes, returnValue);
     };
     getSeriesType = async (seriesId: string): Promise<SeriesType> => {
         const seriesType = await nrkClientParsed.getSeriesType(seriesId);
 
-        return seriesType;
+        return checked("getSeriesType", seriesTypeValidator, seriesType);
     };
     getRecommendation = async (
         contentId: string,
@@ -253,7 +262,7 @@ class NrkClient {
             }
         });
 
-        return result;
+        return checked("getRecommendation", r.recommendationResponse, result);
     };
 
     /**
@@ -264,7 +273,6 @@ class NrkClient {
         const all = legalLetters.split("").map(this.letter);
         const resolvedAll = await Promise.all(all);
         const flattend = resolvedAll.flat(1);
-        console.log(flattend.length);
         const allLetterResponsees: NrkLetterResponse = {
             letter: "",
             programs: [],
@@ -277,7 +285,7 @@ class NrkClient {
             allLetterResponsees.programs.push(...letterResult.programs);
             allLetterResponsees.series.push(...letterResult.series);
         });
-        return allLetterResponsees;
+        return checked("getAllLetters", r.nrkLetterResponse, allLetterResponsees);
     };
 
     prfIdGetAll = async (prfId: string) => {
@@ -331,7 +339,7 @@ class NrkClient {
             availableToDate,
             availableToDisplayValue,
         };
-        return returnType;
+        return checked("getProgramById", r.programById, returnType);
     };
 }
 

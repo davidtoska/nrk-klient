@@ -1,152 +1,127 @@
-import * as z from "zod";
+import * as v from "./validate";
 import { nrkClientRaw } from "./nrk-client-raw";
+import { AVAILABILITY_STATUSES, SEASON_TYPES, SERIES_TYPES } from "./nrk-response";
 
-export const productionYear = z.number().nullish();
-export const duration = z.string().min(1, "Duration-string can not be empty.");
-export const durationInSeconds = z
-    .number()
-    .positive("Duration in seconds has to be positive");
+export const productionYear = v.nullish(v.number);
+export const duration = v.nonEmptyString("Duration-string can not be empty.");
+export const durationInSeconds = v.positiveNumber("Duration in seconds has to be positive");
 
-// Zod - ATOMS
-export const seriesType = z.union([
-    z.literal("sequential"),
-    z.literal("news"),
-    z.literal("standard"),
-]);
+// Atoms
+export const seriesType = v.oneOf(...SERIES_TYPES);
 
-export const seasonType = z.union([
-    z.literal("latest"),
-    z.literal("extramaterial"),
-    z.literal("season"),
-]);
+export const seasonType = v.oneOf(...SEASON_TYPES);
 
-const titles = z.object({
-    title: z.string(),
-    subtitle: z.string().nullable().optional(),
+const titles = v.object({
+    title: v.string,
+    subtitle: v.optional(v.nullable(v.string)),
 });
 
-const webImages = z
-    .array(z.object({ uri: z.string(), width: z.number() }))
-    .nonempty("Image-array should not be empty")
-    .transform((list) =>
-        list.map((item) => ({ url: item.uri, width: item.width })),
-    );
+const webImages = v.map(
+    v.array(v.object({ uri: v.string, width: v.number }), {
+        min: 1,
+        message: "Image-array should not be empty",
+    }),
+    (list) => list.map((item) => ({ url: item.uri, width: item.width })),
+);
 
-const UpstreamSystemInfoParser = z.object({
-    payload: z.object({
-        id: z.string(),
-        name: z.string().min(1),
-        brand: z.string().nonempty(),
+const UpstreamSystemInfoParser = v.object({
+    payload: v.object({
+        id: v.string,
+        name: v.nonEmptyString(),
+        brand: v.nonEmptyString(),
     }),
 });
 
-const image = z.array(
-    z.object({
-        url: z.string().nonempty("ImageUrl can not be empty"),
-        width: z.number(),
+const image = v.array(
+    v.object({
+        url: v.nonEmptyString("ImageUrl can not be empty"),
+        width: v.number,
     }),
 );
-const availability = z.object({
-    status: z.union([
-        z.literal("coming"),
-        z.literal("available"),
-        z.literal("notAvailableOnline"),
-        z.literal("expires"),
-        z.literal("expired"),
-    ]),
+const availability = v.object({
+    status: v.oneOf(...AVAILABILITY_STATUSES),
 });
 
-const transmissions = z
-    .object({ first: z.object({ displayValue: z.string() }).nullish() })
-    .nullish();
-const details = z.object({ displayValue: z.string().nonempty() });
-const category = z.object({ id: z.string() });
+const transmissions = v.nullish(v.object({ first: v.nullish(v.object({ displayValue: v.string })) }));
+const details = v.object({ displayValue: v.nonEmptyString() });
+const category = v.object({ id: v.string });
 
-const usageRights = z.object({
-    from: z.object({
-        date: z.string().nullable(),
-        displayValue: z.string(),
+const usageRights = v.object({
+    from: v.object({
+        date: v.nullable(v.string),
+        displayValue: v.string,
     }),
-    to: z.object({ date: z.string().nullable(), displayValue: z.string() }),
+    to: v.object({ date: v.nullable(v.string), displayValue: v.string }),
 });
-export const SeriesTypeResponse = z.object({ seriesType });
+export const SeriesTypeResponse = v.object({ seriesType });
 
-const NrkLetterItem = z.object({
-    id: z.string().nonempty("Id can not be empty string."),
-    title: z.string(),
-    sortLetter: z.string().min(1),
-    image: z.object({
-        webImages: z
-            .array(z.object({ imageUrl: z.string(), pixelWidth: z.number() }))
-            .nonempty(),
+const NrkLetterItem = v.object({
+    id: v.nonEmptyString("Id can not be empty string."),
+    title: v.string,
+    sortLetter: v.nonEmptyString(),
+    image: v.object({
+        webImages: v.array(v.object({ imageUrl: v.string, pixelWidth: v.number }), { min: 1 }),
     }),
-    type: z.union([z.literal("programme"), z.literal("series")]),
-    isGeoBlocked: z.boolean(),
-    description: z.string().nullable(),
-    hasOndemandRights: z.boolean(),
+    type: v.oneOf("programme", "series"),
+    isGeoBlocked: v.boolean,
+    description: v.nullable(v.string),
+    hasOndemandRights: v.boolean,
 });
 
-const seriesCategory = z.object({ id: z.string(), name: z.string() }).nullish();
+const seriesCategory = v.nullish(v.object({ id: v.string, name: v.string }));
 
-const _links = z.object({
-    seasons: z.array(
-        z.object({ href: z.string(), name: z.string(), title: z.string() }),
-    ),
+const _links = v.object({
+    seasons: v.array(v.object({ href: v.string, name: v.string, title: v.string })),
 });
-const GetSeriesWithSeasonsParser = z.union([
-    z.object({
-        seriesType: z.literal("news"),
-        news: z.object({ image, titles, category: seriesCategory }),
+const GetSeriesWithSeasonsParser = v.union(
+    v.object({
+        seriesType: v.literal("news"),
+        news: v.object({ image, titles, category: seriesCategory }),
         _links,
     }),
-    z.object({
-        seriesType: z.literal("standard"),
-        standard: z.object({ image, titles, category: seriesCategory }),
+    v.object({
+        seriesType: v.literal("standard"),
+        standard: v.object({ image, titles, category: seriesCategory }),
         _links,
     }),
-    z.object({
-        seriesType: z.literal("sequential"),
-        sequential: z.object({ image, titles, category: seriesCategory }),
+    v.object({
+        seriesType: v.literal("sequential"),
+        sequential: v.object({ image, titles, category: seriesCategory }),
         _links,
     }),
-]);
-const href = z.string().nonempty().brand("HREF");
-export const channelName = z
-    .string()
-    .nonempty("Channel name can not be empty")
-    .brand("NRK_CHANNEL_NAME.");
+);
+const href = v.nonEmptyString();
+export const channelName = v.nonEmptyString("Channel name can not be empty");
 
-const SeriesRecommendationParser = z.object({
-    type: z.literal("series"),
+const SeriesRecommendationParser = v.object({
+    type: v.literal("series"),
     upstreamSystemInfo: UpstreamSystemInfoParser,
-    series: z.object({
-        id: z.string(),
-        image: z.object({ webImages }),
+    series: v.object({
+        id: v.string,
+        image: v.object({ webImages }),
         titles,
     }),
 });
 
-const ProgramRecommendationParser = z.object({
-    type: z.literal("program"),
+const ProgramRecommendationParser = v.object({
+    type: v.literal("program"),
     upstreamSystemInfo: UpstreamSystemInfoParser,
-    program: z.object({
-        duration: z.string(),
-        id: z.string(),
-        image: z.object({ webImages }),
+    program: v.object({
+        duration: v.string,
+        id: v.string,
+        image: v.object({ webImages }),
         titles,
     }),
 });
-const RecommendationSchema = z.object({
-    _embedded: z.object({
-        recommendations: z.array(
-            z.union([ProgramRecommendationParser, SeriesRecommendationParser]),
-        ),
+const RecommendationSchema = v.object({
+    _embedded: v.object({
+        recommendations: v.array(v.union(ProgramRecommendationParser, SeriesRecommendationParser)),
     }),
 });
 
-const EmbeddedOrInstalledEpisode = z.object({
-    id: z.string().min(1),
-    prfId: z.string().min(1),
+const EmbeddedOrInstalledEpisode = v.object({
+    id: v.nonEmptyString(),
+    prfId: v.nonEmptyString(),
     image,
     titles,
     details,
@@ -155,94 +130,142 @@ const EmbeddedOrInstalledEpisode = z.object({
     availability,
     usageRights,
     productionYear,
-    sequenceNumber: z.number().nullish(),
-    contributors: z.array(z.object({ name: z.string(), role: z.string() })).nullish(),
+    sequenceNumber: v.nullish(v.number),
+    contributors: v.nullish(v.array(v.object({ name: v.string, role: v.string }))),
     transmissions,
-    firstTransmissionDateDisplayValue: z.string().nullish(),
+    firstTransmissionDateDisplayValue: v.nullish(v.string),
 });
-const GetEpisodesParser = z.object({
+const GetEpisodesParser = v.object({
     seriesType,
     seasonType,
-    _embedded: z.object({
-        instalments: z.array(EmbeddedOrInstalledEpisode).optional(),
-        episodes: z.array(EmbeddedOrInstalledEpisode).optional(),
+    _embedded: v.object({
+        instalments: v.optional(v.array(EmbeddedOrInstalledEpisode)),
+        episodes: v.optional(v.array(EmbeddedOrInstalledEpisode)),
     }),
 });
 
-const manifestParser = z.object({
-    playability: z.union([z.literal("playable"), z.literal("nonPlayable")]),
-    playable: z
-        .object({
+const manifestParser = v.object({
+    playability: v.oneOf("playable", "nonPlayable"),
+    playable: v.nullable(
+        v.object({
             duration,
-            assets: z
-                .array(
-                    z.object({
-                        url: z.string(),
-                        format: z.union([z.literal("HLS"), z.literal("MP4")]),
-                        mimeType: z.literal("application/vnd.apple.mpegurl"),
-                    }),
-                )
-                .nonempty(),
-        })
-        .nullable(),
+            assets: v.array(
+                v.object({
+                    url: v.string,
+                    format: v.oneOf("HLS", "MP4"),
+                    mimeType: v.literal("application/vnd.apple.mpegurl"),
+                }),
+                { min: 1 },
+            ),
+        }),
+    ),
 });
 
-const metaDataParser = z.object({
-    playability: z.union([z.literal("playable"), z.literal("nonPlayable")]),
+const metaDataParser = v.object({
+    playability: v.oneOf("playable", "nonPlayable"),
 
-    streamingMode: z.union([z.literal("live"), z.literal("onDemand")]),
-    displayAspectRatio: z.union([z.literal("16:9"), z.literal("4:3")]),
-    preplay: z.object({
-        titles: z.object({ title: z.string(), subtitle: z.string() }),
-        description: z.string(),
-        poster: z.object({
-            images: z.array(z.object({ url: z.string(), pixelWidth: z.number() })),
+    streamingMode: v.oneOf("live", "onDemand"),
+    displayAspectRatio: v.oneOf("16:9", "4:3"),
+    preplay: v.object({
+        titles: v.object({ title: v.string, subtitle: v.string }),
+        description: v.string,
+        poster: v.object({
+            images: v.array(v.object({ url: v.string, pixelWidth: v.number })),
         }),
-        indexPoints: z.array(
-            z.object({
-                startPoint: z.string().describe("ISO8601-duration"),
-                title: z.string(),
+        indexPoints: v.array(
+            v.object({
+                startPoint: v.string, // ISO8601 duration
+                title: v.string,
             }),
         ),
     }),
-    duration: z.string(),
-    availability: z.object({
-        onDemand: z
-            .object({
-                from: z.string().nullable(),
-                hasRightsNow: z.boolean(),
-                to: z.string().nullable(),
-            })
-            .nullable(),
+    duration: v.string,
+    availability: v.object({
+        onDemand: v.nullable(
+            v.object({
+                from: v.nullable(v.string),
+                hasRightsNow: v.boolean,
+                to: v.nullable(v.string),
+            }),
+        ),
     }),
 });
+
+const programPageParser = v.object({
+    programInformation: v.object({
+        image,
+        titles,
+        availability,
+    }),
+    _links: v.object({
+        seriesPage: v.optional(v.object({ name: v.string, title: v.string, href })),
+        season: v.optional(v.object({ name: v.nonEmptyString(), title: v.string, href })),
+    }),
+    contributors: v.nullish(v.array(v.object({ role: v.string, name: v.array(v.string) }))),
+    moreInformation: v.object({
+        category,
+        transmissions,
+        duration: v.object({
+            seconds: v.number,
+            displayValue: v.string,
+        }),
+        releaseDateOnDemand: v.nullable(v.string),
+        productionYear: v.nullable(v.number),
+        usageRights,
+    }),
+});
+
+const liveChannelsParser = v.array(
+    v.object({
+        id: channelName,
+        _embedded: v.object({
+            playback: v.object({
+                title: v.string,
+                posters: v.array(
+                    v.object({
+                        image: v.object({
+                            ratio: v.oneOf("16:9", "1:1", "2:3"),
+                            items: v.array(
+                                v.object({
+                                    url: v.url,
+                                    pixelWidth: v.positiveNumber(),
+                                }),
+                            ),
+                        }),
+                    }),
+                ),
+            }),
+        }),
+    }),
+);
+
 class NrkClientParsed {
     letter = async (letter: string) => {
         const result = await nrkClientRaw.letter(letter);
-        return z.array(NrkLetterItem).parse(result);
+        return v.parse(v.array(NrkLetterItem), result);
     };
 
     getManifest = async (prfId: string) => {
         const json = await nrkClientRaw.getManifest(prfId);
-        return manifestParser.parse(json);
+        return v.parse(manifestParser, json);
     };
     getMetadata = async (prfId: string) => {
         const json = await nrkClientRaw.getMetadata(prfId);
-        return metaDataParser.parse(json);
+        return v.parse(metaDataParser, json);
     };
 
     getSeasons = async (seriesId: string) => {
         const json = await nrkClientRaw.getSeasons(seriesId);
-        return GetSeriesWithSeasonsParser.parse(json);
+        return v.parse(GetSeriesWithSeasonsParser, json);
     };
 
     getAllEpisodes = async (seriesId: string, seasonName: string) => {
         const json = await nrkClientRaw.getAllEpisodes(seriesId, seasonName);
-        return GetEpisodesParser.parse(json);
+        return v.parse(GetEpisodesParser, json);
     };
     getSeriesType = async (seriesId: string) => {
         const data = await nrkClientRaw.getSeriesType(seriesId);
-        const parsedResult = SeriesTypeResponse.parse(data);
+        const parsedResult = v.parse(SeriesTypeResponse, data);
         return parsedResult.seriesType;
     };
     getRecommendation = async (
@@ -261,73 +284,16 @@ class NrkClientParsed {
             count,
             ...(options?.age !== undefined && { age: options.age }),
         });
-        return RecommendationSchema.parse(body);
+        return v.parse(RecommendationSchema, body);
     };
 
     getProgramById = async (id: string) => {
         const json = await nrkClientRaw.getProgramById(id);
-        const schema = z.object({
-            programInformation: z.object({
-                image,
-                titles,
-                availability,
-            }),
-            _links: z.object({
-                seriesPage: z
-                    .object({ name: z.string(), title: z.string(), href })
-                    .optional(),
-                season: z
-                    .object({ name: z.string().min(1), title: z.string(), href })
-                    .optional(),
-            }),
-            contributors: z
-                .array(z.object({ role: z.string(), name: z.array(z.string()) }))
-                .nullish(),
-            moreInformation: z.object({
-                category,
-                transmissions,
-                duration: z.object({
-                    seconds: z.number(),
-                    displayValue: z.string(),
-                }),
-                releaseDateOnDemand: z.string().nullable(),
-                productionYear: z.number().nullable(),
-                usageRights,
-            }),
-        });
-        return schema.parse(json);
+        return v.parse(programPageParser, json);
     };
     getLiveChannels = async () => {
         const json = await nrkClientRaw.getLiveChannels();
-        const schema = z.array(
-            z.object({
-                id: channelName,
-                _embedded: z.object({
-                    playback: z.object({
-                        title: z.string(),
-                        posters: z.array(
-                            z.object({
-                                image: z.object({
-                                    ratio: z.union([
-                                        z.literal("16:9"),
-                                        z.literal("1:1"),
-                                        z.literal("2:3"),
-                                    ]),
-                                    items: z.array(
-                                        z.object({
-                                            url: z.string().url(),
-                                            pixelWidth: z.number().positive(),
-                                        }),
-                                    ),
-                                }),
-                            }),
-                        ),
-                    }),
-                }),
-            }),
-        );
-
-        return schema.parse(json);
+        return v.parse(liveChannelsParser, json);
     };
 }
 export const nrkClientParsed = new NrkClientParsed();
