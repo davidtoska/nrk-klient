@@ -2,6 +2,7 @@
 # INSTRUKSER
 Ikke rør testene som er skrevet. Bruk dem som de er.
 Dokumentasjon på apiet vi bruker ligger her. https://psapi.nrk.no/documentation/  Bare undersøk api om STRENGT NØDVENDIG.
+Nå skal vi ikke endre public-api, eller NrkClient sine returverdier. Bare implementasjonen.
 
 # Formål
 - Typesikker klient for NRK-apiet.
@@ -14,10 +15,11 @@ Dokumentasjon på apiet vi bruker ligger her. https://psapi.nrk.no/documentation
 # Kode-design.
 - Bare jobb i main branch
 - Vanilla js
+- Koden skal kunne kjøre både i nodejs og i browser
+- Bruk arrow-functions
 - Public-Api skal være typesikker og her skal vi validere alle returverdier.
 - Ikke github-action - Jeg vil publisere pakkene selv.
 - I denne fasen skal pakkene ha versjon 0.x.x
 - Pakken skal bare eksportere EN KLIENT, og den skal hete NrkClient
 - NrkClient skal aldri kaste feil, men returnere feil som verdier
 - NrkClient skal være stateless, ikke lagre data i minne, bare hente data og validere
-- Filen client.ts skal ikke eksporteres, men brukes av NrkClient. Denne filen skal endres minst mulig.
