@@ -34,7 +34,7 @@ const kb = (bytes) => (bytes / 1024).toFixed(1) + " KB";
 
     // 1. JavaScript: everything bundled, nothing external
     const result = await esbuild.build({
-        entryPoints: [path.join(root, "src/index.ts")],
+        entryPoints: [path.join(root, "src/public-api.ts")],
         outfile: path.join(dist, "index.js"),
         tsconfig: path.join(root, "tsconfig.build.json"),
         bundle: true,
@@ -59,6 +59,8 @@ const kb = (bytes) => (bytes / 1024).toFixed(1) + " KB";
         shell: true,
     });
     if (tsc.status !== 0) fail("tsc could not emit declarations");
+    // the entry point is public-api.ts; the package publishes it as index (main and types in package.json)
+    fs.renameSync(path.join(dist, "public-api.d.ts"), path.join(dist, "index.d.ts"));
 
     // 3. Keep only declarations reachable from index.d.ts
     const reachable = new Set();

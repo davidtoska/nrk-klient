@@ -2,35 +2,35 @@ import { NRK } from "./client";
 import { NrkHttpError } from "./nrk-client-raw";
 import { NrkValidationError, Validator, formatIssues, safeParse } from "./validate";
 import {
-    aiCatalog,
-    aiEpisodes,
-    aiProgram,
-    aiPlayback,
-    aiProgramsResult,
-    aiSeries,
+    catalogValidator,
+    seasonEpisodesValidator,
+    programValidator,
+    playbackValidator,
+    programsResultValidator,
+    seriesValidator,
     getEpisodesInput,
     getProgramsInput,
     getSeriesInput,
     listCatalogInput,
-} from "./ai-types";
+} from "./types";
 import type {
     GetEpisodesInput,
     GetProgramsInput,
     GetSeriesInput,
     ListCatalogInput,
-    AiCatalogItem,
-    AiContributor,
-    AiCatalog,
-    AiEpisode,
-    AiEpisodes,
-    AiError,
-    AiPlayback,
-    AiProgram,
-    AiProgramsResult,
-    AiResult,
-    AiSeries,
-} from "./ai-types";
-import type { Episode, SeasonsWithEpisodes } from "./nrk-response";
+    CatalogItem,
+    Contributor,
+    Catalog,
+    Episode,
+    SeasonEpisodes,
+    NrkError,
+    Playback,
+    Program,
+    ProgramsResult,
+    Result,
+    Series,
+} from "./types";
+import type { NrkEpisode, SeasonsWithEpisodes } from "./nrk-response";
 
 /**
  * The part of the raw NRK client that NrkClient uses.
@@ -71,10 +71,10 @@ const isNetworkFailure = (e: unknown): boolean =>
     (e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError"));
 
 /**
- * Converts anything thrown by the NRK client into an AiError.
+ * Converts anything thrown by the NRK client into an NrkError.
  * @internal
  */
-export const toAiError = (e: unknown): AiError => {
+export const toAiError = (e: unknown): NrkError => {
     if (e instanceof NrkHttpError) {
         let where = e.url;
         try {
@@ -108,7 +108,7 @@ export const toAiError = (e: unknown): AiError => {
     return { code: "unknown", message: e instanceof Error ? e.message : String(e) };
 };
 
-const parseInput = <T>(validator: Validator<T>, input: unknown): AiResult<T> => {
+const parseInput = <T>(validator: Validator<T>, input: unknown): Result<T> => {
     const parsed = safeParse(validator, input);
     if (parsed.success) {
         return { ok: true, data: parsed.data };
@@ -119,14 +119,14 @@ const parseInput = <T>(validator: Validator<T>, input: unknown): AiResult<T> => 
     };
 };
 
-const ok = <T>(data: T): AiResult<T> => ({ ok: true, data });
-const fail = <T>(error: AiError): AiResult<T> => ({ ok: false, error });
+const ok = <T>(data: T): Result<T> => ({ ok: true, data });
+const fail = <T>(error: NrkError): Result<T> => ({ ok: false, error });
 
 /**
  * Every result is checked against its declared type before it is returned. A value that
  * does not match becomes an invalid_response error instead of reaching the caller.
  */
-const checked = <T>(validator: Validator<T>, value: T): AiResult<T> => {
+const checked = <T>(validator: Validator<T>, value: T): Result<T> => {
     const result = safeParse(validator, value);
     if (result.success) {
         return ok(result.data);
@@ -176,13 +176,13 @@ export class NrkClient {
      * what an index is built from. Letters that could not be fetched are reported in
      * `failed` and the rest are returned; the call stops early on rate limiting.
      */
-    listCatalog = async (input: ListCatalogInput = {}): Promise<AiResult<AiCatalog>> => {
+    listCatalog = async (input: ListCatalogInput = {}): Promise<Result<Catalog>> => {
         const parsed = parseInput(listCatalogInput, input);
         if (!parsed.ok) return fail(parsed.error);
         const letters = [...new Set((parsed.data.letters ?? this.letters).toLowerCase().split(""))];
 
-        const items: AiCatalogItem[] = [];
-        const failed: Array<{ letter: string; error: AiError }> = [];
+        const items: CatalogItem[] = [];
+        const failed: Array<{ letter: string; error: NrkError }> = [];
         const seen = new Set<string>();
         for (const letter of letters) {
             try {
@@ -211,19 +211,19 @@ export class NrkClient {
                 if (error.code === "rate_limited") break;
             }
         }
-        return checked(aiCatalog, { items, failed });
+        return checked(catalogValidator, { items, failed });
     };
 
     // ── Series and episodes ─────────────────────────────────────────
 
-    getSeries = async (input: GetSeriesInput): Promise<AiResult<AiSeries>> => {
+    getSeries = async (input: GetSeriesInput): Promise<Result<Series>> => {
         const parsed = parseInput(getSeriesInput, input);
         if (!parsed.ok) return fail(parsed.error);
         const { seriesId } = parsed.data;
 
         try {
             const series = await this.call(() => this.nrk.getSeasons(seriesId));
-            return checked(aiSeries, {
+            return checked(seriesValidator, {
                 id: series.seriesId,
                 title: series.title,
                 seriesType: series.seriesType,
@@ -236,14 +236,14 @@ export class NrkClient {
     };
 
     /** All episodes of one season (NRK returns a season in one response). */
-    getEpisodes = async (input: GetEpisodesInput): Promise<AiResult<AiEpisodes>> => {
+    getEpisodes = async (input: GetEpisodesInput): Promise<Result<SeasonEpisodes>> => {
         const parsed = parseInput(getEpisodesInput, input);
         if (!parsed.ok) return fail(parsed.error);
         const { seriesId, seasonName, availableOn } = parsed.data;
 
         try {
             const season = await this.call(() => this.nrk.getAllEpisodes(seriesId, seasonName));
-            return checked(aiEpisodes, toEpisodes(season, availableOn, this.maxContributors));
+            return checked(seasonEpisodesValidator, toEpisodes(season, availableOn, this.maxContributors));
         } catch (e) {
             return fail(toAiError(e));
         }
@@ -251,14 +251,14 @@ export class NrkClient {
 
     // ── Programs ────────────────────────────────────────────────────
 
-    getProgram = async (programId: string): Promise<AiResult<AiProgram>> => {
+    getProgram = async (programId: string): Promise<Result<Program>> => {
         const parsed = parseInput(getProgramsInput, { programIds: [programId] });
         if (!parsed.ok) return fail(parsed.error);
 
         try {
             const p = await this.call(() => this.nrk.getProgramById(programId));
             const description = await this.getDescription(programId);
-            return checked(aiProgram, {
+            return checked(programValidator, {
                 id: p.id,
                 title: p.title,
                 // NRK often repeats the description as the subtitle; that adds only tokens
@@ -286,7 +286,7 @@ export class NrkClient {
      * A program NRK will not stream now (expired, not published yet) gives `not_playable`,
      * with NRK's text for the end user as the message.
      */
-    getPlayback = async (programId: string): Promise<AiResult<AiPlayback>> => {
+    getPlayback = async (programId: string): Promise<Result<Playback>> => {
         const parsed = parseInput(getProgramsInput, { programIds: [programId] });
         if (!parsed.ok) return fail(parsed.error);
 
@@ -295,7 +295,7 @@ export class NrkClient {
             if (!source.playable) {
                 return fail({ code: "not_playable", message: source.message });
             }
-            return checked(aiPlayback, {
+            return checked(playbackValidator, {
                 id: source.prfId,
                 title: source.title,
                 subtitle: source.subtitle === "" ? null : source.subtitle,
@@ -317,12 +317,12 @@ export class NrkClient {
      * Several programs at once. Partial success: programs that could not be
      * fetched are listed in `failed`, the rest are returned.
      */
-    getPrograms = async (input: GetProgramsInput): Promise<AiResult<AiProgramsResult>> => {
+    getPrograms = async (input: GetProgramsInput): Promise<Result<ProgramsResult>> => {
         const parsed = parseInput(getProgramsInput, input);
         if (!parsed.ok) return fail(parsed.error);
 
-        const programs: AiProgram[] = [];
-        const failed: Array<{ id: string; error: AiError }> = [];
+        const programs: Program[] = [];
+        const failed: Array<{ id: string; error: NrkError }> = [];
         for (const id of parsed.data.programIds) {
             const result = await this.getProgram(id);
             if (result.ok) {
@@ -333,7 +333,7 @@ export class NrkClient {
                 if (result.error.code === "rate_limited") break;
             }
         }
-        return checked(aiProgramsResult, { programs, failed });
+        return checked(programsResultValidator, { programs, failed });
     };
 
     // ── Internals ───────────────────────────────────────────────────
@@ -368,11 +368,11 @@ export class NrkClient {
     };
 }
 
-const toContributor = (c: { name: string; role: string }): AiContributor => {
+const toContributor = (c: { name: string; role: string }): Contributor => {
     return { name: c.name, role: c.role };
 };
 
-const toEpisode = (e: Episode, maxContributors: number): AiEpisode => {
+const toEpisode = (e: NrkEpisode, maxContributors: number): Episode => {
     return {
         id: e.prfId,
         title: e.title,
@@ -390,7 +390,7 @@ const toEpisode = (e: Episode, maxContributors: number): AiEpisode => {
 };
 
 /** Dates are compared as calendar days (the date part NRK sends, Oslo time). */
-const isAvailableOn = (e: Episode, day: string): boolean => {
+const isAvailableOn = (e: NrkEpisode, day: string): boolean => {
     if (e.availabilityStatus === "notAvailableOnline") return false;
     if (e.availableFromDate !== null && e.availableFromDate.slice(0, 10) > day) return false;
     if (e.availableToDate !== null && e.availableToDate.slice(0, 10) < day) return false;
@@ -401,7 +401,7 @@ const toEpisodes = (
     season: SeasonsWithEpisodes,
     availableOn: string | undefined,
     maxContributors: number,
-): AiEpisodes => {
+): SeasonEpisodes => {
     const matching = availableOn
         ? season.episodes.filter((e) => isAvailableOn(e, availableOn))
         : season.episodes;
@@ -412,9 +412,3 @@ const toEpisodes = (
         episodes: matching.map((e) => toEpisode(e, maxContributors)),
     };
 };
-
-/**
- * Old internal name, kept so the existing tests keep working unchanged.
- * @internal
- */
-export { NrkClient as AiClient };

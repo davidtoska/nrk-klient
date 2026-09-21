@@ -1,6 +1,6 @@
 import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { AiClient, NrkLike } from "../../src/ai-client";
+import { NrkClient as AiClient, NrkLike } from "../../src/nrk-client";
 import { NrkHttpError } from "../../src/nrk-client-raw";
 import type { ListedContent, NrkLetterResponse } from "../../src/nrk-response";
 import { FetchStub, installFetchMock, installFetchStub } from "../support/fetch-stub";

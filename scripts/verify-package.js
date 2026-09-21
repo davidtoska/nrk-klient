@@ -132,7 +132,7 @@ console.log("esm import ok");`,
     fs.writeFileSync(
         path.join(app, "check.ts"),
         `import { NrkClient } from "narko-klient";
-import type { AiResult, AiProgram, AiError, AiPlayback, ListCatalogInput } from "narko-klient";
+import type { Result, Program, NrkError, Playback, ListCatalogInput } from "narko-klient";
 
 export const main = async (): Promise<void> => {
   const ai = new NrkClient();
@@ -144,16 +144,16 @@ export const main = async (): Promise<void> => {
     const failedLetters: string[] = found.data.failed.map((f) => f.letter);
     void [count, title, failedLetters];
   } else {
-    const code: AiError["code"] = found.error.code;
+    const code: NrkError["code"] = found.error.code;
     void code;
   }
-  const program: AiResult<AiProgram> = await ai.getProgram("MKTF73000514");
+  const program: Result<Program> = await ai.getProgram("MKTF73000514");
   if (program.ok) {
     const people: string[] = program.data.contributors.map((c) => c.name);
     const description: string | null = program.data.description;
     void [people, description];
   }
-  const playback: AiResult<AiPlayback> = await ai.getPlayback("MKTF73000514");
+  const playback: Result<Playback> = await ai.getPlayback("MKTF73000514");
   if (playback.ok) {
     const url: string = playback.data.streamUrl;
     const tracks: string[] = playback.data.subtitles.map((t) => t.url);

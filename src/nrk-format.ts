@@ -1,4 +1,4 @@
-import type { Contributor } from "./nrk-response";
+import type { NrkContributor } from "./nrk-response";
 
 /**
  * Small pure helpers for turning NRK's display strings into data.
@@ -85,8 +85,8 @@ export const seriesIdFromHref = (href: string | null | undefined): string | null
  */
 export const flattenContributors = (
     groups: ReadonlyArray<{ role: string; name: ReadonlyArray<string> }> | null | undefined,
-): Contributor[] => {
-    const people: Contributor[] = [];
+): NrkContributor[] => {
+    const people: NrkContributor[] = [];
     for (const group of groups ?? []) {
         for (const name of group.name) {
             const trimmed = name.trim();

@@ -1,5 +1,5 @@
 import {
-    Episode,
+    NrkEpisode,
     ListedContent,
     Manifest,
     Metadata,
@@ -25,7 +25,7 @@ import * as v from "./validate";
 const checked = <T>(method: string, validator: v.Validator<T>, value: T): T =>
     v.parse(validator, value, `Invalid result from NRK.${method}`);
 
-class NrkClient1 {
+export class Client {
     /**
      * Every program and series filed under one letter of NRK's index (a-z, æ, ø, å).
      * Throws NrkHttpError on a non-2xx answer and NrkValidationError on an unexpected shape.
@@ -140,7 +140,7 @@ class NrkClient1 {
         const parsed = await nrkClientParsed.getAllEpisodes(seriesId, seasonName);
         const toEpisode = (
             e: NonNullable<typeof parsed._embedded.episodes>[number],
-        ): Episode => ({
+        ): NrkEpisode => ({
             episodeId: e.id,
             prfId: e.prfId,
             detailsDisplayValue: e.details.displayValue,
@@ -167,7 +167,7 @@ class NrkClient1 {
             seriesId,
             seasonName,
         });
-        const episodes: Episode[] = [
+        const episodes: NrkEpisode[] = [
             ...(parsed._embedded.episodes ?? []).map(toEpisode),
             ...(parsed._embedded.instalments ?? []).map(toEpisode),
         ];
@@ -398,4 +398,4 @@ class NrkClient1 {
     };
 }
 
-export const NRK = new NrkClient1();
+export const NRK = new Client();

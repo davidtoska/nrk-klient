@@ -1,6 +1,6 @@
 import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { AiClient, NrkLike } from "../../src/ai-client";
+import { NrkClient as AiClient, NrkLike } from "../../src/nrk-client";
 import { NRK } from "../../src/client";
 import * as r from "../../src/nrk-response";
 import { NrkValidationError, safeParse } from "../../src/validate";

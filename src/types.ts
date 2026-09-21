@@ -1,6 +1,6 @@
 import * as v from "./validate";
 import { AVAILABILITY_STATUSES, SEASON_TYPES, SERIES_TYPES, isoDate } from "./nrk-response";
-import type { AvailabilityStatus, SeasonType, SeriesType } from "./nrk-response";
+import type { NrkAvailabilityStatus, SeasonType, SeriesType } from "./nrk-response";
 
 // What NrkClient accepts and returns. Deliberately small: only what an agent needs to pick
 // content and build a schedule. No image urls, display strings or HAL links.
@@ -87,7 +87,7 @@ export const getProgramsInput: v.Validator<GetProgramsInput> = v.object({
  * - `network`: the request never completed
  * - `unknown`
  */
-export type AiErrorCode =
+export type NrkErrorCode =
     | "not_found"
     | "forbidden"
     | "rate_limited"
@@ -98,7 +98,7 @@ export type AiErrorCode =
     | "network"
     | "unknown";
 /** @internal */
-export const AI_ERROR_CODES = v.allOf<AiErrorCode>({
+export const ERROR_CODES = v.allOf<NrkErrorCode>({
     not_found: true,
     forbidden: true,
     rate_limited: true,
@@ -110,25 +110,25 @@ export const AI_ERROR_CODES = v.allOf<AiErrorCode>({
     unknown: true,
 });
 
-export interface AiError {
-    readonly code: AiErrorCode;
+export interface NrkError {
+    readonly code: NrkErrorCode;
     readonly message: string;
     readonly retryAfterSeconds?: number | undefined;
 }
 /** @internal */
-export const aiError: v.Validator<AiError> = v.object({
-    code: v.oneOf(...AI_ERROR_CODES),
+export const nrkErrorValidator: v.Validator<NrkError> = v.object({
+    code: v.oneOf(...ERROR_CODES),
     message: v.string,
     retryAfterSeconds: v.optional(v.number),
 });
 
-export type AiResult<T> =
+export type Result<T> =
     | { readonly ok: true; readonly data: T }
-    | { readonly ok: false; readonly error: AiError };
+    | { readonly ok: false; readonly error: NrkError };
 
 // ── Catalog ─────────────────────────────────────────────────────────
 
-export interface AiCatalogItem {
+export interface CatalogItem {
     /** Program id (e.g. 'MKTF73000514') or series id (e.g. 'dagsrevyen'). */
     readonly id: string;
     readonly type: "program" | "series";
@@ -144,7 +144,7 @@ export interface AiCatalogItem {
     readonly geoBlocked: boolean;
 }
 /** @internal */
-export const aiCatalogItem: v.Validator<AiCatalogItem> = v.object({
+export const catalogItemValidator: v.Validator<CatalogItem> = v.object({
     id: v.nonEmptyString(),
     type: v.oneOf("program", "series"),
     title: v.string,
@@ -154,57 +154,57 @@ export const aiCatalogItem: v.Validator<AiCatalogItem> = v.object({
 });
 
 /** The archive's programs and series (one entry per program or series, from NRK's letter index). */
-export interface AiCatalog {
-    readonly items: ReadonlyArray<AiCatalogItem>;
+export interface Catalog {
+    readonly items: ReadonlyArray<CatalogItem>;
     /** Letters that could not be fetched; the rest are still returned. */
-    readonly failed: ReadonlyArray<{ readonly letter: string; readonly error: AiError }>;
+    readonly failed: ReadonlyArray<{ readonly letter: string; readonly error: NrkError }>;
 }
 /** @internal */
-export const aiCatalog: v.Validator<AiCatalog> = v.object({
-    items: v.array(aiCatalogItem),
-    failed: v.array(v.object({ letter: v.string, error: aiError })),
+export const catalogValidator: v.Validator<Catalog> = v.object({
+    items: v.array(catalogItemValidator),
+    failed: v.array(v.object({ letter: v.string, error: nrkErrorValidator })),
 });
 
 // ── Series and episodes ─────────────────────────────────────────────
 
-export interface AiSeason {
+export interface Season {
     /** Pass this as seasonName to getEpisodes. */
     readonly name: string;
     readonly title: string;
 }
 /** @internal */
-export const aiSeason: v.Validator<AiSeason> = v.object({ name: v.string, title: v.string });
+export const seasonValidator: v.Validator<Season> = v.object({ name: v.string, title: v.string });
 
-export interface AiSeries {
+export interface Series {
     readonly id: string;
     readonly title: string;
     /** 'standard' | 'sequential' (numbered episodes) | 'news' (daily bulletins). */
     readonly seriesType: SeriesType;
     /** NRK's classification, e.g. { id: "dokumentar", name: "Dokumentar" }. */
     readonly category: { readonly id: string; readonly name: string } | null;
-    readonly seasons: ReadonlyArray<AiSeason>;
+    readonly seasons: ReadonlyArray<Season>;
 }
 /** @internal */
-export const aiSeries: v.Validator<AiSeries> = v.object({
+export const seriesValidator: v.Validator<Series> = v.object({
     id: v.nonEmptyString(),
     title: v.string,
     seriesType: v.oneOf(...SERIES_TYPES),
     category: v.nullable(v.object({ id: v.string, name: v.string })),
-    seasons: v.array(aiSeason),
+    seasons: v.array(seasonValidator),
 });
 
-export type AiAvailabilityStatus = AvailabilityStatus;
+export type AvailabilityStatus = NrkAvailabilityStatus;
 
 /** A person credited on a program: presenter, performer, actor, ... */
-export interface AiContributor {
+export interface Contributor {
     readonly name: string;
     /** NRK's label: "Medvirkende", "Programleder", "Artister/Utøvere", "Skuespillere", ... */
     readonly role: string;
 }
 /** @internal */
-export const aiContributor: v.Validator<AiContributor> = v.object({ name: v.string, role: v.string });
+export const contributorValidator: v.Validator<Contributor> = v.object({ name: v.string, role: v.string });
 
-export interface AiEpisode {
+export interface Episode {
     /** Program id - use this in a schedule and with getPrograms. */
     readonly id: string;
     readonly title: string;
@@ -216,15 +216,15 @@ export interface AiEpisode {
     readonly availableFrom: string | null;
     /** null = no known expiry. A schedule must not air the episode after this. */
     readonly availableTo: string | null;
-    readonly status: AiAvailabilityStatus;
+    readonly status: AvailabilityStatus;
     readonly productionYear: number | null;
     /** When NRK first broadcast it, YYYY-MM-DD. Known for ~90% of episodes. */
     readonly firstAired: string | null;
     /** Credited people (about 1 in 3 episodes have any), at most 15. */
-    readonly contributors: ReadonlyArray<AiContributor>;
+    readonly contributors: ReadonlyArray<Contributor>;
 }
 /** @internal */
-export const aiEpisode: v.Validator<AiEpisode> = v.object({
+export const episodeValidator: v.Validator<Episode> = v.object({
     id: v.nonEmptyString(),
     title: v.string,
     subtitle: v.nullable(v.string),
@@ -236,27 +236,27 @@ export const aiEpisode: v.Validator<AiEpisode> = v.object({
     status: v.oneOf(...AVAILABILITY_STATUSES),
     productionYear: v.nullable(v.number),
     firstAired: v.nullable(isoDate),
-    contributors: v.array(aiContributor),
+    contributors: v.array(contributorValidator),
 });
 
 /** All episodes of one season (NRK returns a season in one response). */
-export interface AiEpisodes {
+export interface SeasonEpisodes {
     readonly seriesId: string;
     readonly seasonName: string;
     readonly seasonType: SeasonType;
-    readonly episodes: ReadonlyArray<AiEpisode>;
+    readonly episodes: ReadonlyArray<Episode>;
 }
 /** @internal */
-export const aiEpisodes: v.Validator<AiEpisodes> = v.object({
+export const seasonEpisodesValidator: v.Validator<SeasonEpisodes> = v.object({
     seriesId: v.nonEmptyString(),
     seasonName: v.string,
     seasonType: v.oneOf(...SEASON_TYPES),
-    episodes: v.array(aiEpisode),
+    episodes: v.array(episodeValidator),
 });
 
 // ── Programs ────────────────────────────────────────────────────────
 
-export interface AiProgram {
+export interface Program {
     readonly id: string;
     readonly title: string;
     readonly subtitle: string | null;
@@ -271,17 +271,17 @@ export interface AiProgram {
     readonly durationMinutes: number;
     readonly availableFrom: string | null;
     readonly availableTo: string | null;
-    readonly status: AiAvailabilityStatus;
+    readonly status: AvailabilityStatus;
     readonly productionYear: number | null;
     /** When NRK first broadcast it, YYYY-MM-DD (null when unknown). */
     readonly firstAired: string | null;
     /** Credited people (about 1 in 5 programs have any), at most 15. */
-    readonly contributors: ReadonlyArray<AiContributor>;
+    readonly contributors: ReadonlyArray<Contributor>;
     /** Set when this program is an episode of a series (use it to group history by series). */
     readonly seriesId: string | null;
 }
 /** @internal */
-export const aiProgram: v.Validator<AiProgram> = v.object({
+export const programValidator: v.Validator<Program> = v.object({
     id: v.nonEmptyString(),
     title: v.string,
     subtitle: v.nullable(v.string),
@@ -294,25 +294,25 @@ export const aiProgram: v.Validator<AiProgram> = v.object({
     status: v.oneOf(...AVAILABILITY_STATUSES),
     productionYear: v.nullable(v.number),
     firstAired: v.nullable(isoDate),
-    contributors: v.array(aiContributor),
+    contributors: v.array(contributorValidator),
     seriesId: v.nullable(v.nonEmptyString()),
 });
 
-export interface AiProgramsResult {
-    readonly programs: ReadonlyArray<AiProgram>;
+export interface ProgramsResult {
+    readonly programs: ReadonlyArray<Program>;
     /** Ids that could not be fetched; the rest are still returned. */
-    readonly failed: ReadonlyArray<{ readonly id: string; readonly error: AiError }>;
+    readonly failed: ReadonlyArray<{ readonly id: string; readonly error: NrkError }>;
 }
 /** @internal */
-export const aiProgramsResult: v.Validator<AiProgramsResult> = v.object({
-    programs: v.array(aiProgram),
-    failed: v.array(v.object({ id: v.string, error: aiError })),
+export const programsResultValidator: v.Validator<ProgramsResult> = v.object({
+    programs: v.array(programValidator),
+    failed: v.array(v.object({ id: v.string, error: nrkErrorValidator })),
 });
 
 // ── Playback ────────────────────────────────────────────────────────
 
 /** One subtitle file, WebVTT. */
-export interface AiSubtitleTrack {
+export interface SubtitleTrack {
     /** Language code, for instance "nb". */
     readonly language: string;
     /** Text for a language menu, for instance "Norsk på all tale". */
@@ -323,7 +323,7 @@ export interface AiSubtitleTrack {
     readonly defaultOn: boolean;
 }
 /** @internal */
-export const aiSubtitleTrack: v.Validator<AiSubtitleTrack> = v.object({
+export const subtitleTrackValidator: v.Validator<SubtitleTrack> = v.object({
     language: v.nonEmptyString(),
     label: v.string,
     url: v.url,
@@ -331,7 +331,7 @@ export const aiSubtitleTrack: v.Validator<AiSubtitleTrack> = v.object({
 });
 
 /** What a player needs to play one episode or program. Give it to the player as it is. */
-export interface AiPlayback {
+export interface Playback {
     /** The prfId that was asked for. */
     readonly id: string;
     readonly title: string;
@@ -349,12 +349,12 @@ export interface AiPlayback {
     /** A poster to show before playback, about 960 px wide. null when there is none. */
     readonly posterUrl: string | null;
     /** Empty when the program has no subtitles. */
-    readonly subtitles: ReadonlyArray<AiSubtitleTrack>;
+    readonly subtitles: ReadonlyArray<SubtitleTrack>;
     /** End of the streaming window (ISO 8601), or null when NRK gives none. */
     readonly availableTo: string | null;
 }
 /** @internal */
-export const aiPlayback: v.Validator<AiPlayback> = v.object({
+export const playbackValidator: v.Validator<Playback> = v.object({
     id: v.nonEmptyString(),
     title: v.string,
     subtitle: v.nullable(v.string),
@@ -364,6 +364,6 @@ export const aiPlayback: v.Validator<AiPlayback> = v.object({
     durationSeconds: v.nullable(v.number),
     aspectRatio: v.nullable(v.oneOf("16:9", "4:3")),
     posterUrl: v.nullable(v.url),
-    subtitles: v.array(aiSubtitleTrack),
+    subtitles: v.array(subtitleTrackValidator),
     availableTo: v.nullable(v.string),
 });

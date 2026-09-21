@@ -17,3 +17,4 @@ Ikke rør testene som er skrevet. Bruk dem som de er.
 - Pakken skal bare eksportere EN KLIENT, og den skal hete NrkClient
 - NrkClient skal aldri kaste feil, men returnere feil som verdier
 - NrkClient skal være stateless, ikke lagre data i minne, bare hente data og validere
+- Filen client.ts skal ikke eksporteres, men brukes av NrkClient. Denne filen skal endres minst mulig.

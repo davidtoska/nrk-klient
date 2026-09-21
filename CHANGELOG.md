@@ -13,7 +13,7 @@ listed as fixes.
   never throws (`listCatalog`, `getSeries`, `getEpisodes`, `getProgram`, `getPrograms`).
 - `NrkClient.getPlayback(id)`: the stream (HLS), subtitles, poster, duration and title a player
   needs, or a `not_playable` error with NRK's text for the viewer.
-- The types it accepts and returns (`AiResult`, `AiProgram`, `AiCatalog`, ...).
+- The types it accepts and returns (`Result`, `Program`, `Catalog`, ...).
 - Results and arguments are validated against their declared types.
 - Requests time out after 30 s and identify themselves with a `User-Agent`.
 - Program and episode results carry production year, first broadcast date and credited

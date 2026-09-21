@@ -22,7 +22,7 @@ import type { ProgramById, SeasonsWithEpisodes } from "../../src/nrk-response";
 import { IdEntry, readIds } from "../support/fixtures";
 import { installPoliteFetch } from "../support/polite-fetch";
 import { isHttpUrl } from "../support/helpers";
-import { AiClient } from "../../src/ai-client";
+import { NrkClient as AiClient } from "../../src/nrk-client";
 
 const LIMIT = Number(process.env.NRK_LIVE_LIMIT) || Infinity;
 const INTERVAL_MS = Number(process.env.NRK_LIVE_INTERVAL_MS) || 350;

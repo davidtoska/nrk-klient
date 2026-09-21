@@ -6,9 +6,9 @@ import * as v from "./validate";
 // does not match the declared type. The validators carry the internal tag and are stripped
 // from the published declarations.
 
-export type AvailabilityStatus = "coming" | "available" | "expires" | "expired" | "notAvailableOnline";
+export type NrkAvailabilityStatus = "coming" | "available" | "expires" | "expired" | "notAvailableOnline";
 /** @internal */
-export const AVAILABILITY_STATUSES = v.allOf<AvailabilityStatus>({
+export const AVAILABILITY_STATUSES = v.allOf<NrkAvailabilityStatus>({
     coming: true,
     available: true,
     expires: true,
@@ -79,19 +79,19 @@ export const listedContent: v.Validator<ListedContent> = v.object({
     description: v.string,
 });
 
-export interface Contributor {
+export interface NrkContributor {
     readonly name: string;
     /** As NRK labels it: "Medvirkende", "Programleder", "Artister/Utøvere", ... */
     readonly role: string;
 }
 /** @internal */
-export const contributor: v.Validator<Contributor> = v.object({ name: v.string, role: v.string });
+export const contributor: v.Validator<NrkContributor> = v.object({ name: v.string, role: v.string });
 
 export interface ProgramById {
     readonly id: string;
     readonly title: string;
     readonly subtitle: string | null;
-    readonly availabilityStatus: AvailabilityStatus;
+    readonly availabilityStatus: NrkAvailabilityStatus;
     readonly availableFromDate: string | null;
     readonly availableFromDisplayValue: string;
     readonly availableToDate: string | null;
@@ -104,7 +104,7 @@ export interface ProgramById {
     readonly productionYear: number | null;
     /** When NRK first broadcast it (YYYY-MM-DD), if known. */
     readonly firstAired: string | null;
-    readonly contributors: ReadonlyArray<Contributor>;
+    readonly contributors: ReadonlyArray<NrkContributor>;
     /** Set when the program is an episode of a series. */
     readonly seriesId: string | null;
 }
@@ -128,7 +128,7 @@ export const programById: v.Validator<ProgramById> = v.object({
     seriesId: v.nullable(v.nonEmptyString()),
 });
 
-export interface Season {
+export interface NrkSeason {
     /**
      * The season name is used as an ID.
      */
@@ -137,7 +137,7 @@ export interface Season {
     readonly href: string;
 }
 /** @internal */
-export const season: v.Validator<Season> = v.object({ name: v.string, title: v.string, href: v.string });
+export const season: v.Validator<NrkSeason> = v.object({ name: v.string, title: v.string, href: v.string });
 
 export interface SeriesWithSeasons {
     readonly seriesId: string;
@@ -147,7 +147,7 @@ export interface SeriesWithSeasons {
     readonly seriesType: SeriesType;
     /** NRK's own classification of the series, e.g. { id: "dokumentar", name: "Dokumentar" }. */
     readonly category: { readonly id: string; readonly name: string } | null;
-    readonly seasons: ReadonlyArray<Season>;
+    readonly seasons: ReadonlyArray<NrkSeason>;
 }
 /** @internal */
 export const seriesWithSeasons: v.Validator<SeriesWithSeasons> = v.object({
@@ -159,14 +159,14 @@ export const seriesWithSeasons: v.Validator<SeriesWithSeasons> = v.object({
     seasons: v.array(season),
 });
 
-export interface Episode {
+export interface NrkEpisode {
     readonly episodeId: string;
     readonly prfId: string;
     readonly seriesId: string;
     readonly seasonName: string;
     readonly title: string;
     readonly subtitle: string | null;
-    readonly availabilityStatus: AvailabilityStatus;
+    readonly availabilityStatus: NrkAvailabilityStatus;
     readonly availableFromDate: string | null;
     readonly availableFromDisplayValue: string;
     readonly availableToDate: string | null;
@@ -179,10 +179,10 @@ export interface Episode {
     readonly productionYear: number | null;
     /** When NRK first broadcast it (YYYY-MM-DD), if known. */
     readonly firstAired: string | null;
-    readonly contributors: ReadonlyArray<Contributor>;
+    readonly contributors: ReadonlyArray<NrkContributor>;
 }
 /** @internal */
-export const episode: v.Validator<Episode> = v.object({
+export const episode: v.Validator<NrkEpisode> = v.object({
     episodeId: v.nonEmptyString(),
     prfId: v.nonEmptyString(),
     seriesId: v.nonEmptyString(),
@@ -209,7 +209,7 @@ export interface SeasonsWithEpisodes {
     readonly seasonName: string;
     readonly seriesType: SeriesType;
     readonly seasonType: SeasonType;
-    readonly episodes: ReadonlyArray<Episode>;
+    readonly episodes: ReadonlyArray<NrkEpisode>;
 }
 /** @internal */
 export const seasonsWithEpisodes: v.Validator<SeasonsWithEpisodes> = v.object({

@@ -4,26 +4,26 @@
  * The only runtime export is NrkClient. The rest are the types it accepts and returns, and
  * they disappear at runtime.
  */
-export { NrkClient } from "./ai-client";
+export { NrkClient } from "./nrk-client";
 
 export type {
-    AiAvailabilityStatus,
-    AiCatalog,
-    AiCatalogItem,
-    AiContributor,
-    AiEpisode,
-    AiEpisodes,
-    AiError,
-    AiErrorCode,
-    AiProgram,
-    AiPlayback,
-    AiProgramsResult,
-    AiResult,
-    AiSeason,
-    AiSeries,
-    AiSubtitleTrack,
+    AvailabilityStatus,
+    Catalog,
+    CatalogItem,
+    Contributor,
+    Episode,
+    SeasonEpisodes,
+    NrkError,
+    NrkErrorCode,
+    Program,
+    Playback,
+    ProgramsResult,
+    Result,
+    Season,
+    Series,
+    SubtitleTrack,
     GetEpisodesInput,
     GetProgramsInput,
     GetSeriesInput,
     ListCatalogInput,
-} from "./ai-types";
+} from "./types";

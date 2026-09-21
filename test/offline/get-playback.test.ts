@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { AiClient } from "../../src/ai-client";
+import { NrkClient as AiClient } from "../../src/nrk-client";
 import { parseIsoDuration } from "../../src/nrk-format";
 import { FetchStub, installFetchMock, installFetchStub } from "../support/fetch-stub";
 import { FIXTURES_DIR } from "../support/fixtures";
