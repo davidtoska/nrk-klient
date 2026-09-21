@@ -184,7 +184,7 @@ describe("search with altered answers", () => {
         const result = await newClient().search({ query: "x" });
         assert.ok(result.ok);
         assert.deepEqual(result.data.items, [
-            { id: "en-serie", type: "series", title: "En serie", description: "", availableNow: false, geoBlocked: false },
+            { id: "en-serie", type: "series", title: "En serie", description: "", availableNow: false, geoBlocked: false, imageUrl: null },
         ]);
     });
 

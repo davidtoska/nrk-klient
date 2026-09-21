@@ -16,7 +16,13 @@ import {
 import * as r from "./nrk-response";
 import { nrkClientParsed, seriesType as seriesTypeValidator } from "./nrk-client-parsed";
 import type { RecommendationOptions } from "./nrk-client-raw";
-import { flattenContributors, parseFirstAired, parseIsoDuration, seriesIdFromHref } from "./nrk-format";
+import {
+    flattenContributors,
+    nearestImageUrl,
+    parseFirstAired,
+    parseIsoDuration,
+    seriesIdFromHref,
+} from "./nrk-format";
 import * as v from "./validate";
 
 /**
@@ -205,6 +211,9 @@ export class Client {
                 isGeoBlocked: hit.usageRights?.isGeoBlocked ?? false,
                 seriesId: kind === "episode" ? (hit.seriesId ?? null) : null,
                 seriesTitle: kind === "episode" ? (hit.seriesTitle ?? null) : null,
+                imageUrl: nearestImageUrl(
+                    (hit.image?.webImages ?? []).map((img) => ({ url: img.imageUrl, width: img.pixelWidth })),
+                ),
             }));
         return checked("search", v.array(r.searchHit), hits);
     };
@@ -346,11 +355,6 @@ export class Client {
                 message: "The stream is DRM-protected and cannot be played by a plain HLS player.",
             };
         }
-        const poster = metadata.images.reduce<{ url: string; width: number } | null>(
-            (best, img) =>
-                best === null || Math.abs(img.width - 960) < Math.abs(best.width - 960) ? img : best,
-            null,
-        );
         return {
             playable: true,
             prfId,
@@ -361,7 +365,7 @@ export class Client {
             mediaType: manifest.sourceMedium === "audio" ? "audio" : "video",
             durationSeconds: parseIsoDuration(playable.duration),
             aspectRatio: metadata.aspectRatio,
-            posterUrl: poster?.url ?? null,
+            posterUrl: nearestImageUrl(metadata.images, 960),
             subtitles: (playable.subtitles ?? []).flatMap((track) =>
                 track.webVtt
                     ? [

@@ -176,7 +176,8 @@ export const main = async (): Promise<void> => {
   if (hits.ok) {
     const first: string | undefined = hits.data.items[0]?.id;
     const kind: "program" | "series" | "episode" | undefined = hits.data.items[0]?.type;
-    void [first, kind];
+    const picture: string | null | undefined = hits.data.items[0]?.imageUrl;
+    void [first, kind, picture];
   }
   // @ts-expect-error query is required
   await client.search({ limit: 5 });

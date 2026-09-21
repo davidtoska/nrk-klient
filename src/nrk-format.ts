@@ -107,3 +107,17 @@ export const parseIsoDuration = (text: string): number | null => {
         Number(d ?? 0) * 86400 + Number(h ?? 0) * 3600 + Number(min ?? 0) * 60 + Number(sec ?? 0),
     );
 };
+
+/** The address of the image whose width is closest to `target` px, or null when there are none. */
+export const nearestImageUrl = (
+    images: ReadonlyArray<{ readonly url: string; readonly width: number }>,
+    target = 300,
+): string | null => {
+    let best: { readonly url: string; readonly width: number } | null = null;
+    for (const image of images) {
+        if (best === null || Math.abs(image.width - target) < Math.abs(best.width - target)) {
+            best = image;
+        }
+    }
+    return best?.url ?? null;
+};

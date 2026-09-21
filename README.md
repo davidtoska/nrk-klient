@@ -24,7 +24,8 @@ describes what its methods return, and does not exist at runtime. What the metho
 An API against NRK, made for agents that pick content and build schedules.
 
 - **Small results**: ids, titles, descriptions, duration, availability window, category, production
-  year, first broadcast date and credited people. No images or links.
+  year, first broadcast date and credited people, and one small picture (`imageUrl`, about 300 px wide) for lists and cards. No
+  links or display strings. `getPlayback` has a larger poster for the player.
 - **Never throws**: every method returns `{ ok: true, data }` or `{ ok: false, error }`.
 - **Partial results**: where one call needs several requests (`listCatalog`, `getPrograms`) you get what
   could be fetched, plus a `failed` list.
@@ -101,6 +102,8 @@ instead of throwing. Arguments are validated the same way (`invalid_input`).
 ### Good to know
 
 - About 1 in 10 items has no description at NRK; `description` is then an empty string.
+- `imageUrl` is `null` when NRK lists no picture. If you pass results on to a language model, leave the
+  field out: the address only costs tokens, and it is meant for your user interface.
 - `search` is one request. NRK's search is by words, not meaning: "norsk historie" finds titles and
   descriptions with those words, not everything about the subject, so try several phrasings.
   It uses an endpoint that is not in NRK's swagger files, so it is the most likely to change.

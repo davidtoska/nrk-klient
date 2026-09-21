@@ -16,11 +16,9 @@ const titles = v.object({
     subtitle: v.optional(v.nullable(v.string)),
 });
 
+// an empty list is fine: the item just has no picture
 const webImages = v.map(
-    v.array(v.object({ uri: v.string, width: v.number }), {
-        min: 1,
-        message: "Image-array should not be empty",
-    }),
+    v.array(v.object({ uri: v.string, width: v.number })),
     (list) => list.map((item) => ({ url: item.uri, width: item.width })),
 );
 
@@ -260,6 +258,9 @@ const searchHitParser = v.object({
     seriesId: v.nullish(v.string),
     seriesTitle: v.nullish(v.string),
     hideInSearchResults: v.optional(v.boolean),
+    image: v.nullish(
+        v.object({ webImages: v.array(v.object({ imageUrl: v.string, pixelWidth: v.number })) }),
+    ),
 });
 const SEARCH_KINDS = { serie: "series", program: "program", episode: "episode" } as const;
 

@@ -20,6 +20,8 @@ listed as fixes.
 - Every method takes one argument object (`id` or `ids` for what to look up) and results and
   arguments are validated against their declared types.
 - Requests time out after 30 s and identify themselves with a `User-Agent`.
+- `imageUrl` (a small picture, about 300 px wide, or `null`) on content items, programs, episodes,
+  series and recommendations, for showing the content in other applications.
 - Program and episode results carry production year, first broadcast date and credited
   people, for personalisation.
 

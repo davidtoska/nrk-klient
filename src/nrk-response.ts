@@ -325,6 +325,8 @@ export interface SearchHit {
     /** Episodes only. */
     readonly seriesId: string | null;
     readonly seriesTitle: string | null;
+    /** About 300 px wide; null when NRK lists no image. */
+    readonly imageUrl: string | null;
 }
 /** @internal */
 export const searchHit: v.Validator<SearchHit> = v.object({
@@ -336,4 +338,5 @@ export const searchHit: v.Validator<SearchHit> = v.object({
     isGeoBlocked: v.boolean,
     seriesId: v.nullable(v.string),
     seriesTitle: v.nullable(v.string),
+    imageUrl: v.nullable(v.string),
 });

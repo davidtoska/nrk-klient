@@ -1,4 +1,5 @@
 import { NRK } from "./client";
+import { nearestImageUrl } from "./nrk-format";
 import { NrkHttpError } from "./nrk-client-raw";
 import { NrkValidationError, Validator, formatIssues, safeParse } from "./validate";
 import {
@@ -234,6 +235,7 @@ export class NrkClient {
                         description: c.description,
                         availableNow: c.hasOnDemandRights,
                         geoBlocked: c.isGeoBlocked,
+                        imageUrl: c.imageUrl,
                     });
                 }
             } catch (e) {
@@ -276,6 +278,7 @@ export class NrkClient {
                     description: hit.description,
                     availableNow: hit.hasRights,
                     geoBlocked: hit.isGeoBlocked,
+                    imageUrl: hit.imageUrl,
                     ...(hit.seriesId === null
                         ? {}
                         : {
@@ -311,6 +314,7 @@ export class NrkClient {
                 seriesType: series.seriesType,
                 category: series.category,
                 seasons: series.seasons.map((s) => ({ name: s.name, title: s.title })),
+                imageUrl: series.imageUrl300,
             });
         } catch (e) {
             return fail(toNrkError(e));
@@ -379,6 +383,7 @@ export class NrkClient {
                 firstAired: p.firstAired,
                 contributors: p.contributors.slice(0, this.maxContributors).map(toContributor),
                 seriesId: p.seriesId,
+                imageUrl: nearestImageUrl(p.images),
             });
         } catch (e) {
             return fail(toNrkError(e));
@@ -449,7 +454,7 @@ export class NrkClient {
         const { basedOn, count } = parsed.data;
         const asked = [...new Set(basedOn)];
 
-        const found = new Map<string, { id: string; type: "program" | "series"; title: string; subtitle: string | null; basedOn: string[] }>();
+        const found = new Map<string, { id: string; type: "program" | "series"; title: string; subtitle: string | null; basedOn: string[]; imageUrl: string | null }>();
         const failed: Array<{ id: string; error: NrkError }> = [];
         for (const id of asked) {
             try {
@@ -466,6 +471,7 @@ export class NrkClient {
                             title: item.title,
                             subtitle: item.subtitle === "" || item.subtitle === null ? null : item.subtitle,
                             basedOn: [id],
+                            imageUrl: nearestImageUrl(item.images),
                         });
                     }
                 }
@@ -562,6 +568,7 @@ const toEpisode = (e: NrkEpisode, maxContributors: number): Episode => {
         productionYear: e.productionYear,
         firstAired: e.firstAired,
         contributors: e.contributors.slice(0, maxContributors).map(toContributor),
+        imageUrl: nearestImageUrl(e.images),
     };
 };
 

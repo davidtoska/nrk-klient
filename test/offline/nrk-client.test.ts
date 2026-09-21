@@ -72,6 +72,7 @@ describe("NrkClient.listCatalog", () => {
             "description",
             "geoBlocked",
             "id",
+            "imageUrl",
             "title",
             "type",
         ]);
@@ -83,6 +84,7 @@ describe("NrkClient.listCatalog", () => {
             description: "Kampen om pokalen.",
             availableNow: true,
             geoBlocked: false,
+            imageUrl: "https://gfx.nrk.no/x",
         });
         assert.equal(byId["S1"]?.type, "series");
         assert.equal(byId["S1"]?.availableNow, false);
@@ -272,6 +274,7 @@ describe("NrkClient against recorded NRK responses", () => {
                 "episodeNumber",
                 "firstAired",
                 "id",
+                "imageUrl",
                 "productionYear",
                 "status",
                 "subtitle",

@@ -3,7 +3,7 @@ import { AVAILABILITY_STATUSES, SEASON_TYPES, SERIES_TYPES, isoDate } from "./nr
 import type { NrkAvailabilityStatus, SeasonType, SeriesType } from "./nrk-response";
 
 // What NrkClient accepts and returns. Deliberately small: only what an agent needs to pick
-// content and build a schedule. No image urls, display strings or HAL links.
+// content and build a schedule. One small image per item, no display strings or HAL links.
 // All dates are ISO 8601 strings exactly as NRK sends them (or null).
 //
 // Each type is followed by its validator, typed `Validator<TheType>` so the compiler makes
@@ -158,6 +158,11 @@ export interface ContentItem {
     /** Episodes (search only): the series it belongs to. Absent for programs and series. */
     readonly seriesId?: string | undefined;
     readonly seriesTitle?: string | undefined;
+    /**
+     * A small picture (about 300 px wide) for lists and cards, or null when NRK has none.
+     * getPlayback has a larger poster for the player.
+     */
+    readonly imageUrl: string | null;
 }
 /** @internal */
 export const contentItemValidator: v.Validator<ContentItem> = v.object({
@@ -169,6 +174,7 @@ export const contentItemValidator: v.Validator<ContentItem> = v.object({
     geoBlocked: v.boolean,
     seriesId: v.optional(v.string),
     seriesTitle: v.optional(v.string),
+    imageUrl: v.nullable(v.url),
 });
 
 /** The archive's programs and series (one entry per program or series, from NRK's letter index). */
@@ -201,6 +207,11 @@ export interface Series {
     /** NRK's classification, e.g. { id: "dokumentar", name: "Dokumentar" }. */
     readonly category: { readonly id: string; readonly name: string } | null;
     readonly seasons: ReadonlyArray<Season>;
+    /**
+     * A small picture (about 300 px wide) for lists and cards, or null when NRK has none.
+     * getPlayback has a larger poster for the player.
+     */
+    readonly imageUrl: string | null;
 }
 /** @internal */
 export const seriesValidator: v.Validator<Series> = v.object({
@@ -209,6 +220,7 @@ export const seriesValidator: v.Validator<Series> = v.object({
     seriesType: v.oneOf(...SERIES_TYPES),
     category: v.nullable(v.object({ id: v.string, name: v.string })),
     seasons: v.array(seasonValidator),
+    imageUrl: v.nullable(v.url),
 });
 
 export type AvailabilityStatus = NrkAvailabilityStatus;
@@ -240,6 +252,11 @@ export interface Episode {
     readonly firstAired: string | null;
     /** Credited people (about 1 in 3 episodes have any), at most 15. */
     readonly contributors: ReadonlyArray<Contributor>;
+    /**
+     * A small picture (about 300 px wide) for lists and cards, or null when NRK has none.
+     * getPlayback has a larger poster for the player.
+     */
+    readonly imageUrl: string | null;
 }
 /** @internal */
 export const episodeValidator: v.Validator<Episode> = v.object({
@@ -255,6 +272,7 @@ export const episodeValidator: v.Validator<Episode> = v.object({
     productionYear: v.nullable(v.number),
     firstAired: v.nullable(isoDate),
     contributors: v.array(contributorValidator),
+    imageUrl: v.nullable(v.url),
 });
 
 /** All episodes of one season (NRK returns a season in one response). */
@@ -297,6 +315,11 @@ export interface Program {
     readonly contributors: ReadonlyArray<Contributor>;
     /** Set when this program is an episode of a series (use it to group history by series). */
     readonly seriesId: string | null;
+    /**
+     * A small picture (about 300 px wide) for lists and cards, or null when NRK has none.
+     * getPlayback has a larger poster for the player.
+     */
+    readonly imageUrl: string | null;
 }
 /** @internal */
 export const programValidator: v.Validator<Program> = v.object({
@@ -314,6 +337,7 @@ export const programValidator: v.Validator<Program> = v.object({
     firstAired: v.nullable(isoDate),
     contributors: v.array(contributorValidator),
     seriesId: v.nullable(v.nonEmptyString()),
+    imageUrl: v.nullable(v.url),
 });
 
 export interface Programs {
@@ -412,6 +436,11 @@ export interface RecommendedItem {
     readonly subtitle: string | null;
     /** Which of the ids you passed in led to this recommendation. More than one means a stronger match. */
     readonly basedOn: ReadonlyArray<string>;
+    /**
+     * A small picture (about 300 px wide) for lists and cards, or null when NRK has none.
+     * getPlayback has a larger poster for the player.
+     */
+    readonly imageUrl: string | null;
 }
 /** @internal */
 export const recommendedItemValidator: v.Validator<RecommendedItem> = v.object({
@@ -420,6 +449,7 @@ export const recommendedItemValidator: v.Validator<RecommendedItem> = v.object({
     title: v.string,
     subtitle: v.nullable(v.string),
     basedOn: v.array(v.nonEmptyString(), { min: 1 }),
+    imageUrl: v.nullable(v.url),
 });
 
 export interface Recommendations {
