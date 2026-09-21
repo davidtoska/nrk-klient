@@ -6,7 +6,7 @@ import type { ListedContent, NrkLetterResponse } from "../../src/nrk-response";
 import { FetchStub, installFetchMock, installFetchStub } from "../support/fetch-stub";
 import { curated, first, recordedJson, urls } from "../support/helpers";
 
-// ── A fake NRK with known content, for search logic ─────────────────
+// ── A fake NRK with known content ───────────────────────────────────
 
 const listed = (
     id: string,
@@ -26,21 +26,26 @@ const listed = (
     };
 };
 
-const CONTENT: ListedContent[] = [
-    listed("P1", "programme", "Fotball-VM", "Kampen om pokalen."),
-    listed("P2", "programme", "Dagsnytt", "Dagens saker, blant annet om fotball."),
-    listed("S1", "series", "Skiskyting", "Vinter i Holmenkollen.", { onDemand: false }),
-    listed("P3", "programme", "Fotball utenfor Norge", "Sendes bare i Norge.", { geo: true }),
-    listed("S2", "series", "Fotballfeber", "Sesongen for fotballfans. Fotball og fotball."),
-    listed("P4", "programme", "Ordløs", "No description"),
-    listed("P5", "programme", "Lang beskrivelse", "x".repeat(500)),
-];
+/** What the fake NRK lists under each letter. "b" repeats P1 to test de-duplication. */
+const BY_LETTER: Record<string, ListedContent[]> = {
+    a: [
+        listed("P1", "programme", "Fotball-VM", "Kampen om pokalen."),
+        listed("S1", "series", "Skiskyting", "Vinter i Holmenkollen.", { onDemand: false }),
+        listed("P3", "programme", "Fotball utenfor Norge", "Sendes bare i Norge.", { geo: true }),
+        listed("P4", "programme", "Ordløs", "No description"),
+        listed("P5", "programme", "Lang beskrivelse", "x".repeat(500)),
+    ],
+    b: [
+        listed("P1", "programme", "Fotball-VM", "Kampen om pokalen."),
+        listed("P6", "programme", "Bok", "Om en bok."),
+    ],
+};
 
-const fakeNrk = (counter = { letterCalls: 0 }): NrkLike => {
+const fakeNrk = (calls: string[] = []): NrkLike => {
     return {
         letter: async (letter: string): Promise<NrkLetterResponse> => {
-            counter.letterCalls++;
-            const mine = letter === "a" ? CONTENT : [];
+            calls.push(letter);
+            const mine = BY_LETTER[letter] ?? [];
             return {
                 letter,
                 programs: mine.filter((c) => c.type === "programme"),
@@ -58,105 +63,11 @@ const unwrap = <T>(result: { ok: true; data: T } | { ok: false; error: unknown }
     return result.data;
 };
 
-describe("AiClient.searchCatalog", () => {
-    it("ranks title matches above description matches", async () => {
-        const page = unwrap(await newClient().searchCatalog({ query: "fotball" }));
-        const ids = page.items.map((i) => i.id);
-        // S2 has the word in title (3) and description (1 per term, not per hit) -> 4
-        assert.deepEqual(ids, ["S2", "P1", "P2"]);
-    });
-
-    it("excludes geoblocked and non-streamable items by default", async () => {
-        const client = newClient();
-        const ids = (q: object) =>
-            client.searchCatalog(q).then((r) => unwrap(r).items.map((i) => i.id).sort());
-
-        assert.ok(!(await ids({ query: "fotball" })).includes("P3"));
-        assert.ok((await ids({ query: "fotball", includeGeoBlocked: true })).includes("P3"));
-        assert.deepEqual(await ids({ query: "ski" }), []);
-        assert.deepEqual(await ids({ query: "ski", onDemandOnly: false }), ["S1"]);
-    });
-
-    it("matches any keyword by default and all keywords with matchAll", async () => {
-        const client = newClient();
-        const any = unwrap(await client.searchCatalog({ query: "vm, holmenkollen", onDemandOnly: false }));
-        assert.deepEqual(any.items.map((i) => i.id).sort(), ["P1", "S1"]);
-
-        const all = unwrap(
-            await client.searchCatalog({ query: "fotball vm", matchAll: true }),
-        );
-        assert.deepEqual(all.items.map((i) => i.id), ["P1"]);
-    });
-
-    it("is case-insensitive and handles æøå", async () => {
-        const page = unwrap(await newClient().searchCatalog({ query: "ORDLØS" }));
-        assert.deepEqual(page.items.map((i) => i.id), ["P4"]);
-    });
-
-    it("filters on type", async () => {
-        const client = newClient();
-        const series = unwrap(await client.searchCatalog({ query: "fotball", type: "series" }));
-        assert.ok(series.items.every((i) => i.type === "series"));
-        const programs = unwrap(await client.searchCatalog({ query: "fotball", type: "program" }));
-        assert.ok(programs.items.every((i) => i.type === "program"));
-    });
-
-    it("pages with total, offset and hasMore", async () => {
-        const client = newClient();
-        const p1 = unwrap(await client.searchCatalog({ query: "fotball", limit: 2 }));
-        assert.equal(p1.items.length, 2);
-        assert.equal(p1.total, 3);
-        assert.equal(p1.hasMore, true);
-
-        const p2 = unwrap(await client.searchCatalog({ query: "fotball", limit: 2, offset: 2 }));
-        assert.equal(p2.items.length, 1);
-        assert.equal(p2.hasMore, false);
-
-        const beyond = unwrap(await client.searchCatalog({ query: "fotball", offset: 50 }));
-        assert.equal(beyond.items.length, 0);
-        assert.equal(beyond.hasMore, false);
-    });
-
-    it("browses alphabetically without a query and reports the catalog size", async () => {
-        const page = unwrap(await newClient().searchCatalog({ onDemandOnly: false, includeGeoBlocked: true }));
-        assert.equal(page.catalogSize, CONTENT.length);
-        assert.equal(page.total, CONTENT.length);
-        const titles = page.items.map((i) => i.title);
-        assert.deepEqual(titles, [...titles].sort((a, b) => a.localeCompare(b, "nb")));
-    });
-
-    it("returns descriptions in full by default and drops the 'No description' placeholder", async () => {
-        const page = unwrap(await newClient().searchCatalog({ query: "beskrivelse ordløs" }));
-        const byId = Object.fromEntries(page.items.map((i) => [i.id, i]));
-        assert.equal(byId["P5"]?.description, "x".repeat(500));
-        assert.equal(byId["P4"]?.description, "");
-    });
-
-    it("shortens descriptions only when descriptionMaxChars is given", async () => {
-        const client = newClient();
-        const page = unwrap(
-            await client.searchCatalog({ query: "beskrivelse dagsnytt", descriptionMaxChars: 40 }),
-        );
-        const byId = Object.fromEntries(page.items.map((i) => [i.id, i]));
-        assert.equal(byId["P5"]?.description.length, 40);
-        assert.ok(byId["P5"]?.description.endsWith("…"));
-        // shorter than the limit: untouched
-        assert.equal(byId["P2"]?.description, "Dagens saker, blant annet om fotball.");
-
-        // and the index itself keeps the full text for the next call
-        const again = unwrap(await client.searchCatalog({ query: "beskrivelse" }));
-        assert.equal(again.items[0]?.description.length, 500);
-    });
-
-    it("rejects a descriptionMaxChars that is too small", async () => {
-        const result = await newClient().searchCatalog({ descriptionMaxChars: 5 });
-        assert.ok(!result.ok);
-        assert.equal(result.error.code, "invalid_input");
-    });
-
-    it("returns compact items with only the documented fields", async () => {
-        const page = unwrap(await newClient().searchCatalog({ query: "dagsnytt" }));
-        assert.deepEqual(Object.keys(first(page.items)).sort(), [
+describe("AiClient.listCatalog", () => {
+    it("lists programs and series with only the documented fields", async () => {
+        const catalog = unwrap(await newClient().listCatalog({ letters: "a" }));
+        assert.deepEqual(catalog.items.map((i) => i.id), ["P1", "P3", "P4", "P5", "S1"]);
+        assert.deepEqual(Object.keys(first(catalog.items)).sort(), [
             "availableNow",
             "description",
             "geoBlocked",
@@ -164,71 +75,101 @@ describe("AiClient.searchCatalog", () => {
             "title",
             "type",
         ]);
-    });
-
-    it("loads the catalog once, even for concurrent searches", async () => {
-        const counter = { letterCalls: 0 };
-        const client = newClient(fakeNrk(counter));
-        await Promise.all([
-            client.searchCatalog({ query: "fotball" }),
-            client.searchCatalog({ query: "ski" }),
-            client.searchCatalog({}),
-        ]);
-        await client.searchCatalog({ query: "dagsnytt" });
-        assert.equal(counter.letterCalls, 2); // letters "a" and "b", once each
-    });
-
-    it("reloads after refreshCatalog()", async () => {
-        const counter = { letterCalls: 0 };
-        const client = newClient(fakeNrk(counter));
-        await client.searchCatalog({});
-        client.refreshCatalog();
-        await client.searchCatalog({});
-        assert.equal(counter.letterCalls, 4);
-    });
-
-    it("reloads when the catalog is older than catalogTtlMs", async () => {
-        let time = 0;
-        const counter = { letterCalls: 0 };
-        const client = new AiClient({
-            nrk: fakeNrk(counter),
-            letters: "a",
-            minIntervalMs: 0,
-            catalogTtlMs: 1000,
-            now: () => time,
+        const byId = Object.fromEntries(catalog.items.map((i) => [i.id, i]));
+        assert.deepEqual(byId["P1"], {
+            id: "P1",
+            type: "program",
+            title: "Fotball-VM",
+            description: "Kampen om pokalen.",
+            availableNow: true,
+            geoBlocked: false,
         });
-        await client.searchCatalog({});
-        time = 500;
-        await client.searchCatalog({});
-        assert.equal(counter.letterCalls, 1);
-        time = 1500;
-        await client.searchCatalog({});
-        assert.equal(counter.letterCalls, 2);
+        assert.equal(byId["S1"]?.type, "series");
+        assert.equal(byId["S1"]?.availableNow, false);
+        assert.equal(byId["P3"]?.geoBlocked, true);
+        assert.deepEqual(catalog.failed, []);
     });
 
-    it("does not cache a failed load and reports rate limiting", async () => {
-        let fail = true;
+    it("returns everything, unfiltered and with full descriptions", async () => {
+        const catalog = unwrap(await newClient().listCatalog({ letters: "a" }));
+        assert.equal(catalog.items.length, 5, "streamable, geoblocked and unavailable items are all listed");
+        assert.equal(catalog.items.find((i) => i.id === "P5")?.description, "x".repeat(500));
+    });
+
+    it("drops the 'No description' placeholder", async () => {
+        const catalog = unwrap(await newClient().listCatalog({ letters: "a" }));
+        assert.equal(catalog.items.find((i) => i.id === "P4")?.description, "");
+    });
+
+    it("lists an item once even when it appears under several letters", async () => {
+        const catalog = unwrap(await newClient().listCatalog({ letters: "ab" }));
+        assert.deepEqual(catalog.items.map((i) => i.id).sort(), ["P1", "P3", "P4", "P5", "P6", "S1"]);
+    });
+
+    it("uses the whole alphabet by default and only the given letters when asked", async () => {
+        const all: string[] = [];
+        unwrap(await new AiClient({ nrk: fakeNrk(all), minIntervalMs: 0 }).listCatalog());
+        assert.deepEqual(all.sort(), "abcdefghijklmnopqrstuvwxyzæøå".split("").sort());
+
+        const some: string[] = [];
+        unwrap(await newClient(fakeNrk(some)).listCatalog({ letters: "b" }));
+        assert.deepEqual(some, ["b"]);
+    });
+
+    it("ignores case and repeated letters", async () => {
+        const calls: string[] = [];
+        unwrap(await newClient(fakeNrk(calls)).listCatalog({ letters: "AAb" }));
+        assert.deepEqual(calls, ["a", "b"]);
+    });
+
+    it("stores nothing: every call goes to NRK", async () => {
+        const calls: string[] = [];
+        const client = newClient(fakeNrk(calls));
+        await client.listCatalog({ letters: "ab" });
+        await client.listCatalog({ letters: "ab" });
+        assert.deepEqual(calls, ["a", "b", "a", "b"]);
+    });
+
+    it("returns the letters that worked and reports the ones that did not", async () => {
         const nrk = {
             letter: async (letter: string) => {
-                if (fail) throw new NrkHttpError(429, "https://psapi.nrk.no/x", {}, 600);
-                return { letter, programs: [], series: [] };
+                if (letter === "a") throw new NrkHttpError(404, "https://psapi.nrk.no/x/a", {});
+                return { letter, programs: [listed("P6", "programme", "Bok", "Om en bok.")], series: [] };
             },
         } as unknown as NrkLike;
-        const client = new AiClient({ nrk, letters: "a", minIntervalMs: 0 });
 
-        const first = await client.searchCatalog({});
-        assert.ok(!first.ok);
-        assert.equal(first.error.code, "rate_limited");
-        assert.equal(first.error.retryAfterSeconds, 600);
+        const catalog = unwrap(await newClient(nrk).listCatalog({ letters: "ab" }));
 
-        fail = false;
-        assert.ok((await client.searchCatalog({})).ok);
+        assert.deepEqual(catalog.items.map((i) => i.id), ["P6"]);
+        assert.equal(catalog.failed.length, 1);
+        assert.equal(catalog.failed[0]?.letter, "a");
+        assert.equal(catalog.failed[0]?.error.code, "not_found");
+    });
+
+    it("stops asking NRK once it is rate limited", async () => {
+        const calls: string[] = [];
+        const nrk = {
+            letter: async (letter: string) => {
+                calls.push(letter);
+                if (letter === "b") throw new NrkHttpError(429, "https://psapi.nrk.no/x/b", {}, 600);
+                return { letter, programs: [listed("P6", "programme", "Bok", "Om en bok.")], series: [] };
+            },
+        } as unknown as NrkLike;
+
+        const catalog = unwrap(await newClient(nrk).listCatalog({ letters: "abc" }));
+
+        assert.deepEqual(calls, ["a", "b"], "c must not be requested after the 429");
+        assert.deepEqual(catalog.items.map((i) => i.id), ["P6"]);
+        assert.equal(catalog.failed.length, 1);
+        assert.equal(catalog.failed[0]?.letter, "b");
+        assert.equal(catalog.failed[0]?.error.code, "rate_limited");
+        assert.equal(catalog.failed[0]?.error.retryAfterSeconds, 600);
     });
 
     it("rejects bad input with invalid_input instead of throwing", async () => {
         const client = newClient();
-        for (const bad of [{ limit: 0 }, { limit: 500 }, { type: "movie" }, { offset: -1 }]) {
-            const result = await client.searchCatalog(bad as never);
+        for (const bad of [{ letters: "" }, { letters: "a1" }, { letters: "a b" }, { letters: "x".repeat(30) }, { letters: 5 }]) {
+            const result = await client.listCatalog(bad as never);
             assert.ok(!result.ok, JSON.stringify(bad));
             assert.equal(result.error.code, "invalid_input");
         }
@@ -240,24 +181,22 @@ describe("AiClient against recorded NRK responses", () => {
     afterEach(() => stub?.restore());
     const client = (options: object = {}) => new AiClient({ minIntervalMs: 0, ...options });
 
-    it("indexes real letter lists and finds an item by its own title", async () => {
+    it("lists the real letter lists", async () => {
         stub = installFetchStub();
-        const raw: Array<{ id: string; title: string }> = recordedJson(urls.letter("w"));
-        const target = first(raw, "letter w");
-        // the longest word is the least likely to match many other titles
-        const word =
-            [...target.title.split(/\s+/)].sort((x, y) => y.length - x.length)[0] ?? target.title;
+        const letters = ["w", "x", "y", "æ"];
+        const raw = letters.flatMap((l) => recordedJson(urls.letter(l)) as Array<{ id: string; type: string }>);
+        const unique = new Set(raw.map((r) => `${r.type === "programme" ? "program" : "series"}:${r.id}`));
 
-        const page = unwrap(
-            await client({ letters: "wxyæ" }).searchCatalog({
-                query: word,
-                onDemandOnly: false,
-                includeGeoBlocked: true,
-                limit: 50,
-            }),
-        );
-        assert.ok(page.items.some((i) => i.id === target.id), `"${word}" should find ${target.id}`);
-        assert.ok(page.catalogSize > 20);
+        const catalog = unwrap(await client().listCatalog({ letters: letters.join("") }));
+
+        assert.deepEqual(catalog.failed, []);
+        assert.equal(catalog.items.length, unique.size);
+        assert.ok(catalog.items.length > 20);
+        for (const item of catalog.items) {
+            assert.ok(item.id.length > 0 && item.title.length > 0);
+            assert.ok(["program", "series"].includes(item.type));
+        }
+        assert.equal(stub.requested.length, 4, "one request per letter");
     });
 
     describe("getSeries", () => {
@@ -282,12 +221,12 @@ describe("AiClient against recorded NRK responses", () => {
             }
         });
 
-        it("caches lookups", async () => {
+        it("does not cache: asking twice makes two requests", async () => {
             stub = installFetchStub();
             const c = client();
             await c.getSeries({ seriesId: curated("standardSeries") });
             await c.getSeries({ seriesId: curated("standardSeries") });
-            assert.equal(stub.requested.length, 1);
+            assert.equal(stub.requested.length, 2);
         });
 
         it("returns not_found for an unknown series", async () => {
@@ -305,24 +244,26 @@ describe("AiClient against recorded NRK responses", () => {
             return { seriesId: curated(role), season: first(series.seasons, "seasons").name };
         };
 
-        it("maps episodes to compact AiEpisodes", async () => {
+        it("maps every episode of the season to a compact AiEpisode", async () => {
             stub = installFetchStub();
             const c = client();
             const { seriesId, season } = await load(c);
             const raw = recordedJson(urls.season(seriesId, season));
             const rawList = raw._embedded.episodes ?? raw._embedded.instalments;
 
-            const page = unwrap(await c.getEpisodes({ seriesId, seasonName: season, limit: 200 }));
+            const result = unwrap(await c.getEpisodes({ seriesId, seasonName: season }));
 
-            assert.equal(page.total, rawList.length);
-            assert.equal(page.episodes.length, rawList.length);
-            page.episodes.forEach((e, i) => {
+            assert.equal(result.seriesId, seriesId);
+            assert.equal(result.seasonName, season);
+            assert.equal(result.seasonType, raw.seasonType);
+            assert.equal(result.episodes.length, rawList.length);
+            result.episodes.forEach((e, i) => {
                 assert.equal(e.id, rawList[i].prfId);
                 assert.equal(e.title, rawList[i].titles.title);
                 assert.equal(e.durationSeconds, rawList[i].durationInSeconds);
                 assert.equal(e.durationMinutes, Math.round(rawList[i].durationInSeconds / 60));
             });
-            assert.deepEqual(Object.keys(first(page.episodes)).sort(), [
+            assert.deepEqual(Object.keys(first(result.episodes)).sort(), [
                 "availableFrom",
                 "availableTo",
                 "contributors",
@@ -338,38 +279,36 @@ describe("AiClient against recorded NRK responses", () => {
             ]);
         });
 
-        it("pages with limit, offset and hasMore", async () => {
+        it("has no paging: the season is one response, and the result has no paging fields", async () => {
             stub = installFetchStub();
             const c = client();
             const { seriesId, season } = await load(c, "sequentialSeries");
+            const result = unwrap(await c.getEpisodes({ seriesId, seasonName: season }));
+            assert.deepEqual(Object.keys(result).sort(), ["episodes", "seasonName", "seasonType", "seriesId"]);
+            assert.ok(result.episodes.length >= 2, "fixture needs at least two episodes");
+        });
 
-            const all = unwrap(await c.getEpisodes({ seriesId, seasonName: season, limit: 200 }));
-            assert.ok(all.total >= 2, "fixture needs at least two episodes");
-
-            const p1 = unwrap(await c.getEpisodes({ seriesId, seasonName: season, limit: 1 }));
-            assert.equal(p1.episodes.length, 1);
-            assert.equal(p1.hasMore, true);
-            assert.equal(p1.total, all.total);
-            assert.equal(first(p1.episodes).id, first(all.episodes).id);
-
-            const last = unwrap(
-                await c.getEpisodes({ seriesId, seasonName: season, offset: all.total - 1 }),
-            );
-            assert.equal(last.episodes.length, 1);
-            assert.equal(last.hasMore, false);
+        it("does not cache: asking twice makes two requests", async () => {
+            stub = installFetchStub();
+            const c = client();
+            const args = { seriesId: curated("standardSeries"), seasonName: "" };
+            const series = unwrap(await c.getSeries({ seriesId: args.seriesId }));
+            args.seasonName = first(series.seasons, "seasons").name;
+            const before = stub.requested.length;
+            await c.getEpisodes(args);
+            await c.getEpisodes(args);
+            assert.equal(stub.requested.length - before, 2);
         });
 
         it("filters on availableOn so only playable episodes remain", async () => {
             stub = installFetchStub();
             const c = client();
             const { seriesId, season } = await load(c);
-            const all = unwrap(await c.getEpisodes({ seriesId, seasonName: season, limit: 200 }));
+            const all = unwrap(await c.getEpisodes({ seriesId, seasonName: season }));
 
             // a day that the window logic can be checked against for every episode
             const day = (first(all.episodes).availableFrom ?? "2026-01-01").slice(0, 10);
-            const onDay = unwrap(
-                await c.getEpisodes({ seriesId, seasonName: season, availableOn: day, limit: 200 }),
-            );
+            const onDay = unwrap(await c.getEpisodes({ seriesId, seasonName: season, availableOn: day }));
             for (const e of onDay.episodes) {
                 assert.notEqual(e.status, "notAvailableOnline");
                 if (e.availableFrom) assert.ok(e.availableFrom.slice(0, 10) <= day);
@@ -384,17 +323,13 @@ describe("AiClient against recorded NRK responses", () => {
                 assert.ok(outside, `${e.id} was excluded but is available on ${day}`);
             }
 
-            const past = unwrap(
-                await c.getEpisodes({ seriesId, seasonName: season, availableOn: "1990-01-01", limit: 200 }),
-            );
+            const past = unwrap(await c.getEpisodes({ seriesId, seasonName: season, availableOn: "1990-01-01" }));
             assert.ok(past.episodes.every((e) => e.availableFrom === null));
-            const future = unwrap(
-                await c.getEpisodes({ seriesId, seasonName: season, availableOn: "2999-12-31", limit: 200 }),
-            );
+            const future = unwrap(await c.getEpisodes({ seriesId, seasonName: season, availableOn: "2999-12-31" }));
             assert.ok(future.episodes.every((e) => e.availableTo === null));
         });
 
-        it("rejects a malformed date", async () => {
+        it("rejects a malformed date, and the old paging arguments are gone", async () => {
             stub = installFetchStub();
             const result = await client().getEpisodes({
                 seriesId: "x",
@@ -414,7 +349,6 @@ describe("AiClient against recorded NRK responses", () => {
                 await client().getEpisodes({
                     seriesId: curated("contributorSeries"),
                     seasonName: curated("contributorSeason"),
-                    limit: 200,
                 }),
             );
             const withPeople = page.episodes.filter((e) => e.contributors.length > 0);
@@ -430,10 +364,10 @@ describe("AiClient against recorded NRK responses", () => {
             const seriesId = curated("contributorSeries");
             const seasonName = curated("contributorSeason");
             const uncapped = unwrap(
-                await client({ maxContributors: 100 }).getEpisodes({ seriesId, seasonName, limit: 200 }),
+                await client({ maxContributors: 100 }).getEpisodes({ seriesId, seasonName }),
             );
             const capped = unwrap(
-                await client({ maxContributors: 1 }).getEpisodes({ seriesId, seasonName, limit: 200 }),
+                await client({ maxContributors: 1 }).getEpisodes({ seriesId, seasonName }),
             );
             assert.ok(
                 uncapped.episodes.some((e) => e.contributors.length > 1),
@@ -538,6 +472,14 @@ describe("AiClient against recorded NRK responses", () => {
             const capped = unwrap(await client({ maxContributors: 2 }).getProgram(id));
             assert.equal(capped.contributors.length, 2);
             assert.deepEqual(capped.contributors, all.contributors.slice(0, 2));
+        });
+
+        it("does not cache: a program costs two requests every time (page and metadata)", async () => {
+            stub = installFetchStub();
+            const c = client();
+            await c.getProgram(curated("availableProgram"));
+            await c.getProgram(curated("availableProgram"));
+            assert.equal(stub.requested.length, 4);
         });
 
         it("reports a missing subtitle as null", async () => {
