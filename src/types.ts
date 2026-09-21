@@ -39,11 +39,12 @@ export const listCatalogInput: v.Validator<ListCatalogQuery> = v.object({
 });
 
 export interface GetSeriesInput {
-    seriesId: string;
+    /** Series id from listCatalog or search (`type: "series"`), for instance "dagsrevyen". */
+    id: string;
 }
 /** @internal */
 export const getSeriesInput: v.Validator<GetSeriesInput> = v.object({
-    seriesId: v.stringOf({ min: 1, max: 200 }),
+    id: v.stringOf({ min: 1, max: 200 }),
 });
 
 export interface GetEpisodesInput {
@@ -64,13 +65,22 @@ export const getEpisodesInput: v.Validator<GetEpisodesQuery> = v.object({
     ),
 });
 
+export interface GetProgramInput {
+    /** A program id, or an episode's `id`, for instance "MKTF73000514". */
+    id: string;
+}
+/** @internal */
+export const getProgramInput: v.Validator<GetProgramInput> = v.object({
+    id: v.stringOf({ min: 1, max: 50 }),
+});
+
 export interface GetProgramsInput {
     /** 1-20 program ids. */
-    programIds: string[];
+    ids: string[];
 }
 /** @internal */
 export const getProgramsInput: v.Validator<GetProgramsInput> = v.object({
-    programIds: v.array(v.stringOf({ min: 1, max: 50 }), { min: 1, max: 20 }),
+    ids: v.array(v.stringOf({ min: 1, max: 50 }), { min: 1, max: 20 }),
 });
 
 // ── Errors ──────────────────────────────────────────────────────────
@@ -128,10 +138,13 @@ export type Result<T> =
 
 // ── Catalog ─────────────────────────────────────────────────────────
 
-export interface CatalogItem {
-    /** Program id (e.g. 'MKTF73000514') or series id (e.g. 'dagsrevyen'). */
+export interface ContentItem {
+    /**
+     * A program id or episode id (use it with getProgram or getPlayback) or a series id
+     * (use it with getSeries), for instance 'MKTF73000514' or 'dagsrevyen'.
+     */
     readonly id: string;
-    readonly type: "program" | "series";
+    readonly type: "program" | "series" | "episode";
     readonly title: string;
     /**
      * NRK's own text, complete. Empty when NRK
@@ -142,26 +155,31 @@ export interface CatalogItem {
     /** false when it cannot currently be streamed on demand. */
     readonly availableNow: boolean;
     readonly geoBlocked: boolean;
+    /** Episodes (search only): the series it belongs to. Absent for programs and series. */
+    readonly seriesId?: string | undefined;
+    readonly seriesTitle?: string | undefined;
 }
 /** @internal */
-export const catalogItemValidator: v.Validator<CatalogItem> = v.object({
+export const contentItemValidator: v.Validator<ContentItem> = v.object({
     id: v.nonEmptyString(),
-    type: v.oneOf("program", "series"),
+    type: v.oneOf("program", "series", "episode"),
     title: v.string,
     description: v.string,
     availableNow: v.boolean,
     geoBlocked: v.boolean,
+    seriesId: v.optional(v.string),
+    seriesTitle: v.optional(v.string),
 });
 
 /** The archive's programs and series (one entry per program or series, from NRK's letter index). */
 export interface Catalog {
-    readonly items: ReadonlyArray<CatalogItem>;
+    readonly items: ReadonlyArray<ContentItem>;
     /** Letters that could not be fetched; the rest are still returned. */
     readonly failed: ReadonlyArray<{ readonly letter: string; readonly error: NrkError }>;
 }
 /** @internal */
 export const catalogValidator: v.Validator<Catalog> = v.object({
-    items: v.array(catalogItemValidator),
+    items: v.array(contentItemValidator),
     failed: v.array(v.object({ letter: v.string, error: nrkErrorValidator })),
 });
 
@@ -240,14 +258,14 @@ export const episodeValidator: v.Validator<Episode> = v.object({
 });
 
 /** All episodes of one season (NRK returns a season in one response). */
-export interface SeasonEpisodes {
+export interface Episodes {
     readonly seriesId: string;
     readonly seasonName: string;
     readonly seasonType: SeasonType;
     readonly episodes: ReadonlyArray<Episode>;
 }
 /** @internal */
-export const seasonEpisodesValidator: v.Validator<SeasonEpisodes> = v.object({
+export const episodesValidator: v.Validator<Episodes> = v.object({
     seriesId: v.nonEmptyString(),
     seasonName: v.string,
     seasonType: v.oneOf(...SEASON_TYPES),
@@ -298,13 +316,13 @@ export const programValidator: v.Validator<Program> = v.object({
     seriesId: v.nullable(v.nonEmptyString()),
 });
 
-export interface ProgramsResult {
+export interface Programs {
     readonly programs: ReadonlyArray<Program>;
     /** Ids that could not be fetched; the rest are still returned. */
     readonly failed: ReadonlyArray<{ readonly id: string; readonly error: NrkError }>;
 }
 /** @internal */
-export const programsResultValidator: v.Validator<ProgramsResult> = v.object({
+export const programsValidator: v.Validator<Programs> = v.object({
     programs: v.array(programValidator),
     failed: v.array(v.object({ id: v.string, error: nrkErrorValidator })),
 });
@@ -370,7 +388,7 @@ export const playbackValidator: v.Validator<Playback> = v.object({
 
 // ── Recommendations ─────────────────────────────────────────────────
 
-/** Arguments for NrkClient.getRecommendation. */
+/** Arguments for NrkClient.getRecommendations. */
 export interface GetRecommendationInput {
     /** 1-5 ids the viewer likes or has watched: program ids, episode ids or series ids. */
     basedOn: string[];
@@ -437,37 +455,11 @@ export const searchInput: v.Validator<SearchQuery> = v.object({
     limit: v.optional(v.integer({ min: 1, max: 100 })),
 });
 
-export interface SearchItem {
-    /** A program or episode id (use it with getProgram or getPlayback) or a series id (use it with getSeries). */
-    readonly id: string;
-    readonly type: "program" | "series" | "episode";
-    readonly title: string;
-    /** NRK's own text. Empty when NRK has none. */
-    readonly description: string;
-    /** false when it cannot currently be streamed on demand. */
-    readonly availableNow: boolean;
-    readonly geoBlocked: boolean;
-    /** Episodes only: the series it belongs to, otherwise null. */
-    readonly seriesId: string | null;
-    readonly seriesTitle: string | null;
-}
-/** @internal */
-export const searchItemValidator: v.Validator<SearchItem> = v.object({
-    id: v.nonEmptyString(),
-    type: v.oneOf("program", "series", "episode"),
-    title: v.string,
-    description: v.string,
-    availableNow: v.boolean,
-    geoBlocked: v.boolean,
-    seriesId: v.nullable(v.string),
-    seriesTitle: v.nullable(v.string),
-});
-
 export interface SearchResults {
     /** Best match first. Empty when nothing matches. */
-    readonly items: ReadonlyArray<SearchItem>;
+    readonly items: ReadonlyArray<ContentItem>;
 }
 /** @internal */
 export const searchResultsValidator: v.Validator<SearchResults> = v.object({
-    items: v.array(searchItemValidator),
+    items: v.array(contentItemValidator),
 });

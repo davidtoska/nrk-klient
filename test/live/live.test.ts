@@ -234,7 +234,7 @@ describe("live: psapi.nrk.no", () => {
 
         let withEpisodes = 0;
         for (const item of candidates) {
-            const series = await client.getSeries({ seriesId: item.id });
+            const series = await client.getSeries({ id: item.id });
             assert.ok(series.ok, item.id + ": " + JSON.stringify(series));
             const season = series.data.seasons[0];
             if (!season) continue;

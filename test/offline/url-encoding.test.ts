@@ -65,8 +65,8 @@ describe("path segments are encoded", () => {
         stub = installFetchMock(() => new Response("{}", { status: 404 }));
 
         await client.getEpisodes({ seriesId: HOSTILE, seasonName: HOSTILE });
-        await client.getSeries({ seriesId: HOSTILE });
-        await client.getProgram(HOSTILE);
+        await client.getSeries({ id: HOSTILE });
+        await client.getProgram({ id: HOSTILE });
 
         assert.ok(stub.requested.length >= 3);
         for (const requested of stub.requested) {

@@ -203,7 +203,7 @@ describe("NrkClient against recorded NRK responses", () => {
         it("returns title, type and seasons for each series type", async () => {
             stub = installFetchStub();
             for (const type of ["standard", "sequential", "news"] as const) {
-                const series = unwrap(await client().getSeries({ seriesId: curated(`${type}Series`) }));
+                const series = unwrap(await client().getSeries({ id: curated(`${type}Series`) }));
                 assert.equal(series.seriesType, type);
                 assert.ok(series.title.length > 0);
                 assert.ok(series.seasons.length > 0);
@@ -216,7 +216,7 @@ describe("NrkClient against recorded NRK responses", () => {
             for (const type of ["standard", "sequential", "news"] as const) {
                 const id = curated(`${type}Series`);
                 const raw = recordedJson(urls.series(id))[type].category;
-                const series = unwrap(await client().getSeries({ seriesId: id }));
+                const series = unwrap(await client().getSeries({ id }));
                 assert.deepEqual(series.category, { id: raw.id, name: raw.name });
             }
         });
@@ -224,14 +224,14 @@ describe("NrkClient against recorded NRK responses", () => {
         it("does not cache: asking twice makes two requests", async () => {
             stub = installFetchStub();
             const c = client();
-            await c.getSeries({ seriesId: curated("standardSeries") });
-            await c.getSeries({ seriesId: curated("standardSeries") });
+            await c.getSeries({ id: curated("standardSeries") });
+            await c.getSeries({ id: curated("standardSeries") });
             assert.equal(stub.requested.length, 2);
         });
 
         it("returns not_found for an unknown series", async () => {
             stub = installFetchStub();
-            const result = await client().getSeries({ seriesId: curated("missingSeries") });
+            const result = await client().getSeries({ id: curated("missingSeries") });
             assert.ok(!result.ok);
             assert.equal(result.error.code, "not_found");
             assert.match(result.error.message, /404/);
@@ -240,7 +240,7 @@ describe("NrkClient against recorded NRK responses", () => {
 
     describe("getEpisodes", () => {
         const load = async (c: NrkClient, role = "standardSeries") => {
-            const series = unwrap(await c.getSeries({ seriesId: curated(role) }));
+            const series = unwrap(await c.getSeries({ id: curated(role) }));
             return { seriesId: curated(role), season: first(series.seasons, "seasons").name };
         };
 
@@ -292,7 +292,7 @@ describe("NrkClient against recorded NRK responses", () => {
             stub = installFetchStub();
             const c = client();
             const args = { seriesId: curated("standardSeries"), seasonName: "" };
-            const series = unwrap(await c.getSeries({ seriesId: args.seriesId }));
+            const series = unwrap(await c.getSeries({ id: args.seriesId }));
             args.seasonName = first(series.seasons, "seasons").name;
             const before = stub.requested.length;
             await c.getEpisodes(args);
@@ -383,7 +383,7 @@ describe("NrkClient against recorded NRK responses", () => {
             const id = curated("availableProgram");
             const raw = recordedJson(urls.programPage(id));
 
-            const p = unwrap(await client().getProgram(id));
+            const p = unwrap(await client().getProgram({ id }));
 
             assert.equal(p.id, id);
             assert.equal(p.title, raw.programInformation.titles.title);
@@ -399,14 +399,14 @@ describe("NrkClient against recorded NRK responses", () => {
             for (const role of ["availableProgram", "filmProgram", "geoblockedProgram", "expiredProgram"]) {
                 const id = curated(role);
                 const raw = recordedJson(urls.metadata(id));
-                const p = unwrap(await client().getProgram(id));
+                const p = unwrap(await client().getProgram({ id }));
                 assert.equal(p.description, raw.preplay.description, role);
             }
         });
 
         it("reports description as null when the program has no metadata yet", async () => {
             stub = installFetchStub();
-            const p = unwrap(await client().getProgram(curated("comingProgram")));
+            const p = unwrap(await client().getProgram({ id: curated("comingProgram") }));
             assert.equal(p.status, "coming");
             assert.equal(p.description, null);
             assert.ok(p.title.length > 0, "the rest of the program is still returned");
@@ -414,7 +414,7 @@ describe("NrkClient against recorded NRK responses", () => {
 
         it("keeps an empty description as \"\" (NRK has none) rather than null", async () => {
             stub = installFetchStub();
-            const p = unwrap(await client().getProgram(curated("noSubtitleProgram")));
+            const p = unwrap(await client().getProgram({ id: curated("noSubtitleProgram") }));
             assert.equal(p.description, recordedJson(urls.metadata(curated("noSubtitleProgram"))).preplay.description);
             assert.equal(typeof p.description, "string");
         });
@@ -426,7 +426,7 @@ describe("NrkClient against recorded NRK responses", () => {
                     ? new Response("{}", { status: 429, headers: { "retry-after": "60" } })
                     : new Response(JSON.stringify(page), { status: 200 }),
             );
-            const result = await client().getProgram(curated("availableProgram"));
+            const result = await client().getProgram({ id: curated("availableProgram") });
             assert.ok(!result.ok);
             assert.equal(result.error.code, "rate_limited");
             assert.equal(result.error.retryAfterSeconds, 60);
@@ -437,7 +437,7 @@ describe("NrkClient against recorded NRK responses", () => {
             const id = curated("programWithContributors");
             const raw = recordedJson(urls.programPage(id));
 
-            const p = unwrap(await client().getProgram(id));
+            const p = unwrap(await client().getProgram({ id }));
 
             assert.ok(p.contributors.length >= 3);
             assert.deepEqual(Object.keys(first(p.contributors)).sort(), ["name", "role"]);
@@ -457,7 +457,7 @@ describe("NrkClient against recorded NRK responses", () => {
             const raw = recordedJson(urls.programPage(id));
             const rawSubtitle = raw.programInformation.titles.subtitle;
 
-            const p = unwrap(await client().getProgram(id));
+            const p = unwrap(await client().getProgram({ id }));
 
             assert.equal(rawSubtitle, p.description, "fixture should have subtitle == description");
             assert.equal(p.subtitle, null);
@@ -466,10 +466,10 @@ describe("NrkClient against recorded NRK responses", () => {
         it("caps credited people at maxContributors", async () => {
             stub = installFetchStub();
             const id = curated("programWithContributors");
-            const all = unwrap(await client({ maxContributors: 100 }).getProgram(id));
+            const all = unwrap(await client({ maxContributors: 100 }).getProgram({ id }));
             assert.ok(all.contributors.length >= 3);
 
-            const capped = unwrap(await client({ maxContributors: 2 }).getProgram(id));
+            const capped = unwrap(await client({ maxContributors: 2 }).getProgram({ id }));
             assert.equal(capped.contributors.length, 2);
             assert.deepEqual(capped.contributors, all.contributors.slice(0, 2));
         });
@@ -477,14 +477,14 @@ describe("NrkClient against recorded NRK responses", () => {
         it("does not cache: a program costs two requests every time (page and metadata)", async () => {
             stub = installFetchStub();
             const c = client();
-            await c.getProgram(curated("availableProgram"));
-            await c.getProgram(curated("availableProgram"));
+            await c.getProgram({ id: curated("availableProgram") });
+            await c.getProgram({ id: curated("availableProgram") });
             assert.equal(stub.requested.length, 4);
         });
 
         it("reports a missing subtitle as null", async () => {
             stub = installFetchStub();
-            const p = unwrap(await client().getProgram(curated("noSubtitleProgram")));
+            const p = unwrap(await client().getProgram({ id: curated("noSubtitleProgram") }));
             assert.equal(p.subtitle, null);
         });
 
@@ -492,7 +492,7 @@ describe("NrkClient against recorded NRK responses", () => {
             stub = installFetchStub();
             const result = unwrap(
                 await client().getPrograms({
-                    programIds: [
+                    ids: [
                         curated("availableProgram"),
                         curated("missingProgram"),
                         curated("filmProgram"),
@@ -512,7 +512,7 @@ describe("NrkClient against recorded NRK responses", () => {
             stub = installFetchStub();
             const c = client();
             for (const bad of [[], Array(21).fill("ABCD12345678"), [""]]) {
-                const result = await c.getPrograms({ programIds: bad });
+                const result = await c.getPrograms({ ids: bad });
                 assert.ok(!result.ok);
                 assert.equal(result.error.code, "invalid_input");
             }
@@ -524,7 +524,7 @@ describe("NrkClient against recorded NRK responses", () => {
                 () => new Response("{}", { status: 429, headers: { "retry-after": "600" } }),
             );
             const result = unwrap(
-                await client().getPrograms({ programIds: ["AAAA00000001", "AAAA00000002", "AAAA00000003"] }),
+                await client().getPrograms({ ids: ["AAAA00000001", "AAAA00000002", "AAAA00000003"] }),
             );
             assert.equal(stub.requested.length, 1);
             assert.equal(result.failed.length, 1);
@@ -537,7 +537,7 @@ describe("NrkClient against recorded NRK responses", () => {
         const codeFor = async (response: () => Response | Promise<Response>) => {
             stub?.restore();
             stub = installFetchMock(response);
-            const result = await client().getSeries({ seriesId: "x" });
+            const result = await client().getSeries({ id: "x" });
             assert.ok(!result.ok);
             return result.error;
         };
@@ -570,9 +570,9 @@ describe("NrkClient against recorded NRK responses", () => {
         stub = installFetchStub();
         const c = new NrkClient({ minIntervalMs: 40 });
         const started = Date.now();
-        await c.getProgram(curated("availableProgram"));
-        await c.getProgram(curated("filmProgram"));
-        await c.getProgram(curated("noSubtitleProgram"));
+        await c.getProgram({ id: curated("availableProgram") });
+        await c.getProgram({ id: curated("filmProgram") });
+        await c.getProgram({ id: curated("noSubtitleProgram") });
         assert.ok(Date.now() - started >= 70, "three requests need two gaps of ~40ms");
     });
 });

@@ -95,9 +95,9 @@ globalThis.fetch = fetchWithFixtures;
   const client = new pkg.NrkClient({ letters: "f", minIntervalMs: 0 });
   const listing = await client.listCatalog({ letters: "f" });
   assert.ok(listing.ok && listing.data.items.length === 1 && listing.data.items[0].id === "P1" && listing.data.failed.length === 0);
-  const one = await client.getProgram("${ids.availableProgram}");
+  const one = await client.getProgram({ id: "${ids.availableProgram}" });
   assert.ok(one.ok && typeof one.data.description === "string");
-  const missing = await client.getSeries({ seriesId: "finnes-ikke" });
+  const missing = await client.getSeries({ id: "finnes-ikke" });
   assert.ok(!missing.ok && missing.error.code === "not_found");
   const bad = await client.listCatalog({ letters: "1" });
   assert.ok(!bad.ok && bad.error.code === "invalid_input");
@@ -149,13 +149,13 @@ export const main = async (): Promise<void> => {
     const code: NrkError["code"] = found.error.code;
     void code;
   }
-  const program: Result<Program> = await client.getProgram("MKTF73000514");
+  const program: Result<Program> = await client.getProgram({ id: "MKTF73000514" });
   if (program.ok) {
     const people: string[] = program.data.contributors.map((c) => c.name);
     const description: string | null = program.data.description;
     void [people, description];
   }
-  const playback: Result<Playback> = await client.getPlayback("MKTF73000514");
+  const playback: Result<Playback> = await client.getPlayback({ id: "MKTF73000514" });
   if (playback.ok) {
     const url: string = playback.data.streamUrl;
     const tracks: string[] = playback.data.subtitles.map((t) => t.url);
@@ -166,7 +166,7 @@ export const main = async (): Promise<void> => {
     void forTheViewer;
   }
 
-  const recs: Result<Recommendations> = await client.getRecommendation({ basedOn: ["MKTF73000514"], count: 5 });
+  const recs: Result<Recommendations> = await client.getRecommendations({ basedOn: ["MKTF73000514"], count: 5 });
   if (recs.ok) {
     const ids: string[] = recs.data.items.map((i) => i.id);
     const because: ReadonlyArray<string> | undefined = recs.data.items[0]?.basedOn;
@@ -182,7 +182,7 @@ export const main = async (): Promise<void> => {
   await client.search({ limit: 5 });
 
   // @ts-expect-error count must be 5, 10, 15, 20 or 25
-  await client.getRecommendation({ basedOn: ["x"], count: 7 });
+  await client.getRecommendations({ basedOn: ["x"], count: 7 });
 
   // @ts-expect-error the client takes no options
   new NrkClient({ nope: 1 });

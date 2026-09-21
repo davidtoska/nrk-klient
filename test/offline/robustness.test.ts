@@ -60,7 +60,7 @@ describe("NrkClient error classification", () => {
             minIntervalMs: 0,
         });
     const codeOf = async (thrown: unknown) => {
-        const result = await failingWith(thrown).getSeries({ seriesId: "x" });
+        const result = await failingWith(thrown).getSeries({ id: "x" });
         assert.ok(!result.ok);
         return result.error.code;
     };

@@ -11,13 +11,14 @@ listed as fixes.
 ### Added
 - `NrkClient`, the only export: an API against NRK for AI agents, with compact results, that
   never throws (`listCatalog`, `getSeries`, `getEpisodes`, `getProgram`, `getPrograms`).
-- `NrkClient.getPlayback(id)`: the stream (HLS), subtitles, poster, duration and title a player
+- `NrkClient.getPlayback({ id })`: the stream (HLS), subtitles, poster, duration and title a player
   needs, or a `not_playable` error with NRK's text for the viewer.
 - `NrkClient.search({ query })`: free-text search in NRK TV (series, programs and episodes).
-- `NrkClient.getRecommendation({ basedOn })`: recommendations from NRK for what the viewer likes,
+- `NrkClient.getRecommendations({ basedOn })`: recommendations from NRK for what the viewer likes,
   merged over 1-5 ids.
 - The types its methods return (`Result`, `Program`, `Catalog`, ...).
-- Results and arguments are validated against their declared types.
+- Every method takes one argument object (`id` or `ids` for what to look up) and results and
+  arguments are validated against their declared types.
 - Requests time out after 30 s and identify themselves with a `User-Agent`.
 - Program and episode results carry production year, first broadcast date and credited
   people, for personalisation.

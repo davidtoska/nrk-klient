@@ -70,14 +70,14 @@ const rejected = async (result: Promise<{ ok: boolean; error?: { code: string; m
 
 describe("NrkClient checks its results against their declared type", () => {
     it("passes a value that matches (baseline)", async () => {
-        const result = await clientWith(programFake()).getProgram("ABCD12345678");
+        const result = await clientWith(programFake()).getProgram({ id: "ABCD12345678" });
         assert.ok(result.ok);
         assert.equal(result.data.durationMinutes, 30);
     });
 
     it("rejects a number that is not a number", async () => {
         const message = await rejected(
-            clientWith(programFake({ durationInSeconds: NaN })).getProgram("ABCD12345678"),
+            clientWith(programFake({ durationInSeconds: NaN })).getProgram({ id: "ABCD12345678" }),
         );
         assert.match(message, /durationSeconds/);
         assert.match(message, /^Result does not match its type/);
@@ -85,14 +85,14 @@ describe("NrkClient checks its results against their declared type", () => {
 
     it("rejects a status outside the declared set", async () => {
         const message = await rejected(
-            clientWith(programFake({ availabilityStatus: "bogus" })).getProgram("ABCD12345678"),
+            clientWith(programFake({ availabilityStatus: "bogus" })).getProgram({ id: "ABCD12345678" }),
         );
         assert.match(message, /status/);
     });
 
     it("rejects a first-aired date that is not YYYY-MM-DD", async () => {
         const message = await rejected(
-            clientWith(programFake({ firstAired: "yesterday" })).getProgram("ABCD12345678"),
+            clientWith(programFake({ firstAired: "yesterday" })).getProgram({ id: "ABCD12345678" }),
         );
         assert.match(message, /firstAired/);
     });
@@ -106,7 +106,7 @@ describe("NrkClient checks its results against their declared type", () => {
             }),
             getMetadata: async () => ({ description: "d" }),
         };
-        const result = await clientWith(fake).getPrograms({ programIds: ["AAAA00000001", "BBBB00000002"] });
+        const result = await clientWith(fake).getPrograms({ ids: ["AAAA00000001", "BBBB00000002"] });
         assert.ok(result.ok);
         assert.deepEqual(result.data.programs.map((p) => p.id), ["AAAA00000001"]);
         assert.equal(result.data.failed.length, 1);
@@ -139,7 +139,7 @@ describe("NrkClient checks its results against their declared type", () => {
                 seasons: [],
             }),
         };
-        const message = await rejected(clientWith(fake).getSeries({ seriesId: "s" }));
+        const message = await rejected(clientWith(fake).getSeries({ id: "s" }));
         assert.match(message, /seriesType/);
     });
 
@@ -167,9 +167,9 @@ describe("NrkClient checks its results against their declared type", () => {
     });
 
     it("does not change a value that is valid", async () => {
-        const result = await clientWith(programFake({ contributors: [{ name: "Kari", role: "Programleder" }] })).getProgram(
+        const result = await clientWith(programFake({ contributors: [{ name: "Kari", role: "Programleder" }] })).getProgram({ id: 
             "ABCD12345678",
-        );
+         });
         assert.ok(result.ok);
         assert.deepEqual(result.data.contributors, [{ name: "Kari", role: "Programleder" }]);
         assert.equal(result.data.description, "A description");

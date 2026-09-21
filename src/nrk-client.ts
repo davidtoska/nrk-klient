@@ -3,13 +3,14 @@ import { NrkHttpError } from "./nrk-client-raw";
 import { NrkValidationError, Validator, formatIssues, safeParse } from "./validate";
 import {
     catalogValidator,
-    seasonEpisodesValidator,
+    episodesValidator,
     programValidator,
     playbackValidator,
     recommendationsValidator,
-    programsResultValidator,
+    programsValidator,
     seriesValidator,
     getEpisodesInput,
+    getProgramInput,
     getProgramsInput,
     getRecommendationInput,
     getSeriesInput,
@@ -19,21 +20,22 @@ import {
 } from "./types";
 import type {
     GetEpisodesInput,
+    GetProgramInput,
     GetProgramsInput,
     GetRecommendationInput,
     GetSeriesInput,
     ListCatalogInput,
     SearchInput,
     SearchResults,
-    CatalogItem,
+    ContentItem,
     Contributor,
     Catalog,
     Episode,
-    SeasonEpisodes,
+    Episodes,
     NrkError,
     Playback,
     Program,
-    ProgramsResult,
+    Programs,
     RecommendedItem,
     Recommendations,
     Result,
@@ -162,12 +164,12 @@ const checked = <T>(validator: Validator<T>, value: T): Result<T> => {
  * Ids: a program or episode id is a "prfId" such as "MKTF73000514"; a series id is a
  * slug such as "dagsrevyen". Catalog items and episodes carry the ids to pass on.
  * Typical flow: listCatalog -> getSeries -> getEpisodes -> getPlayback (or getProgram).
- * search finds content from free text; getRecommendation finds more of what a viewer
+ * search finds content from free text; getRecommendations finds more of what a viewer
  * might like, from ids they liked.
  *
  * @example
  * const client = new NrkClient();
- * const playback = await client.getPlayback("MKTF73000514");
+ * const playback = await client.getPlayback({ id: "MKTF73000514" });
  * if (playback.ok) {
  *   player.load(playback.data.streamUrl);
  * } else {
@@ -211,7 +213,7 @@ export class NrkClient {
         if (!parsed.ok) return fail(parsed.error);
         const letters = [...new Set((parsed.data.letters ?? this.letters).toLowerCase().split(""))];
 
-        const items: CatalogItem[] = [];
+        const items: ContentItem[] = [];
         const failed: Array<{ letter: string; error: NrkError }> = [];
         const seen = new Set<string>();
         for (const letter of letters) {
@@ -274,8 +276,12 @@ export class NrkClient {
                     description: hit.description,
                     availableNow: hit.hasRights,
                     geoBlocked: hit.isGeoBlocked,
-                    seriesId: hit.seriesId,
-                    seriesTitle: hit.seriesTitle,
+                    ...(hit.seriesId === null
+                        ? {}
+                        : {
+                              seriesId: hit.seriesId,
+                              ...(hit.seriesTitle === null ? {} : { seriesTitle: hit.seriesTitle }),
+                          }),
                 })),
             });
         } catch (e) {
@@ -288,14 +294,14 @@ export class NrkClient {
     /**
      * A series with its title, type, category and seasons. Pass a season's `name` to getEpisodes.
      *
-     * @param input.seriesId Series id from listCatalog (`type: "series"`), for instance `"dagsrevyen"`.
+     * @param input.id Series id from listCatalog or search (`type: "series"`), for instance `"dagsrevyen"`.
      * @example
-     * const series = await client.getSeries({ seriesId: "dagsrevyen" });
+     * const series = await client.getSeries({ id: "dagsrevyen" });
      */
     getSeries = async (input: GetSeriesInput): Promise<Result<Series>> => {
         const parsed = parseInput(getSeriesInput, input);
         if (!parsed.ok) return fail(parsed.error);
-        const { seriesId } = parsed.data;
+        const seriesId = parsed.data.id;
 
         try {
             const series = await this.call(() => this.nrk.getSeasons(seriesId));
@@ -326,14 +332,14 @@ export class NrkClient {
      *   availableOn: "2026-10-03",
      * });
      */
-    getEpisodes = async (input: GetEpisodesInput): Promise<Result<SeasonEpisodes>> => {
+    getEpisodes = async (input: GetEpisodesInput): Promise<Result<Episodes>> => {
         const parsed = parseInput(getEpisodesInput, input);
         if (!parsed.ok) return fail(parsed.error);
         const { seriesId, seasonName, availableOn } = parsed.data;
 
         try {
             const season = await this.call(() => this.nrk.getAllEpisodes(seriesId, seasonName));
-            return checked(seasonEpisodesValidator, toEpisodes(season, availableOn, this.maxContributors));
+            return checked(episodesValidator, toEpisodes(season, availableOn, this.maxContributors));
         } catch (e) {
             return fail(toNrkError(e));
         }
@@ -345,13 +351,14 @@ export class NrkClient {
      * One program or episode with NRK's description, credited people, duration, availability
      * window, production year and first broadcast date. Two requests.
      *
-     * @param programId Program id, or an episode's `id`, for instance `"MKTF73000514"`.
+     * @param input.id Program id, or an episode's `id`, for instance `"MKTF73000514"`.
      * @example
-     * const program = await client.getProgram("MKTF73000514");
+     * const program = await client.getProgram({ id: "MKTF73000514" });
      */
-    getProgram = async (programId: string): Promise<Result<Program>> => {
-        const parsed = parseInput(getProgramsInput, { programIds: [programId] });
+    getProgram = async (input: GetProgramInput): Promise<Result<Program>> => {
+        const parsed = parseInput(getProgramInput, input);
         if (!parsed.ok) return fail(parsed.error);
+        const programId = parsed.data.id;
 
         try {
             const p = await this.call(() => this.nrk.getProgramById(programId));
@@ -385,13 +392,14 @@ export class NrkClient {
      * with NRK's text for the end user as the message. The stream address is not permanent:
      * ask for it when the viewer presses play, and do not store it.
      *
-     * @param programId Program id, or an episode's `id`, for instance `"MKTF73000514"`.
+     * @param input.id Program id, or an episode's `id`, for instance `"MKTF73000514"`.
      * @example
-     * const playback = await client.getPlayback("MKTF73000514");
+     * const playback = await client.getPlayback({ id: "MKTF73000514" });
      */
-    getPlayback = async (programId: string): Promise<Result<Playback>> => {
-        const parsed = parseInput(getProgramsInput, { programIds: [programId] });
+    getPlayback = async (input: GetProgramInput): Promise<Result<Playback>> => {
+        const parsed = parseInput(getProgramInput, input);
         if (!parsed.ok) return fail(parsed.error);
+        const programId = parsed.data.id;
 
         try {
             const source = await this.call(() => this.nrk.getPlayback(programId));
@@ -432,10 +440,10 @@ export class NrkClient {
      * @param input.basedOn 1-5 ids, for instance `["MKTF73000514", "dagsrevyen"]`.
      * @param input.count Recommendations per id: 5, 10, 15, 20 or 25. Default 10.
      * @example
-     * const recs = await client.getRecommendation({ basedOn: ["MKTF73000514"] });
+     * const recs = await client.getRecommendations({ basedOn: ["MKTF73000514"] });
      * if (recs.ok) console.log(recs.data.items.map((i) => i.title));
      */
-    getRecommendation = async (input: GetRecommendationInput): Promise<Result<Recommendations>> => {
+    getRecommendations = async (input: GetRecommendationInput): Promise<Result<Recommendations>> => {
         const parsed = parseInput(getRecommendationInput, input);
         if (!parsed.ok) return fail(parsed.error);
         const { basedOn, count } = parsed.data;
@@ -481,18 +489,18 @@ export class NrkClient {
      * Several programs at once. Partial success: programs that could not be
      * fetched are listed in `failed`, the rest are returned. Two requests per program.
      *
-     * @param input.programIds 1-20 program ids.
+     * @param input.ids 1-20 program ids.
      * @example
-     * const many = await client.getPrograms({ programIds: ["MKTF73000514", "FFIL63000263"] });
+     * const many = await client.getPrograms({ ids: ["MKTF73000514", "FFIL63000263"] });
      */
-    getPrograms = async (input: GetProgramsInput): Promise<Result<ProgramsResult>> => {
+    getPrograms = async (input: GetProgramsInput): Promise<Result<Programs>> => {
         const parsed = parseInput(getProgramsInput, input);
         if (!parsed.ok) return fail(parsed.error);
 
         const programs: Program[] = [];
         const failed: Array<{ id: string; error: NrkError }> = [];
-        for (const id of parsed.data.programIds) {
-            const result = await this.getProgram(id);
+        for (const id of parsed.data.ids) {
+            const result = await this.getProgram({ id });
             if (result.ok) {
                 programs.push(result.data);
             } else {
@@ -501,7 +509,7 @@ export class NrkClient {
                 if (result.error.code === "rate_limited") break;
             }
         }
-        return checked(programsResultValidator, { programs, failed });
+        return checked(programsValidator, { programs, failed });
     };
 
     // ── Internals ───────────────────────────────────────────────────
@@ -569,7 +577,7 @@ const toEpisodes = (
     season: SeasonsWithEpisodes,
     availableOn: string | undefined,
     maxContributors: number,
-): SeasonEpisodes => {
+): Episodes => {
     const matching = availableOn
         ? season.episodes.filter((e) => isAvailableOn(e, availableOn))
         : season.episodes;

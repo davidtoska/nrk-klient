@@ -45,7 +45,7 @@ for (const item of catalog.data.items) {
 }
 console.log(catalog.data.failed); // letters that could not be fetched, if any
 
-const series = await client.getSeries({ seriesId: "dagsrevyen" });
+const series = await client.getSeries({ id: "dagsrevyen" });
 const episodes = await client.getEpisodes({
   seriesId: "dagsrevyen",
   seasonName: "2024",
@@ -53,7 +53,7 @@ const episodes = await client.getEpisodes({
 });
 
 // Full details, including NRK's description and credited people (max 20 ids per call)
-const programs = await client.getPrograms({ programIds: ["MKTF73000514"] });
+const programs = await client.getPrograms({ ids: ["MKTF73000514"] });
 
 // Free-text search: a theme, a title or a person. Series, programs and single episodes.
 const found = await client.search({ query: "norsk historie" });
@@ -62,13 +62,13 @@ if (found.ok) {
 }
 
 // More of what the viewer likes, from ids they liked or watched (1-5 program, episode or series ids)
-const recs = await client.getRecommendation({ basedOn: ["MKTF73000514", "dagsrevyen"] });
+const recs = await client.getRecommendations({ basedOn: ["MKTF73000514", "dagsrevyen"] });
 if (recs.ok) {
   for (const item of recs.data.items) console.log(item.type, item.id, item.title, item.basedOn);
 }
 
 // Everything a player needs to play a program or an episode (pass the episode's `id`)
-const playback = await client.getPlayback("MKTF73000514");
+const playback = await client.getPlayback({ id: "MKTF73000514" });
 if (playback.ok) {
   const { streamUrl, subtitles, posterUrl, title, durationSeconds } = playback.data;
   // give streamUrl to an HLS player, subtitles[].url are WebVTT files
@@ -80,12 +80,12 @@ if (playback.ok) {
 | Method | Returns |
 | --- | --- |
 | `listCatalog({ letters? }?)` | every program and series NRK lists, one request per letter |
-| `getSeries({ seriesId })` | title, type, category, seasons |
+| `getSeries({ id })` | title, type, category, seasons |
 | `getEpisodes({ seriesId, seasonName, availableOn? })` | all episodes of the season, with duration and availability |
-| `getProgram(id)` / `getPrograms({ programIds })` | one or more programs with description and credited people |
+| `getProgram({ id })` / `getPrograms({ ids })` | one or more programs with description and credited people |
 | `search({ query, limit? })` | free-text search in NRK TV (title and description words, small typos forgiven): series, programs and single episodes with their ids, best match first |
-| `getRecommendation({ basedOn, count? })` | what NRK recommends for 1-5 ids the viewer likes: merged, without the ids you gave, strongest matches first, each with the ids that led to it (no descriptions: follow up with `getProgram`) |
-| `getPlayback(id)` | what a player needs: HLS `streamUrl`, `mimeType`, subtitle tracks (WebVTT), poster, duration, aspect ratio, title and end of the streaming window |
+| `getRecommendations({ basedOn, count? })` | what NRK recommends for 1-5 ids the viewer likes: merged, without the ids you gave, strongest matches first, each with the ids that led to it (no descriptions: follow up with `getProgram`) |
+| `getPlayback({ id })` | what a player needs: HLS `streamUrl`, `mimeType`, subtitle tracks (WebVTT), poster, duration, aspect ratio, title and end of the streaming window |
 
 Error codes: `not_found`, `forbidden`, `rate_limited` (with `retryAfterSeconds`), `upstream_error`,
 `invalid_response`, `invalid_input`, `not_playable` (`getPlayback` only), `network`, `unknown`.
@@ -105,7 +105,7 @@ instead of throwing. Arguments are validated the same way (`invalid_input`).
   descriptions with those words, not everything about the subject, so try several phrasings.
   It uses an endpoint that is not in NRK's swagger files, so it is the most likely to change.
   There is no paging; ask for up to 100 hits with `limit`.
-- `getRecommendation` costs one request per id in `basedOn`. NRK does not say whether a recommended item
+- `getRecommendations` costs one request per id in `basedOn`. NRK does not say whether a recommended item
   can be streamed now, so check with `getProgram` (`status`) or `getPlayback` before scheduling it.
 - `getPlayback` costs two requests (the manifest and the playback metadata). The stream address NRK
   gives is not permanent, so ask for it when the viewer presses play instead of storing it. A program
@@ -131,7 +131,7 @@ instead of throwing. Arguments are validated the same way (`invalid_input`).
 
 - The exported API follows semantic versioning: a breaking change to what the package exports bumps
   the major version. See `CHANGELOG.md`.
-- NRK's API is undocumented for some endpoints (`letter`, `getRecommendation`) and unversioned for
+- NRK's API is undocumented for some endpoints (`letter`, `getRecommendations`) and unversioned for
   all of them. Every result is validated, so a change on NRK's side shows up as a
   `invalid_response` error rather than as wrong data. The offline test suite runs
   against recorded NRK responses; `npm run test:live` runs against the real API.

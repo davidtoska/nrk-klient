@@ -51,8 +51,7 @@ describe("search against recorded answers", () => {
                     assert.equal(item.seriesTitle, hit.seriesTitle);
                     assert.ok(item.seriesId, "an episode names its series");
                 } else {
-                    assert.equal(item.seriesId, null);
-                    assert.equal(item.seriesTitle, null);
+                    assert.ok(!("seriesId" in item) && !("seriesTitle" in item), "only episodes name a series");
                 }
             });
             assert.deepEqual(stub.requested, [searchUrl(query)]);
@@ -185,7 +184,7 @@ describe("search with altered answers", () => {
         const result = await newClient().search({ query: "x" });
         assert.ok(result.ok);
         assert.deepEqual(result.data.items, [
-            { id: "en-serie", type: "series", title: "En serie", description: "", availableNow: false, geoBlocked: false, seriesId: null, seriesTitle: null },
+            { id: "en-serie", type: "series", title: "En serie", description: "", availableNow: false, geoBlocked: false },
         ]);
     });
 

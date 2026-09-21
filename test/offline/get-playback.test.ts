@@ -45,7 +45,7 @@ describe("getPlayback against 20 recorded programs", () => {
         it(`${id}: gives exactly what NRK's answer says`, async () => {
             const manifest = rawManifest(id);
             const metadata = rawMetadata(id);
-            const result = await newClient().getPlayback(id);
+            const result = await newClient().getPlayback({ id });
 
             if (manifest.playability !== "playable") {
                 assert.ok(!result.ok, "a program NRK will not stream must not give a stream");
@@ -108,23 +108,23 @@ describe("getPlayback against 20 recorded programs", () => {
 
     it("uses two requests: the manifest and the playback metadata", async () => {
         const id = playbackIds[0] ?? "";
-        await newClient().getPlayback(id);
+        await newClient().getPlayback({ id });
         assert.deepEqual([...stub.requested].sort(), [urls.manifest(id), urls.metadata(id)].sort());
     });
 
     it("tells why a program cannot be played, in NRK's words", async () => {
-        const expired = await newClient().getPlayback("KMNO10015526");
+        const expired = await newClient().getPlayback({ id: "KMNO10015526" });
         assert.ok(!expired.ok);
         assert.equal(expired.error.message, "Ikke tilgjengelig lenger");
 
-        const notYet = await newClient().getPlayback("KMNO10056526");
+        const notYet = await newClient().getPlayback({ id: "KMNO10056526" });
         assert.ok(!notYet.ok);
         assert.equal(notYet.error.code, "not_playable");
         assert.match(notYet.error.message, /^Kommer /);
     });
 
     it("reads subtitles and a duration with decimals correctly (MUHH01002725)", async () => {
-        const result = await newClient().getPlayback("MUHH01002725");
+        const result = await newClient().getPlayback({ id: "MUHH01002725" });
         assert.ok(result.ok);
         assert.equal(result.data.durationSeconds, 27); // PT27.44S
         assert.equal(result.data.subtitles.length, 1);
@@ -135,18 +135,18 @@ describe("getPlayback against 20 recorded programs", () => {
     it("says not_found for an id NRK does not have, and invalid_input for nonsense", async () => {
         stub.restore();
         stub = installFetchMock(() => new Response('{"message":"nope"}', { status: 404 }));
-        const missing = await newClient().getPlayback("DOESNOTEXIST");
+        const missing = await newClient().getPlayback({ id: "DOESNOTEXIST" });
         assert.ok(!missing.ok);
         assert.equal(missing.error.code, "not_found");
 
         const before = stub.requested.length;
         for (const bad of ["", "   ".repeat(30) + "x".repeat(60)]) {
-            const result = await newClient().getPlayback(bad);
+            const result = await newClient().getPlayback({ id: bad });
             assert.ok(!result.ok);
             assert.equal(result.error.code, "invalid_input");
         }
         // @ts-expect-error the id must be a string
-        const notString = await newClient().getPlayback(42);
+        const notString = await newClient().getPlayback({ id: 42 });
         assert.ok(!notString.ok);
         assert.equal(notString.error.code, "invalid_input");
         assert.equal(stub.requested.length, before, "bad input must not reach NRK");
@@ -179,7 +179,7 @@ describe("getPlayback with altered answers", () => {
                 { type: "nor", language: "en", label: "English", webVtt: "https://x/en.vtt" },
             ];
         });
-        const result = await newClient().getPlayback(id);
+        const result = await newClient().getPlayback({ id });
         assert.ok(result.ok);
         assert.ok(result.data.streamUrl.includes("m3u8"));
         assert.deepEqual(result.data.subtitles, [
@@ -191,7 +191,7 @@ describe("getPlayback with altered answers", () => {
         serveChanged((manifest) => {
             manifest.playable.assets[0].encrypted = true;
         });
-        const encrypted = await newClient().getPlayback(id);
+        const encrypted = await newClient().getPlayback({ id });
         assert.ok(!encrypted.ok);
         assert.equal(encrypted.error.code, "not_playable");
         assert.match(encrypted.error.message, /DRM/);
@@ -200,7 +200,7 @@ describe("getPlayback with altered answers", () => {
         serveChanged((manifest) => {
             manifest.playable.assets = [{ url: "https://x/y.mp4", format: "MP4", mimeType: "video/mp4" }];
         });
-        const noHls = await newClient().getPlayback(id);
+        const noHls = await newClient().getPlayback({ id });
         assert.ok(!noHls.ok);
         assert.equal(noHls.error.code, "not_playable");
     });
@@ -213,7 +213,7 @@ describe("getPlayback with altered answers", () => {
             metadata.displayAspectRatio = null;
             metadata.preplay.poster.images = [];
         });
-        const result = await newClient().getPlayback(id);
+        const result = await newClient().getPlayback({ id });
         assert.ok(result.ok);
         assert.equal(result.data.mediaType, "audio");
         assert.equal(result.data.durationSeconds, null);
@@ -225,7 +225,7 @@ describe("getPlayback with altered answers", () => {
         serveChanged((manifest) => {
             manifest.playable.assets[0].url = "not a url";
         });
-        const result = await newClient().getPlayback(id);
+        const result = await newClient().getPlayback({ id });
         assert.ok(!result.ok);
         assert.equal(result.error.code, "invalid_response");
     });
@@ -234,7 +234,7 @@ describe("getPlayback with altered answers", () => {
         stub = installFetchMock(
             () => new Response("slow down", { status: 429, headers: { "retry-after": "600" } }),
         );
-        const result = await newClient().getPlayback(id);
+        const result = await newClient().getPlayback({ id });
         assert.ok(!result.ok);
         assert.equal(result.error.code, "rate_limited");
         assert.equal(result.error.retryAfterSeconds, 600);
