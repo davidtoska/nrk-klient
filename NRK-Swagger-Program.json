@@ -1,0 +1,4521 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "PSAPI Programsider TV",
+    "description": "PSAPI Programsider TV is an API that provides metadata about the NRK TV catalog.",
+    "contact": {
+      "name": "NRK TV - Innhold API",
+      "email": "matias.pettersen@nrk.no",
+      "url": "https://nrkconfluence.atlassian.net/l/c/hhmCZxwf"
+    },
+    "version": "1.0.0",
+    "x-logo": {
+      "url": "https://psapi.nrk.no/documentation/nrk-logo-nrk.svg",
+      "altText": "NRK Logo"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://psapi.nrk.no"
+    },
+    {
+      "url": "https://psapi-preprod.nrk.no"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Programs",
+      "description": "Program page and navigation."
+    },
+    {
+      "name": "Series",
+      "description": "Series, series types and extra material."
+    },
+    {
+      "name": "Instalments",
+      "description": "Instalments in a series."
+    },
+    {
+      "name": "Seasons",
+      "description": "Seasons in a series."
+    },
+    {
+      "name": "PageViews",
+      "description": "Google Analytics dimensions."
+    },
+    {
+      "name": "ShareLinks",
+      "description": "Metadata about sharelinks."
+    }
+  ],
+  "paths": {
+    "/tv/catalog/programs/{programId}": {
+      "get": {
+        "operationId": "GetProgramPage",
+        "summary": "Gets the program page for a program.",
+        "description": "Gets the program page for the specified program.\n\nSome examples to try:\n\n* KOIF75001319 (Semester, 1. episode) \n* MSUB15200119 (Lik meg, 1. episode) \n* NNFA19052319 (Dagsrevyen, 23. mai 2019), \n* KOID75000219 (Bigbang - Play Louder)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "programId",
+            "description": "The 12-character 'ProgID' for a program. For backwards compatibility reasons we also currently support 16-character ID which consists of the ProgId with a suffix indicating accessibility version. In that case the suffix is ignored, and the program page indicated by the plain ProgId is returned.",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/BackwardsCompatibleProgramId"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/ContentGroup"
+          },
+          {
+            "$ref": "#/components/parameters/AgeRestriction"
+          },
+          {
+            "$ref": "#/components/parameters/Preview"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramsVm"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenContent"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "tags": ["Programs"]
+      }
+    },
+    "/tv/catalog/programsContext/{programId}": {
+      "get": {
+        "operationId": "GetProgramContext",
+        "summary": "Gets navigation aid for a program.",
+        "description": "Gets some context to a programId. It is meant to be used to help clients with context to a programId that they are missing, possibly because we are moving from old seriespages to new seriespages.\n\nSome examples to try:\n\n* KOIF75001319 (Semester, 1. episode)\n* MSUB15200119 (Lik meg, 1. episode)\n* NNFA19052319 (Dagsrevyen, 23. mai 2019)\n* KOID75000219 (Bigbang - Play Louder)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "programId",
+            "description": "The 12-character 'ProgID' for a program. For backwards compatibility reasons we also currently support 16-character ID which consists of the ProgId with a suffix indicating accessibility version.",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/BackwardsCompatibleProgramId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramContext"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "tags": ["Programs"]
+      }
+    },
+    "/tv/catalog/offlineProgramsContext/{programId}": {
+      "get": {
+        "operationId": "GetOfflineProgramContext",
+        "summary": "Gets navigation aid for a offline program.",
+        "description": "Gets some offline context to a programId. It is meant to be used to help clients with context to a programId that they are missing when they want to make a program offline, for example a static title.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "programId",
+            "description": "The 12-character 'ProgID' for a program. For backwards compatibility reasons we also currently support 16-character ID which consists of the ProgId with a suffix indicating accessibility version.",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/BackwardsCompatibleProgramId"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/ContentGroup"
+          },
+          {
+            "$ref": "#/components/parameters/AgeRestriction"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfflineProgramsContext"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenContent"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "tags": ["Programs"]
+      }
+    },
+    "/tv/catalog/series/{seriesId}": {
+      "get": {
+        "operationId": "GetTvSeries",
+        "summary": "Gets the specified TV series.",
+        "description": "Gets the TV series indicated by the provided URL-friendly series ID. Series come in three types: sequential, standard and news.\n\nSome examples to try out:\n\n* sequential: heimebane, skam, 113\n* standard: lindmo, trygdekontoret, stroemmeland\n* news: dagsrevyen, debatten, urix",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "seriesId",
+            "example": "kongen-av-gulset",
+            "description": "URL-friendly series ID.",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/UrlFriendlySeriesId"
+            }
+          },
+          {
+            "description": "This parameter only affects standard and news series. Default is 10.",
+            "in": "query",
+            "name": "embeddedInstalmentsPageSize",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/ContentGroup"
+          },
+          {
+            "$ref": "#/components/parameters/AgeRestriction"
+          },
+          {
+            "$ref": "#/components/parameters/Preview"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesHalResource"
+                },
+                "examples": {
+                  "SequentialSeriesVm": {
+                    "externalValue": "/documentation/openapi/programsider-tv/examples/SequentialSeriesVm.json"
+                  },
+                  "StandardSeriesVm": {
+                    "externalValue": "/documentation/openapi/programsider-tv/examples/StandardSeriesVm.json"
+                  },
+                  "NewsSeriesVm": {
+                    "externalValue": "/documentation/openapi/programsider-tv/examples/NewsSeriesVm.json"
+                  }
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenContent"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "410": {
+            "$ref": "#/components/responses/UnavailableContent"
+          }
+        },
+        "tags": ["Series"]
+      }
+    },
+    "/tv/catalog/series/{seriesId}/extramaterial": {
+      "get": {
+        "operationId": "GetTvSeriesExtramaterial",
+        "summary": "Gets extramaterials for TV series.",
+        "description": "Gets extramaterials for TV series, such as trailers and marathon episodes.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "seriesId",
+            "example": "kongen-av-gulset",
+            "description": "URL-friendly series ID.",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/UrlFriendlySeriesId"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/ContentGroup"
+          },
+          {
+            "$ref": "#/components/parameters/AgeRestriction"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtraMaterial"
+                },
+                "examples": {
+                  "jsonObject": {
+                    "externalValue": "/documentation/openapi/programsider-tv/examples/ExtraMaterial.json"
+                  }
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenContent"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "tags": ["Series"]
+      }
+    },
+    "/tv/catalog/series/{seriesId}/navigation": {
+      "get": {
+        "operationId": "GetTvSeriesNavigation",
+        "summary": "Gets navigation for TV series.",
+        "description": "Gets navigation for TV series.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "seriesId",
+            "example": "kongen-av-gulset",
+            "description": "URL-friendly series ID.",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/UrlFriendlySeriesId"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/ContentGroup"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NavigationSections"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenContent"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "tags": ["Series"]
+      }
+    },
+    "/tv/catalog/series/{seriesId}/instalments": {
+      "get": {
+        "operationId": "GetTvSeriesInstalments",
+        "summary": "Gets a collection of instalments for a TV series.",
+        "description": "Gets a collection of instalments for a TV series. The results are paged.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "seriesId",
+            "example": "kongen-av-gulset",
+            "description": "URL-friendly series ID.",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/UrlFriendlySeriesId"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "description": "Specifies the page size for the results. Default page size is 10.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "description": "Indicates start page for paged results. Default is to start at page 1.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "$ref": "#/components/parameters/ContentGroup"
+          },
+          {
+            "$ref": "#/components/parameters/AgeRestriction"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesInstalmentsHalResource"
+                },
+                "examples": {
+                  "StandardInstalmentsHalResource": {
+                    "externalValue": "/documentation/openapi/programsider-tv/examples/StandardInstalmentsHalResource.json"
+                  },
+                  "NewsInstalmentsHalResource": {
+                    "externalValue": "/documentation/openapi/programsider-tv/examples/NewsInstalmentsHalResource.json"
+                  }
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenContent"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "tags": ["Instalments"]
+      }
+    },
+    "/tv/catalog/series/{seriesId}/seasons/{seasonId}": {
+      "get": {
+        "operationId": "GetSeasonForTvSeries",
+        "summary": "Gets a season for a TV series.",
+        "description": "Gets the specified season for the specified TV series.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "seriesId",
+            "example": "kongen-av-gulset",
+            "description": "URL-friendly series ID.",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/UrlFriendlySeriesId"
+            }
+          },
+          {
+            "in": "path",
+            "name": "seasonId",
+            "description": "The ID for a season. For sequential series, it is a number. For other series, it is a string.",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/SeasonId"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/ContentGroup"
+          },
+          {
+            "$ref": "#/components/parameters/AgeRestriction"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeasonHalResource"
+                },
+                "examples": {
+                  "SequentialSeasonVm": {
+                    "externalValue": "/documentation/openapi/programsider-tv/examples/SequentialSeasonVm.json"
+                  },
+                  "StandardSeasonHalResource": {
+                    "externalValue": "/documentation/openapi/programsider-tv/examples/StandardSeasonHalResource.json"
+                  },
+                  "NewsSeasonHalResource": {
+                    "externalValue": "/documentation/openapi/programsider-tv/examples/NewsSeasonHalResource.json"
+                  }
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenContent"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "tags": ["Seasons"]
+      }
+    },
+    "/tv/catalog/series/{seriesId}/type": {
+      "get": {
+        "operationId": "GetSeriesType",
+        "summary": "Gets the type of a specific TV series.",
+        "description": "Gets the type of TV series for the provided URL-friendly series ID. Series come in three types: sequential, standard and news.\n\nSome examples to try out:\n\n* heimebane (sequential)\n* trygdekontoret (standard)\n* dagsrevyen (news)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "seriesId",
+            "example": "kongen-av-gulset",
+            "description": "URL-friendly series ID.",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/UrlFriendlySeriesId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesTypeHalResource"
+                },
+                "examples": {
+                  "jsonObject": {
+                    "externalValue": "/documentation/openapi/programsider-tv/examples/SeriesTypeHalResource.json"
+                  }
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "tags": ["Series"]
+      }
+    },
+    "/tv/programs/pageviews/ga/{programId}": {
+      "get": {
+        "operationId": "GetGoogleAnalyticsPageViewsDimensions",
+        "summary": "Gets GA dimensions for a program.",
+        "description": "Gets the Google Analytics dimensions that should be used for a program.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "programId",
+            "description": "The 12-character 'ProgID' for a program. For backwards compatibility reasons we also currently support 16-character ID which consists of the ProgId with a suffix indicating accessibility version.",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/BackwardsCompatibleProgramId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleAnalyticsVmForPrograms"
+                },
+                "examples": {
+                  "jsonObject": {
+                    "externalValue": "/documentation/openapi/programsider-tv/examples/GoogleAnalytics.json"
+                  }
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "tags": ["PageViews"]
+      }
+    },
+    "/tv/sharelinks/se": {
+      "get": {
+        "operationId": "GetShareLink",
+        "summary": "Gets metadata about sharelinks",
+        "description": "Get information about a share link",
+        "tags": ["ShareLinks"],
+        "parameters": [
+          {
+            "name": "s",
+            "in": "query",
+            "description": "seriesId",
+            "example": "skam",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ss",
+            "in": "query",
+            "description": "Either seasonNumber or seasonId",
+            "example": "2019",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "v",
+            "in": "query",
+            "description": "programId",
+            "example": "KOIF75000114",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "autoplay",
+            "in": "query",
+            "description": "indicates that the video should autoplay",
+            "example": "true",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["true", "false"]
+            }
+          },
+          {
+            "name": "t",
+            "in": "query",
+            "description": "Link to a specific time in the program",
+            "example": "1t20m4s",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(\\d+t)?(\\d+m)?(\\d+s)?$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareLink"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "responses": {
+      "BadRequest": {
+        "description": "The request contains invalid data."
+      },
+      "NotFound": {
+        "description": "The content does not exist."
+      },
+      "ForbiddenContent": {
+        "description": "The content is not appropriate for the given content group.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/InappropriateContent"
+            }
+          }
+        }
+      },
+      "UnavailableContent": {
+        "description": "The content is not available for the given content group.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/UnavailableContent"
+            }
+          }
+        }
+      }
+    },
+    "parameters": {
+      "Preview": {
+        "in": "query",
+        "name": "preview",
+        "description": "Optionally enable preview features.",
+        "required": false,
+        "schema": {
+          "type": "boolean",
+          "default": false,
+          "example": true
+        }
+      },
+      "ContentGroup": {
+        "in": "query",
+        "name": "contentGroup",
+        "description": "Optionally provide the users content group. Restricts access to content marked as appropriate for this content group. Attempted access of non-appropriate content will be forbidden.",
+        "required": false,
+        "schema": {
+          "$ref": "#/components/schemas/ContentGroup"
+        }
+      },
+      "AgeRestriction": {
+        "in": "query",
+        "name": "ageRestriction",
+        "description": "Optionally provide an age restriction. Used when determining if access to a rated program is allowed. When provided, `ageRestriction.access` will be determined based on the given age restriction.",
+        "required": false,
+        "schema": {
+          "$ref": "#/components/schemas/AgeRestrictionCode"
+        }
+      }
+    },
+    "schemas": {
+      "ContentGroup": {
+        "type": "string",
+        "description": "Divides content into groups appropriate for different users. Currently the values adults and children are used, but this could change in the future.",
+        "default": "adults",
+        "example": "children"
+      },
+      "ProgId": {
+        "type": "string",
+        "format": "progId",
+        "pattern": "^\\w{4}\\d{8}$",
+        "example": "DNRR65002318"
+      },
+      "LocalProgramId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "LocalSeriesId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "ProgIdWithAccessibilityVersion": {
+        "type": "string",
+        "format": "progIdWithAccessibility",
+        "pattern": "^\\w{4}\\d{8}\\w{4}$",
+        "example": "DNRR65002318TOLK"
+      },
+      "BackwardsCompatibleProgramId": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ProgId"
+          },
+          {
+            "$ref": "#/components/schemas/ProgIdWithAccessibilityVersion"
+          }
+        ]
+      },
+      "UrlFriendlySeriesId": {
+        "type": "string",
+        "format": "urlFriendlySeriesId",
+        "pattern": "^\\w+(?:-\\w+)*$",
+        "example": "kongen-av-gulset"
+      },
+      "OriginalTitle": {
+        "type": "string",
+        "nullable": true
+      },
+      "ProductionYear": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "EpisodeSequenceNumber": {
+        "type": "integer",
+        "format": "int32",
+        "minimum": 1,
+        "nullable": true
+      },
+      "SeasonSequenceNumber": {
+        "type": "integer",
+        "format": "int32",
+        "minimum": 1
+      },
+      "SeasonName": {
+        "type": "string"
+      },
+      "SeasonId": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/SeasonSequenceNumber"
+          },
+          {
+            "$ref": "#/components/schemas/SeasonName"
+          }
+        ]
+      },
+      "HalLink": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string"
+          }
+        },
+        "required": ["href"],
+        "example": {
+          "href": "/some/url"
+        }
+      },
+      "HalLinkWithTemplated": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string"
+          },
+          "templated": {
+            "type": "boolean"
+          }
+        },
+        "required": ["href", "templated"],
+        "example": {
+          "href": "https://tv.nrk.no/se?s=skam&ss=1{&autoplay}",
+          "templated": true
+        }
+      },
+      "AvailabilityStatus": {
+        "type": "string",
+        "enum": [
+          "coming",
+          "available",
+          "expires",
+          "expired",
+          "notAvailableOnline"
+        ]
+      },
+      "Badge": {
+        "type": "object",
+        "description": "A badge connected to episode.",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["new"],
+            "description": "Type of badge that should be shown on an episode"
+          },
+          "accessibilityValue": {
+            "type": "string",
+            "description": "Accessbility value based on badge type.",
+            "example": "\"Ny\""
+          }
+        },
+        "required": ["type", "accessibilityValue"],
+        "example": {
+          "type": "new",
+          "accessibilityValue": "Ny"
+        }
+      },
+      "Availability": {
+        "type": "object",
+        "description": "Represents the availability of a program based on the active usage rights.",
+        "properties": {
+          "hasLabel": {
+            "type": "boolean",
+            "description": "Label should only be displayed if HasLabel is true."
+          },
+          "label": {
+            "type": "string",
+            "description": "Label to be showed to the user based on the AvailabilityStatus.",
+            "example": "\"Tilgjengelig i morgen\"",
+            "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/AvailabilityStatus"
+          }
+        },
+        "required": ["status", "hasLabel"],
+        "example": {
+          "status": "coming",
+          "hasLabel": true,
+          "label": "Kommer i dag"
+        }
+      },
+      "UrlFriendlyCategoryId": {
+        "type": "string",
+        "format": "urlFriendlyCategoryId"
+      },
+      "CategoryWithName": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/UrlFriendlyCategoryId"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "name"],
+        "example": {
+          "id": "nyheter",
+          "name": "Nyheter"
+        }
+      },
+      "CategoryWithDisplayValue": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "displayValue": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "displayValue"],
+        "example": {
+          "id": "nyheter",
+          "displayValue": "Nyheter"
+        }
+      },
+      "Contributor": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          }
+        },
+        "required": ["name", "role"]
+      },
+      "ContributorsInRole": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "role": {
+            "type": "string"
+          }
+        },
+        "required": ["role", "name"],
+        "example": {
+          "role": "Skuespiller",
+          "name": [
+            "Celine Nordheim",
+            "Ina Svenningsdal",
+            "Herman Tømmeraas",
+            "Lisa Teige",
+            "Cecilie Martinsen",
+            "Josefine Frida Pettersen",
+            "Tarjei Sandvik Moe",
+            "Kristina Ødegaard",
+            "Thomas Hayes",
+            "Marlon Langeland",
+            "Ulrikke Falch",
+            "Iman Meskini"
+          ]
+        }
+      },
+      "Details": {
+        "type": "object",
+        "properties": {
+          "displayValue": {
+            "type": "string",
+            "description": "To be displayed."
+          },
+          "accessibilityValue": {
+            "type": "string",
+            "description": "For screen readers."
+          }
+        },
+        "required": ["displayValue", "accessibilityValue"],
+        "example": {
+          "displayValue": "2019 · Tillatt for alle · 1t 29 min",
+          "accessibilityValue": "2019. 1t 29 minutter."
+        }
+      },
+      "DurationISO8601String": {
+        "type": "string",
+        "format": "ISO8601-duration",
+        "example": "PT29M"
+      },
+      "DurationDisplayValue": {
+        "type": "string",
+        "example": "29 min"
+      },
+      "DurationInSeconds": {
+        "type": "integer",
+        "format": "int32",
+        "minimum": 0
+      },
+      "ReleaseDateOnDemand": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true,
+        "example": "2020-06-24T19:00:00+02:00",
+        "description": "The first time the program was made available on demand (based on the earliest usage right)."
+      },
+      "Duration": {
+        "type": "object",
+        "description": "Duration of the program. We use the [ISO-8601](https://en.wikipedia.org/wiki/ISO_8601#Durations) format for duration.",
+        "properties": {
+          "seconds": {
+            "$ref": "#/components/schemas/DurationInSeconds"
+          },
+          "iso8601": {
+            "$ref": "#/components/schemas/DurationISO8601String"
+          },
+          "displayValue": {
+            "type": "string"
+          }
+        },
+        "required": ["seconds", "iso8601", "displayValue"],
+        "example": {
+          "seconds": 1740,
+          "iso8601": "PT29M",
+          "displayValue": "29 min"
+        }
+      },
+      "EpisodeHalLinks": {
+        "type": "object",
+        "properties": {
+          "playbackmetadata": {
+            "$ref": "#/components/schemas/PlaybackMetadataHalLink"
+          },
+          "playback": {
+            "$ref": "#/components/schemas/MediaElementHalLink"
+          },
+          "recommendations": {
+            "$ref": "#/components/schemas/RecommendationsHalLink"
+          },
+          "self": {
+            "$ref": "#/components/schemas/HalLink"
+          },
+          "share": {
+            "$ref": "#/components/schemas/ProgramShareLink"
+          },
+          "fargerik": {
+            "$ref": "#/components/schemas/FargerikHalLink"
+          }
+        },
+        "required": [
+          "self",
+          "playbackmetadata",
+          "playback",
+          "recommendations",
+          "share",
+          "fargerik"
+        ]
+      },
+      "EpisodeVm": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "$ref": "#/components/schemas/EpisodeHalLinks"
+          },
+          "availability": {
+            "$ref": "#/components/schemas/Availability"
+          },
+          "contributors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Contributor"
+            }
+          },
+          "duration": {
+            "$ref": "#/components/schemas/DurationISO8601String"
+          },
+          "durationDisplayValue": {
+            "$ref": "#/components/schemas/DurationDisplayValue"
+          },
+          "durationInSeconds": {
+            "$ref": "#/components/schemas/DurationInSeconds"
+          },
+          "id": {
+            "$ref": "#/components/schemas/LocalProgramId"
+          },
+          "image": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "releaseDateOnDemand": {
+            "$ref": "#/components/schemas/ReleaseDateOnDemand"
+          },
+          "legalAge": {
+            "$ref": "#/components/schemas/LegalAge"
+          },
+          "ageRestriction": {
+            "$ref": "#/components/schemas/AgeRestriction"
+          },
+          "originalTitle": {
+            "$ref": "#/components/schemas/OriginalTitle"
+          },
+          "prfId": {
+            "$ref": "#/components/schemas/BackwardsCompatibleProgramId"
+          },
+          "productionYear": {
+            "$ref": "#/components/schemas/ProductionYear"
+          },
+          "sequenceNumber": {
+            "$ref": "#/components/schemas/EpisodeSequenceNumber"
+          },
+          "titles": {
+            "$ref": "#/components/schemas/Titles"
+          },
+          "details": {
+            "$ref": "#/components/schemas/Details"
+          },
+          "usageRights": {
+            "$ref": "#/components/schemas/UsageRights"
+          },
+          "badge": {
+            "$ref": "#/components/schemas/Badge"
+          },
+          "transmissions": {
+            "$ref": "#/components/schemas/Transmissions"
+          },
+          "_embedded": {
+            "$ref": "#/components/schemas/PageViewsGaEmbedded"
+          }
+        },
+        "required": [
+          "_links",
+          "id",
+          "prfId",
+          "titles",
+          "details",
+          "image",
+          "releaseDateOnDemand",
+          "duration",
+          "durationDisplayValue",
+          "durationInSeconds",
+          "usageRights",
+          "availability",
+          "legalAge",
+          "ageRestriction",
+          "contributors",
+          "_embedded"
+        ]
+      },
+      "EpisodesHalEmbedded": {
+        "type": "object",
+        "properties": {
+          "episodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EpisodeVm"
+            }
+          }
+        },
+        "required": ["episodes"]
+      },
+      "ExtraMaterialHalLink": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": ["href", "title", "name"],
+        "example": {
+          "name": "extramaterial",
+          "href": "/tv/catalog/series/heimebane/extramaterial",
+          "title": "Ekstramateriale"
+        }
+      },
+      "ExtraMaterialHalLinks": {
+        "type": "object",
+        "properties": {
+          "self": {
+            "$ref": "#/components/schemas/HalLink"
+          },
+          "progresses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProgressesHalLink"
+            }
+          }
+        },
+        "required": ["self", "progresses"]
+      },
+      "ExtraMaterial": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "$ref": "#/components/schemas/ExtraMaterialHalLinks"
+          },
+          "seriesType": {
+            "$ref": "#/components/schemas/SeriesType"
+          },
+          "seasonType": {
+            "$ref": "#/components/schemas/SeasonType"
+          },
+          "titles": {
+            "$ref": "#/components/schemas/Titles"
+          },
+          "image": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "backdropImage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "hasAvailableEpisodes": {
+            "type": "boolean"
+          },
+          "_embedded": {
+            "$ref": "#/components/schemas/EpisodesHalEmbedded"
+          }
+        },
+        "required": [
+          "_links",
+          "titles",
+          "seriesType",
+          "seasonType",
+          "image",
+          "backdropImage",
+          "hasAvailableEpisodes",
+          "_embedded"
+        ]
+      },
+      "GeoBlock": {
+        "type": "object",
+        "properties": {
+          "isGeoBlocked": {
+            "type": "boolean"
+          },
+          "displayValue": {
+            "type": "string",
+            "enum": ["Verden", "Norge"]
+          }
+        },
+        "required": ["isGeoBlocked", "displayValue"],
+        "example": {
+          "isGeoBlocked": false,
+          "displayValue": "Verden"
+        }
+      },
+      "GoogleAnalyticsVmForSeries": {
+        "type": "object",
+        "description": "Google analytics object with one or several dimensions for series. See documentation on https://github.com/nrkno/analytics-docs/blob/master/docs/schema.md",
+        "example": {
+          "dimension1": "prf:blank",
+          "dimension2": "blank"
+        }
+      },
+      "GoogleAnalyticsVmForPrograms": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "$ref": "#/components/schemas/HalLinks"
+          },
+          "dimension1": {
+            "description": "ID. KILDESYSTEM:UNIK_IDENTIFIKATOR",
+            "type": "string"
+          },
+          "dimension2": {
+            "description": "Tittel til programmet.",
+            "type": "string"
+          },
+          "dimension3": {
+            "description": "Publiseringsår.",
+            "type": "string"
+          },
+          "dimension4": {
+            "description": "Publiseringsmåned. [01, 12]",
+            "type": "string"
+          },
+          "dimension5": {
+            "description": "Publiseringsdag. [01, 31]",
+            "type": "string"
+          },
+          "dimension10": {
+            "description": "Kilde-ID.",
+            "type": "string"
+          },
+          "dimension21": {
+            "description": "Seriens url_friendly_id i Granitt. Kun relevant for episoder/instalments.",
+            "type": "string"
+          },
+          "dimension22": {
+            "description": "Episodenummer. Kun relevant for episoder og instalments.",
+            "type": "string"
+          },
+          "dimension23": {
+            "description": "Kategori",
+            "type": "string"
+          },
+          "dimension25": {
+            "description": "Mediatype (video, audio)",
+            "type": "string"
+          },
+          "dimension26": {
+            "description": "Mediakategori (live, ondemand)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "_links",
+          "dimension1",
+          "dimension2",
+          "dimension3",
+          "dimension4",
+          "dimension5",
+          "dimension10",
+          "dimension21",
+          "dimension22",
+          "dimension23",
+          "dimension25",
+          "dimension26"
+        ]
+      },
+      "HalLinks": {
+        "type": "object",
+        "properties": {
+          "self": {
+            "$ref": "#/components/schemas/HalLink"
+          }
+        },
+        "required": ["self"]
+      },
+      "HighlightedEpisodeHalLink": {
+        "type": "object",
+        "description": "Using header: \"vnd-nrk-psapi-features\" : \"ps-personlig\" will return highlightedEpisode HAL link to ps-personlig.",
+        "properties": {
+          "href": {
+            "type": "string"
+          },
+          "templated": {
+            "type": "boolean"
+          }
+        },
+        "required": ["href", "templated"],
+        "example": {
+          "href": "/tv/userdata/series/kiri/highlightedProgram/{userId}",
+          "templated": true
+        }
+      },
+      "Image": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "width": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 100,
+            "maximum": 1920
+          }
+        },
+        "required": ["url", "width"],
+        "example": {
+          "url": "https://gfx.nrk.no/urxQMSXF-WnbfjBH5ke2igaWzubx5CSW-Z6FOsEAclhA",
+          "width": 1920
+        }
+      },
+      "LogoImage": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "width": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 100,
+            "maximum": 1920
+          },
+          "height": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 50,
+            "maximum": 1920
+          }
+        },
+        "required": ["url", "width", "height"],
+        "example": {
+          "url": "https://gfx.nrk.no/b_UOmzqVygb4YyRWktRjygrGc8Vb8eVZ4S4OJTpktgbw",
+          "width": 1280,
+          "height": 668
+        }
+      },
+      "ProgramInformation": {
+        "type": "object",
+        "properties": {
+          "availability": {
+            "$ref": "#/components/schemas/Availability"
+          },
+          "details": {
+            "$ref": "#/components/schemas/Details"
+          },
+          "image": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "titles": {
+            "$ref": "#/components/schemas/Titles"
+          }
+        },
+        "required": ["image", "titles", "availability", "details"]
+      },
+      "InstalmentHalLink": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string"
+          }
+        },
+        "required": ["href"],
+        "example": {
+          "href": "/tv/catalog/series/lindmo/instalments"
+        }
+      },
+      "InstalmentHalLinks": {
+        "type": "object",
+        "properties": {
+          "playbackmetadata": {
+            "$ref": "#/components/schemas/PlaybackMetadataHalLink"
+          },
+          "playback": {
+            "$ref": "#/components/schemas/MediaElementHalLink"
+          },
+          "recommendations": {
+            "$ref": "#/components/schemas/RecommendationsHalLink"
+          },
+          "season": {
+            "$ref": "#/components/schemas/SeasonHalLink"
+          },
+          "self": {
+            "$ref": "#/components/schemas/HalLink"
+          },
+          "share": {
+            "$ref": "#/components/schemas/ProgramShareLink"
+          },
+          "fargerik": {
+            "$ref": "#/components/schemas/FargerikHalLink"
+          }
+        },
+        "required": [
+          "self",
+          "playbackmetadata",
+          "playback",
+          "season",
+          "recommendations",
+          "share",
+          "fargerik"
+        ]
+      },
+      "LegalAgeExempt": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["exempt"]
+          }
+        },
+        "required": ["status"],
+        "example": {
+          "status": "exempt"
+        }
+      },
+      "LegalAgeRated": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["rated"]
+          },
+          "rating": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "$ref": "#/components/schemas/LegalAgeCode"
+              },
+              "displayValue": {
+                "type": "string",
+                "description": "Textual description of the rating.",
+                "example": "Tillatt for alle."
+              },
+              "displayAge": {
+                "type": "string",
+                "enum": ["A", "6+", "9+", "12+", "15+", "18+"],
+                "description": "Rating code for display."
+              }
+            },
+            "required": ["code", "displayValue", "displayAge"]
+          }
+        },
+        "required": ["status"],
+        "example": {
+          "status": "rated",
+          "rating": {
+            "code": "A",
+            "displayValue": "Tillatt for alle",
+            "displayAge": "A"
+          }
+        }
+      },
+      "LegalAgeCode": {
+        "type": "string",
+        "description": "Legal age code. See https://lovdata.no/lov/2015-02-06-7/§4",
+        "enum": ["A", "6", "9", "12", "15", "18"]
+      },
+      "LegalAgeBody": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/LegalAgeExempt"
+          },
+          {
+            "$ref": "#/components/schemas/LegalAgeRated"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "status",
+          "mapping": {
+            "exempt": "#/components/schemas/LegalAgeExempt",
+            "rated": "#/components/schemas/LegalAgeRated"
+          }
+        }
+      },
+      "LegalAge": {
+        "type": "object",
+        "description": "Describes the legally required age limit for this program.",
+        "properties": {
+          "legalReference": {
+            "type": "string",
+            "enum": ["LOV2015-02-06-7"],
+            "description": "Legal reference for the codes used in the body. See https://lovdata.no/lov/2015-02-06-7/§4"
+          },
+          "body": {
+            "$ref": "#/components/schemas/LegalAgeBody"
+          }
+        },
+        "required": ["legalReference", "body"]
+      },
+      "AgeRestrictionCode": {
+        "type": "string",
+        "description": "User-specific age restriction.",
+        "default": "None",
+        "enum": ["6", "9", "12", "15", "18", "None"]
+      },
+      "AgeRestrictionAccessAllowed": {
+        "type": "object",
+        "properties": {
+          "access": {
+            "type": "string",
+            "enum": ["Allowed"],
+            "description": "Access to the program is allowed for the given age restriction. Access is always allowed if the program is exempt from rating."
+          },
+          "forCode": {
+            "$ref": "#/components/schemas/AgeRestrictionCode"
+          }
+        },
+        "required": ["access"],
+        "example": {
+          "access": "Allowed",
+          "forCode": "6"
+        }
+      },
+      "AgeRestrictionAccessDenied": {
+        "type": "object",
+        "properties": {
+          "access": {
+            "type": "string",
+            "enum": ["Denied"],
+            "description": "Access to the program is denied for the given age restriction."
+          },
+          "forCode": {
+            "$ref": "#/components/schemas/AgeRestrictionCode"
+          },
+          "displayMessage": {
+            "type": "string",
+            "description": "User-friendly message informing that this program is age-restricted."
+          },
+          "displayHelpText": {
+            "type": "string",
+            "description": "User-friendly help text describing how to change the age restriction."
+          }
+        },
+        "required": ["access", "displayMessage", "displayHelpText"],
+        "example": {
+          "access": "Denied",
+          "forCode": "6",
+          "displayMessage": "Du kan ikke se dette programmet – aldersgrense 9 år",
+          "displayHelpText": "For å se dette programmet må alderskontroll endres eller skrus av"
+        }
+      },
+      "AgeRestriction": {
+        "description": "Describes age restriction applied to the program.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/AgeRestrictionAccessAllowed"
+          },
+          {
+            "$ref": "#/components/schemas/AgeRestrictionAccessDenied"
+          }
+        ]
+      },
+      "MoreInformation": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/CategoryWithDisplayValue"
+          },
+          "duration": {
+            "$ref": "#/components/schemas/Duration"
+          },
+          "legalAge": {
+            "$ref": "#/components/schemas/LegalAge"
+          },
+          "ageRestriction": {
+            "$ref": "#/components/schemas/AgeRestriction"
+          },
+          "originalTitle": {
+            "$ref": "#/components/schemas/OriginalTitle"
+          },
+          "releaseDateOnDemand": {
+            "$ref": "#/components/schemas/ReleaseDateOnDemand"
+          },
+          "productionYear": {
+            "$ref": "#/components/schemas/ProductionYear"
+          },
+          "usageRights": {
+            "$ref": "#/components/schemas/UsageRights"
+          },
+          "transmissions": {
+            "$ref": "#/components/schemas/Transmissions"
+          }
+        },
+        "required": [
+          "category",
+          "legalAge",
+          "ageRestriction",
+          "usageRights",
+          "releaseDateOnDemand",
+          "productionYear",
+          "duration"
+        ]
+      },
+      "PageViewsGaEmbedded": {
+        "type": "object",
+        "properties": {
+          "ga": {
+            "$ref": "#/components/schemas/GoogleAnalyticsVmForPrograms"
+          }
+        },
+        "required": ["ga"]
+      },
+      "PageViewsHalLink": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string"
+          }
+        },
+        "required": ["href"],
+        "example": {
+          "href": "/tv/programs/pageviews/ga/MDRE20000117"
+        }
+      },
+      "PlaybackMetadataHalLink": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string"
+          }
+        },
+        "required": ["href"],
+        "example": {
+          "href": "/playback/metadata/MDRE20000117"
+        }
+      },
+      "MediaElementHalLink": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string"
+          }
+        },
+        "required": ["href"],
+        "example": {
+          "href": "/mediaelement/program/MDRE20000117"
+        }
+      },
+      "ProgramContextLinks": {
+        "type": "object",
+        "properties": {
+          "self": {
+            "$ref": "#/components/schemas/HalLink"
+          },
+          "programs": {
+            "$ref": "#/components/schemas/ProgramPageHalLink"
+          },
+          "season": {
+            "$ref": "#/components/schemas/SeasonHalLink"
+          },
+          "series": {
+            "$ref": "#/components/schemas/SeriesPageHalLink"
+          },
+          "extramaterial": {
+            "$ref": "#/components/schemas/ExtraMaterialHalLink"
+          }
+        },
+        "required": ["self"]
+      },
+      "ProgramContext": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "$ref": "#/components/schemas/ProgramContextLinks"
+          },
+          "seriesId": {
+            "type": "string",
+            "example": "heimebane"
+          },
+          "seasonId": {
+            "type": "string",
+            "example": "2"
+          },
+          "programId": {
+            "type": "string",
+            "example": "MDRE20000117"
+          }
+        },
+        "required": ["_links", "programId"]
+      },
+      "OfflineProgramContextHalLink": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string"
+          }
+        },
+        "required": ["href"],
+        "example": {
+          "href": "/tv/catalog/offlineProgramsContext/MDRE20000117"
+        }
+      },
+      "OfflineProgramsContextEpisodeLinks": {
+        "type": "object",
+        "properties": {
+          "self": {
+            "$ref": "#/components/schemas/OfflineProgramContextHalLink"
+          },
+          "programs": {
+            "$ref": "#/components/schemas/ProgramPageHalLink"
+          },
+          "season": {
+            "$ref": "#/components/schemas/SeasonHalLink"
+          },
+          "series": {
+            "$ref": "#/components/schemas/SeriesPageHalLink"
+          },
+          "playbackmetadata": {
+            "$ref": "#/components/schemas/PlaybackMetadataHalLink"
+          }
+        },
+        "required": ["self", "programs", "season", "series", "playbackmetadata"]
+      },
+      "OfflineProgramsContextStandaloneLinks": {
+        "type": "object",
+        "properties": {
+          "self": {
+            "$ref": "#/components/schemas/OfflineProgramContextHalLink"
+          },
+          "programs": {
+            "$ref": "#/components/schemas/ProgramPageHalLink"
+          },
+          "playbackmetadata": {
+            "$ref": "#/components/schemas/PlaybackMetadataHalLink"
+          }
+        },
+        "required": ["self", "programs", "playbackmetadata"]
+      },
+      "OfflineProgramsContextEpisode": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "$ref": "#/components/schemas/OfflineProgramsContextEpisodeLinks"
+          },
+          "programId": {
+            "$ref": "#/components/schemas/BackwardsCompatibleProgramId"
+          },
+          "title": {
+            "type": "string",
+            "example": "1. Stolt fortid, stor framtid"
+          },
+          "offlineProgramContext": {
+            "type": "string",
+            "enum": ["episode"]
+          },
+          "duration": {
+            "$ref": "#/components/schemas/Duration"
+          },
+          "legalAge": {
+            "$ref": "#/components/schemas/LegalAge"
+          },
+          "ageRestriction": {
+            "$ref": "#/components/schemas/AgeRestriction"
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "usageRights": {
+            "$ref": "#/components/schemas/UsageRights"
+          }
+        },
+        "required": [
+          "_links",
+          "programId",
+          "title",
+          "offlineProgramContext",
+          "duration",
+          "legalAge",
+          "ageRestriction",
+          "images",
+          "usageRights"
+        ]
+      },
+      "OfflineProgramsContextStandalone": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "$ref": "#/components/schemas/OfflineProgramsContextStandaloneLinks"
+          },
+          "programId": {
+            "$ref": "#/components/schemas/BackwardsCompatibleProgramId"
+          },
+          "title": {
+            "type": "string",
+            "example": "1. Stolt fortid, stor framtid"
+          },
+          "offlineProgramContext": {
+            "type": "string",
+            "enum": ["standalone"]
+          },
+          "duration": {
+            "$ref": "#/components/schemas/Duration"
+          },
+          "legalAge": {
+            "$ref": "#/components/schemas/LegalAge"
+          },
+          "ageRestriction": {
+            "$ref": "#/components/schemas/AgeRestriction"
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "usageRights": {
+            "$ref": "#/components/schemas/UsageRights"
+          }
+        },
+        "required": [
+          "_links",
+          "programId",
+          "title",
+          "offlineProgramContext",
+          "duration",
+          "legalAge",
+          "ageRestriction",
+          "images",
+          "usageRights"
+        ]
+      },
+      "OfflineProgramsContext": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/OfflineProgramsContextStandalone"
+          },
+          {
+            "$ref": "#/components/schemas/OfflineProgramsContextEpisode"
+          }
+        ]
+      },
+      "ProgressHalLink": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string"
+          },
+          "templated": {
+            "type": "boolean"
+          }
+        },
+        "required": ["href", "templated"],
+        "example": {
+          "href": "/tv/userdata/{userId}/progress/programs/MDRE20000117",
+          "templated": true
+        }
+      },
+      "ProgramPageHalLink": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string"
+          }
+        },
+        "required": ["href"],
+        "example": {
+          "href": "/tv/catalog/programs/MDRE20000117"
+        }
+      },
+      "ProgramsHalLinks": {
+        "type": "object",
+        "properties": {
+          "self": {
+            "$ref": "#/components/schemas/ProgramPageHalLink"
+          },
+          "playbackmetadata": {
+            "$ref": "#/components/schemas/PlaybackMetadataHalLink"
+          },
+          "seriesPage": {
+            "$ref": "#/components/schemas/SeriesPageHalLink"
+          },
+          "season": {
+            "$ref": "#/components/schemas/SeasonHalLink"
+          },
+          "recommendations": {
+            "$ref": "#/components/schemas/HalLinkWithTemplated"
+          },
+          "share": {
+            "$ref": "#/components/schemas/ProgramShareLink"
+          },
+          "fargerik": {
+            "$ref": "#/components/schemas/FargerikHalLink"
+          },
+          "extramaterial": {
+            "$ref": "#/components/schemas/ExtraMaterialHalLink"
+          },
+          "favourite": {
+            "$ref": "#/components/schemas/ProgramFavouriteHalLink"
+          },
+          "pageViewsGa": {
+            "$ref": "#/components/schemas/PageViewsHalLink"
+          },
+          "trailer": {
+            "$ref": "#/components/schemas/TrailerHalLink"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/ProgressHalLink"
+          },
+          "__external": {
+            "$ref": "#/components/schemas/ExternalHalLinks"
+          }
+        },
+        "required": [
+          "self",
+          "playbackmetadata",
+          "pageViewsGa",
+          "recommendations",
+          "share",
+          "fargerik",
+          "progress"
+        ]
+      },
+      "ProgramShareLink": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string",
+            "format": "uri-template"
+          },
+          "templated": {
+            "type": "boolean"
+          }
+        },
+        "required": ["href", "templated"],
+        "example": {
+          "href": "https://tv.nrk.no/se?v=MDRE20000117{&autoplay,t}",
+          "templated": true
+        }
+      },
+      "SeriesShareLink": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string",
+            "format": "uri-template"
+          },
+          "templated": {
+            "type": "boolean"
+          }
+        },
+        "required": ["href", "templated"],
+        "example": {
+          "href": "https://tv.nrk.no/se?s=skam{&autoplay}",
+          "templated": true
+        }
+      },
+      "ProgramFavouriteHalLink": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string",
+            "format": "uri-template"
+          },
+          "templated": {
+            "type": "boolean"
+          }
+        },
+        "required": ["href", "templated"],
+        "example": {
+          "href": "https://psapi.nrk.no/tv/userdata/{userId}/favourites/programs/MDRE20000117",
+          "templated": true
+        }
+      },
+      "ProgramsVm": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "$ref": "#/components/schemas/ProgramsHalLinks"
+          },
+          "contributors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContributorsInRole"
+            }
+          },
+          "posterImage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "squareImage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "backdropImage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "logoImage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LogoImage"
+            }
+          },
+          "programInformation": {
+            "$ref": "#/components/schemas/ProgramInformation"
+          },
+          "moreInformation": {
+            "$ref": "#/components/schemas/MoreInformation"
+          },
+          "_embedded": {
+            "$ref": "#/components/schemas/PageViewsGaEmbedded"
+          },
+          "navigation": {
+            "$ref": "#/components/schemas/ProgramNavigation"
+          }
+        },
+        "required": [
+          "_links",
+          "programInformation",
+          "moreInformation",
+          "contributors",
+          "_embedded"
+        ]
+      },
+      "ProgressesHalLink": {
+        "type": "object",
+        "description": "ProgressHalLink consists of a list of comma-separated programIds that we gzip, base64 and url encode to avoid exceeding character limit in the url.",
+        "properties": {
+          "href": {
+            "type": "string"
+          },
+          "templated": {
+            "type": "boolean"
+          }
+        },
+        "required": ["href", "templated"],
+        "example": {
+          "href": "/tv/userdata/{userId}/progress/series/dagsrevyen?contentIds=H4sIAAAAAAAAC_Pzc3M0tDQwNTIxtNTxg3GMkTlGhpYAsMOBOyYAAAA",
+          "templated": true
+        }
+      },
+      "RecommendationsHalLink": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string"
+          },
+          "templated": {
+            "type": "boolean"
+          }
+        },
+        "required": ["href", "templated"],
+        "example": {
+          "href": "/tv/recommendations/MDRE20000117?list=tv_viderenavigasjon_fra_episode{&maxNumber,experiment}",
+          "templated": true
+        }
+      },
+      "FargerikHalLink": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": ["href"],
+        "example": {
+          "href": "https://fargerik-psapi.nrk.no/tv/programpage/program/KOID22000919"
+        }
+      },
+      "SeasonHalLink": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": ["href", "name", "title"],
+        "example": {
+          "name": "1",
+          "href": "/tv/catalog/series/heimebane/seasons/1",
+          "title": "Sesong 1"
+        }
+      },
+      "DefaultHighlightedEpisodeHalLink": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": ["href", "name"],
+        "example": {
+          "name": "MYNT15000117",
+          "href": "/tv/catalog/programs/MYNT15000117"
+        }
+      },
+      "DefaultHighlightedSeasonHalLink": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": ["href", "name", "title"],
+        "example": {
+          "name": "4",
+          "href": "/tv/catalog/series/skam/seasons/4",
+          "title": "Sesong 4"
+        }
+      },
+      "ExternalHalLinks": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ExternalHalLink"
+        },
+        "description": "**Experimental:** Collection of links to external content. Ordered by relevance.",
+        "deprecated": true
+      },
+      "ExternalHalLink": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string",
+            "format": "uri",
+            "description": "Absolute URL to the external content."
+          },
+          "title": {
+            "type": "string",
+            "description": "User-friendly title."
+          },
+          "icon": {
+            "type": "string",
+            "description": "Optional reference to an icon that can be displayed alongside the link title."
+          }
+        },
+        "required": ["href", "title"],
+        "example": {
+          "href": "https://www.nrk.no/julenotter/",
+          "title": "Løs nøttene",
+          "icon": "nuts"
+        }
+      },
+      "NavigationLinks": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/NavigationLink"
+        },
+        "description": "Links to related content, usually found in other NRK products like NRK Radio or nrk.no"
+      },
+      "NavigationLink": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for the navigation link.",
+            "example": "1706c7cd14a5c9bbf674b21f9c4f873ac04b7a6f1f2202cd0c5977c48968d188"
+          },
+          "target": {
+            "$ref": "#/components/schemas/NavigationLinkTarget"
+          },
+          "title": {
+            "type": "string",
+            "description": "Title describing the link.",
+            "example": "Seriesnakk i NRK Radio"
+          },
+          "subtitle": {
+            "type": "string",
+            "description": "Subtitle or additional description of the link.",
+            "example": "Hør Seriesnakk om Makta"
+          },
+          "icon": {
+            "type": "object",
+            "description": "Optional icon that can be displayed alongside the link.",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "ID to referenced icon from @nrk/core-icons. See https://github.com/nrkno/core-icons for more information. Can be omitted, if the referenced icon isn't currently available on the receiving client. ",
+                "example": "nrk-hardware-radio"
+              }
+            },
+            "required": ["id"]
+          },
+          "logo": {
+            "type": "object",
+            "description": "Optional logo that can be displayed alongside the link.",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "ID to referenced logo from @nrk/core-icons. See https://static.nrk.no/core-icons/latest/index.html#browse-logos for more information. Can be omitted, if the referenced logo isn't currently available on the receiving client. ",
+                "example": "nrk-logo-nrk-radio"
+              }
+            },
+            "required": ["id"]
+          },
+          "image": {
+            "type": "object",
+            "properties": {
+              "imageId": {
+                "type": "string",
+                "description": "Unique identifier for the image.",
+                "example": "2iTd3h47pBNHEWbuZeqG_AD1UKNbwng_6tYJZuAbUqUA"
+              },
+              "derivatives": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Image"
+                }
+              }
+            },
+            "description": "Optional field to indicate an image associated with the link.",
+            "required": ["imageId"]
+          },
+          "analytics": {
+            "$ref": "#/components/schemas/NavigationLinkAnalytics"
+          }
+        },
+        "required": ["id", "target", "title", "subtitle", "analytics"]
+      },
+      "NavigationLinkTarget": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/NavigationLinkTargetExternal"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "external": "#/components/schemas/NavigationLinkTargetExternal"
+          }
+        },
+        "description": "Information about the target of the link. Targets may be of different types, depending on the kind of content being linked. Clients should ignore links with an unknown target type."
+      },
+      "NavigationLinkTargetExternal": {
+        "type": "object",
+        "description": "Information about the target of the link.",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "The target is an external system, like NRK Radio, nrk.no, delta.nrk.no or Yr.",
+            "enum": ["external"]
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Absolute URL to the linked content.",
+            "example": "https://radio.nrk.no/podkast/seriesnakk/sesong/makta?utm_source=nrktv&utm_medium=episode"
+          },
+          "qrCode": {
+            "type": "array",
+            "description": "Collection of QR-code images, encoding the target URL.",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          }
+        },
+        "required": ["type", "url"]
+      },
+      "SeasonHalLinks": {
+        "type": "object",
+        "properties": {
+          "progresses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProgressesHalLink"
+            }
+          },
+          "self": {
+            "$ref": "#/components/schemas/HalLink"
+          },
+          "series": {
+            "$ref": "#/components/schemas/SeriesPageHalLink"
+          },
+          "share": {
+            "$ref": "#/components/schemas/SeasonShareLink"
+          },
+          "trailer": {
+            "$ref": "#/components/schemas/TrailerHalLink"
+          },
+          "defaultHighlightedEpisode": {
+            "$ref": "#/components/schemas/DefaultHighlightedEpisodeHalLink"
+          }
+        },
+        "required": [
+          "self",
+          "series",
+          "progresses",
+          "share",
+          "defaultHighlightedEpisode"
+        ]
+      },
+      "TrailerHalLink": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": ["href", "name"]
+      },
+      "SeasonShareLink": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string",
+            "format": "uri-template"
+          },
+          "templated": {
+            "type": "boolean"
+          }
+        },
+        "required": ["href", "templated"],
+        "example": {
+          "href": "https://tv.nrk.no/se?s=heimebane&ss=2{&autoplay}",
+          "templated": true
+        }
+      },
+      "SequentialSeasonHalEmbedded": {
+        "type": "object",
+        "properties": {
+          "episodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EpisodeVm"
+            }
+          }
+        },
+        "required": ["episodes"]
+      },
+      "StandardSeasonHalEmbedded": {
+        "type": "object",
+        "properties": {
+          "instalments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StandardInstalmentHalResource"
+            }
+          }
+        },
+        "required": ["instalments"]
+      },
+      "NewsSeasonHalEmbedded": {
+        "type": "object",
+        "properties": {
+          "instalments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NewsInstalmentHalResource"
+            }
+          }
+        },
+        "required": ["instalments"]
+      },
+      "SeasonHalResource": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/SequentialSeasonVm"
+          },
+          {
+            "$ref": "#/components/schemas/StandardSeasonHalResource"
+          },
+          {
+            "$ref": "#/components/schemas/NewsSeasonHalResource"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "seriesType",
+          "mapping": {
+            "sequential": "#/components/schemas/SequentialSeasonVm",
+            "standard": "#/components/schemas/StandardSeasonHalResource",
+            "news": "#/components/schemas/NewsSeasonHalResource"
+          }
+        }
+      },
+      "SequentialSeasonVm": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "$ref": "#/components/schemas/SeasonHalLinks"
+          },
+          "seriesType": {
+            "$ref": "#/components/schemas/SeriesType"
+          },
+          "seasonType": {
+            "$ref": "#/components/schemas/SeasonType"
+          },
+          "sequenceNumber": {
+            "$ref": "#/components/schemas/SeasonSequenceNumber"
+          },
+          "titles": {
+            "$ref": "#/components/schemas/Titles"
+          },
+          "image": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "backdropImage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "posterImage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "hasAvailableEpisodes": {
+            "type": "boolean"
+          },
+          "_embedded": {
+            "$ref": "#/components/schemas/SequentialSeasonHalEmbedded"
+          }
+        },
+        "required": [
+          "_links",
+          "seriesType",
+          "seasonType",
+          "sequenceNumber",
+          "titles",
+          "image",
+          "backdropImage",
+          "hasAvailableEpisodes",
+          "_embedded"
+        ]
+      },
+      "StandardSeasonHalResource": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "$ref": "#/components/schemas/SeasonHalLinks"
+          },
+          "seriesType": {
+            "$ref": "#/components/schemas/SeriesType"
+          },
+          "seasonType": {
+            "$ref": "#/components/schemas/SeasonType"
+          },
+          "titles": {
+            "$ref": "#/components/schemas/Titles"
+          },
+          "image": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "backdropImage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "hasAvailableEpisodes": {
+            "type": "boolean"
+          },
+          "_embedded": {
+            "$ref": "#/components/schemas/StandardSeasonHalEmbedded"
+          }
+        },
+        "required": [
+          "_links",
+          "seriesType",
+          "seasonType",
+          "titles",
+          "image",
+          "backdropImage",
+          "hasAvailableEpisodes",
+          "_embedded"
+        ]
+      },
+      "NewsSeasonHalResource": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "$ref": "#/components/schemas/SeasonHalLinks"
+          },
+          "seriesType": {
+            "$ref": "#/components/schemas/SeriesType"
+          },
+          "seasonType": {
+            "$ref": "#/components/schemas/SeasonType"
+          },
+          "titles": {
+            "$ref": "#/components/schemas/Titles"
+          },
+          "image": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "backdropImage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "hasAvailableEpisodes": {
+            "type": "boolean"
+          },
+          "_embedded": {
+            "$ref": "#/components/schemas/NewsSeasonHalEmbedded"
+          }
+        },
+        "required": [
+          "_links",
+          "seriesType",
+          "seasonType",
+          "titles",
+          "image",
+          "backdropImage",
+          "hasAvailableEpisodes",
+          "_embedded"
+        ]
+      },
+      "EmbeddedSeasonHalResource": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "$ref": "#/components/schemas/EmbeddedSeasonHalLinks"
+          },
+          "titles": {
+            "$ref": "#/components/schemas/Titles"
+          },
+          "hasAvailableInstalments": {
+            "type": "boolean"
+          }
+        },
+        "required": ["_links", "titles", "hasAvailableInstalments"]
+      },
+      "EmbeddedSeasonHalLinks": {
+        "type": "object",
+        "properties": {
+          "self": {
+            "$ref": "#/components/schemas/HalLink"
+          }
+        },
+        "required": ["self"]
+      },
+      "PublicationStatus": {
+        "description": "Indicating the publication status of the navigation section.",
+        "type": "string",
+        "enum": ["upcoming", "playable", "expired"]
+      },
+      "NavigationSectionComplete": {
+        "type": "boolean",
+        "description": "Indicates whether all sections is included."
+      },
+      "FixedNavigationSection": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Identifies a specific fixed collection of programs.",
+            "type": "string",
+            "enum": ["extramaterial", "latest"]
+          },
+          "type": {
+            "type": "string",
+            "enum": ["fixed"]
+          },
+          "status": {
+            "$ref": "#/components/schemas/PublicationStatus"
+          },
+          "title": {
+            "type": "string",
+            "description": "The title of the fixed section."
+          }
+        },
+        "required": ["id", "status", "type", "title"]
+      },
+      "SeasonNavigationSection": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Identifies a specific season.",
+            "type": "string",
+            "example": "1"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["season"]
+          },
+          "status": {
+            "$ref": "#/components/schemas/PublicationStatus"
+          },
+          "title": {
+            "type": "string",
+            "description": "The title of the season section."
+          }
+        },
+        "required": ["id", "status", "type", "title"]
+      },
+      "SubnavigationSection": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Identifies a specific subnavigation section."
+          },
+          "type": {
+            "type": "string",
+            "enum": ["subnavigation"]
+          },
+          "complete": {
+            "$ref": "#/components/schemas/NavigationSectionComplete"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PublicationStatus"
+          },
+          "title": {
+            "type": "string",
+            "description": "The title of the subnavigation section."
+          },
+          "sections": {
+            "description": "An ordered collection of navigation sections, each representing a subset of all programs in the series.",
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/SeasonNavigationSection"
+                },
+                {
+                  "$ref": "#/components/schemas/FixedNavigationSection"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "type",
+                "mapping": {
+                  "season": "#/components/schemas/SeasonNavigationSection",
+                  "fixed": "#/components/schemas/FixedNavigationSection"
+                }
+              }
+            }
+          }
+        },
+        "required": ["type", "id", "title", "complete", "status", "sections"]
+      },
+      "NavigationSections": {
+        "type": "object",
+        "properties": {
+          "heading": {
+            "description": "Heading of the navigation section. Intended to be displayed above all navigation sections.",
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "description": "The title of the navigation section."
+              },
+              "image": {
+                "$ref": "#/components/schemas/LogoImage"
+              }
+            },
+            "required": ["title"]
+          },
+          "complete": {
+            "$ref": "#/components/schemas/NavigationSectionComplete"
+          },
+          "sections": {
+            "description": "An ordered collection of navigation sections, each representing a subset of all programs in the series.",
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/SeasonNavigationSection"
+                },
+                {
+                  "$ref": "#/components/schemas/FixedNavigationSection"
+                },
+                {
+                  "$ref": "#/components/schemas/SubnavigationSection"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "type",
+                "mapping": {
+                  "season": "#/components/schemas/SeasonNavigationSection",
+                  "fixed": "#/components/schemas/FixedNavigationSection",
+                  "subnavigation": "#/components/schemas/SubnavigationSection"
+                }
+              }
+            }
+          },
+          "links": {
+            "$ref": "#/components/schemas/NavigationLinks"
+          }
+        },
+        "required": ["sections", "complete"]
+      },
+      "ProgramNavigation": {
+        "type": "object",
+        "properties": {
+          "links": {
+            "$ref": "#/components/schemas/NavigationLinks"
+          }
+        }
+      },
+      "SequentialSeriesHalLinks": {
+        "type": "object",
+        "properties": {
+          "self": {
+            "$ref": "#/components/schemas/HalLink"
+          },
+          "extramaterial": {
+            "$ref": "#/components/schemas/ExtraMaterialHalLink"
+          },
+          "favourite": {
+            "$ref": "#/components/schemas/SeriesFavouriteHalLink"
+          },
+          "highlightedEpisode": {
+            "$ref": "#/components/schemas/HighlightedEpisodeHalLink"
+          },
+          "seasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SeasonHalLink"
+            }
+          },
+          "share": {
+            "$ref": "#/components/schemas/SeriesShareLink"
+          },
+          "fargerik": {
+            "$ref": "#/components/schemas/FargerikHalLink"
+          },
+          "userdata": {
+            "$ref": "#/components/schemas/UserDataHalLink"
+          },
+          "defaultHighlightedSeason": {
+            "$ref": "#/components/schemas/DefaultHighlightedSeasonHalLink"
+          },
+          "defaultHighlightedEpisode": {
+            "$ref": "#/components/schemas/DefaultHighlightedEpisodeHalLink"
+          },
+          "__external": {
+            "$ref": "#/components/schemas/ExternalHalLinks"
+          }
+        },
+        "required": [
+          "self",
+          "highlightedEpisode",
+          "userdata",
+          "seasons",
+          "favourite",
+          "fargerik",
+          "share",
+          "defaultHighlightedSeason",
+          "defaultHighlightedEpisode"
+        ]
+      },
+      "SequentialSeriesHalEmbedded": {
+        "type": "object",
+        "properties": {
+          "seasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SequentialSeasonVm"
+            }
+          },
+          "extraMaterial": {
+            "$ref": "#/components/schemas/ExtraMaterial"
+          }
+        },
+        "required": ["seasons"]
+      },
+      "StandardSeriesHalLinks": {
+        "type": "object",
+        "properties": {
+          "self": {
+            "$ref": "#/components/schemas/HalLink"
+          },
+          "extramaterial": {
+            "$ref": "#/components/schemas/ExtraMaterialHalLink"
+          },
+          "favourite": {
+            "$ref": "#/components/schemas/SeriesFavouriteHalLink"
+          },
+          "highlightedProgram": {
+            "$ref": "#/components/schemas/HighlightedEpisodeHalLink"
+          },
+          "seasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SeasonHalLink"
+            }
+          },
+          "share": {
+            "$ref": "#/components/schemas/SeriesShareLink"
+          },
+          "fargerik": {
+            "$ref": "#/components/schemas/FargerikHalLink"
+          },
+          "userData": {
+            "$ref": "#/components/schemas/UserDataHalLink"
+          },
+          "instalments": {
+            "$ref": "#/components/schemas/InstalmentHalLink"
+          },
+          "defaultHighlightedEpisode": {
+            "$ref": "#/components/schemas/DefaultHighlightedEpisodeHalLink"
+          },
+          "defaultHighlightedSeason": {
+            "$ref": "#/components/schemas/DefaultHighlightedSeasonHalLink"
+          },
+          "__external": {
+            "$ref": "#/components/schemas/ExternalHalLinks"
+          }
+        },
+        "required": [
+          "self",
+          "highlightedProgram",
+          "userData",
+          "seasons",
+          "favourite",
+          "share",
+          "fargerik",
+          "instalments",
+          "defaultHighlightedEpisode",
+          "defaultHighlightedSeason"
+        ]
+      },
+      "StandardSeriesHalEmbedded": {
+        "type": "object",
+        "properties": {
+          "instalments": {
+            "$ref": "#/components/schemas/StandardInstalmentsHalResource"
+          },
+          "seasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmbeddedSeasonHalResource"
+            }
+          },
+          "extraMaterial": {
+            "$ref": "#/components/schemas/ExtraMaterial"
+          }
+        },
+        "required": ["instalments", "seasons"]
+      },
+      "NewsSeriesHalLinks": {
+        "type": "object",
+        "properties": {
+          "self": {
+            "$ref": "#/components/schemas/HalLink"
+          },
+          "highlightedProgram": {
+            "$ref": "#/components/schemas/HighlightedEpisodeHalLink"
+          },
+          "userData": {
+            "$ref": "#/components/schemas/UserDataHalLink"
+          },
+          "seasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SeasonHalLink"
+            }
+          },
+          "favourite": {
+            "$ref": "#/components/schemas/SeriesFavouriteHalLink"
+          },
+          "share": {
+            "$ref": "#/components/schemas/SeriesShareLink"
+          },
+          "fargerik": {
+            "$ref": "#/components/schemas/FargerikHalLink"
+          },
+          "extramaterial": {
+            "$ref": "#/components/schemas/ExtraMaterialHalLink"
+          },
+          "instalments": {
+            "$ref": "#/components/schemas/InstalmentHalLink"
+          },
+          "defaultHighlightedEpisode": {
+            "$ref": "#/components/schemas/DefaultHighlightedEpisodeHalLink"
+          },
+          "defaultHighlightedSeason": {
+            "$ref": "#/components/schemas/DefaultHighlightedSeasonHalLink"
+          },
+          "__external": {
+            "$ref": "#/components/schemas/ExternalHalLinks"
+          }
+        },
+        "required": [
+          "self",
+          "highlightedProgram",
+          "userData",
+          "seasons",
+          "favourite",
+          "share",
+          "fargerik",
+          "instalments",
+          "defaultHighlightedEpisode",
+          "defaultHighlightedSeason"
+        ]
+      },
+      "NewsSeriesHalEmbedded": {
+        "type": "object",
+        "properties": {
+          "instalments": {
+            "$ref": "#/components/schemas/NewsInstalmentsHalResource"
+          },
+          "seasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmbeddedSeasonHalResource"
+            }
+          },
+          "extraMaterial": {
+            "$ref": "#/components/schemas/ExtraMaterial"
+          }
+        },
+        "required": ["instalments", "seasons"]
+      },
+      "SeriesHalResource": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/SequentialSeriesVm"
+          },
+          {
+            "$ref": "#/components/schemas/StandardSeriesVm"
+          },
+          {
+            "$ref": "#/components/schemas/NewsSeriesVm"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "seriesType",
+          "mapping": {
+            "sequential": "#/components/schemas/SequentialSeriesVm",
+            "standard": "#/components/schemas/StandardSeriesVm",
+            "news": "#/components/schemas/NewsSeriesVm"
+          }
+        }
+      },
+      "SequentialSeriesVm": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "$ref": "#/components/schemas/SequentialSeriesHalLinks"
+          },
+          "seriesType": {
+            "$ref": "#/components/schemas/SeriesType"
+          },
+          "sequential": {
+            "$ref": "#/components/schemas/SequentialSeries"
+          },
+          "navigation": {
+            "$ref": "#/components/schemas/NavigationSections"
+          },
+          "_embedded": {
+            "$ref": "#/components/schemas/SequentialSeriesHalEmbedded"
+          },
+          "ga": {
+            "$ref": "#/components/schemas/GoogleAnalyticsVmForSeries"
+          }
+        },
+        "required": [
+          "_links",
+          "seriesType",
+          "sequential",
+          "navigation",
+          "_embedded",
+          "ga"
+        ]
+      },
+      "SequentialSeries": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/LocalSeriesId"
+          },
+          "urlFriendlySeriesId": {
+            "$ref": "#/components/schemas/UrlFriendlySeriesId"
+          },
+          "highlightedEpisode": {
+            "$ref": "#/components/schemas/LocalProgramId"
+          },
+          "titles": {
+            "$ref": "#/components/schemas/Titles"
+          },
+          "category": {
+            "$ref": "#/components/schemas/CategoryWithName"
+          },
+          "image": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "squareImage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "logoImage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LogoImage"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "urlFriendlySeriesId",
+          "highlightedEpisode",
+          "titles",
+          "category",
+          "image"
+        ]
+      },
+      "StandardSeriesVm": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "$ref": "#/components/schemas/StandardSeriesHalLinks"
+          },
+          "seriesType": {
+            "$ref": "#/components/schemas/SeriesType"
+          },
+          "standard": {
+            "$ref": "#/components/schemas/StandardVm"
+          },
+          "navigation": {
+            "$ref": "#/components/schemas/NavigationSections"
+          },
+          "_embedded": {
+            "$ref": "#/components/schemas/StandardSeriesHalEmbedded"
+          },
+          "ga": {
+            "$ref": "#/components/schemas/GoogleAnalyticsVmForSeries"
+          }
+        },
+        "required": [
+          "_links",
+          "seriesType",
+          "standard",
+          "navigation",
+          "_embedded",
+          "ga"
+        ]
+      },
+      "StandardVm": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/LocalSeriesId"
+          },
+          "urlFriendlySeriesId": {
+            "$ref": "#/components/schemas/UrlFriendlySeriesId"
+          },
+          "highlightedInstalment": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "titles": {
+            "$ref": "#/components/schemas/Titles"
+          },
+          "category": {
+            "$ref": "#/components/schemas/CategoryWithName"
+          },
+          "image": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "posterImage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "squareImage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "backdropImage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "logoImage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LogoImage"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "urlFriendlySeriesId",
+          "highlightedInstalment",
+          "titles",
+          "category",
+          "image",
+          "backdropImage"
+        ]
+      },
+      "NewsSeriesVm": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "$ref": "#/components/schemas/NewsSeriesHalLinks"
+          },
+          "seriesType": {
+            "$ref": "#/components/schemas/SeriesType"
+          },
+          "news": {
+            "$ref": "#/components/schemas/NewsVm"
+          },
+          "navigation": {
+            "$ref": "#/components/schemas/NavigationSections"
+          },
+          "_embedded": {
+            "$ref": "#/components/schemas/NewsSeriesHalEmbedded"
+          },
+          "ga": {
+            "$ref": "#/components/schemas/GoogleAnalyticsVmForSeries"
+          }
+        },
+        "required": [
+          "_links",
+          "seriesType",
+          "news",
+          "navigation",
+          "_embedded",
+          "ga"
+        ]
+      },
+      "NewsVm": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/LocalSeriesId"
+          },
+          "urlFriendlySeriesId": {
+            "$ref": "#/components/schemas/UrlFriendlySeriesId"
+          },
+          "highlightedInstalment": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "titles": {
+            "$ref": "#/components/schemas/Titles"
+          },
+          "category": {
+            "$ref": "#/components/schemas/CategoryWithName"
+          },
+          "image": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "posterImage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "squareImage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "backdropImage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "logoImage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LogoImage"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "urlFriendlySeriesId",
+          "highlightedInstalment",
+          "titles",
+          "category",
+          "image",
+          "backdropImage"
+        ]
+      },
+      "SeriesFavouriteHalLink": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string"
+          },
+          "templated": {
+            "type": "boolean"
+          }
+        },
+        "required": ["href", "templated"],
+        "example": {
+          "href": "/tv/userdata/{userId}/favourites/series/skam",
+          "templated": true
+        }
+      },
+      "SeriesPageHalLink": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/components/schemas/SeriesType"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": ["href", "name", "title"],
+        "example": {
+          "name": "sequential",
+          "href": "/tv/catalog/series/heimebane",
+          "title": "Heimebane"
+        }
+      },
+      "SeriesType": {
+        "type": "string",
+        "enum": ["sequential", "news", "standard"]
+      },
+      "SeasonType": {
+        "type": "string",
+        "enum": ["latest", "extramaterial", "season"]
+      },
+      "SeriesTypeHalResource": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "$ref": "#/components/schemas/HalLinks"
+          },
+          "seriesType": {
+            "$ref": "#/components/schemas/SeriesType"
+          }
+        },
+        "required": ["_links", "seriesType"]
+      },
+      "StandardInstalmentHalResource": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "$ref": "#/components/schemas/InstalmentHalLinks"
+          },
+          "id": {
+            "$ref": "#/components/schemas/LocalProgramId"
+          },
+          "prfId": {
+            "$ref": "#/components/schemas/BackwardsCompatibleProgramId"
+          },
+          "titles": {
+            "$ref": "#/components/schemas/Titles"
+          },
+          "details": {
+            "$ref": "#/components/schemas/Details"
+          },
+          "image": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "releaseDateOnDemand": {
+            "$ref": "#/components/schemas/ReleaseDateOnDemand"
+          },
+          "duration": {
+            "$ref": "#/components/schemas/DurationISO8601String"
+          },
+          "durationDisplayValue": {
+            "$ref": "#/components/schemas/DurationDisplayValue"
+          },
+          "durationInSeconds": {
+            "$ref": "#/components/schemas/DurationInSeconds"
+          },
+          "usageRights": {
+            "$ref": "#/components/schemas/UsageRights"
+          },
+          "availability": {
+            "$ref": "#/components/schemas/Availability"
+          },
+          "legalAge": {
+            "$ref": "#/components/schemas/LegalAge"
+          },
+          "ageRestriction": {
+            "$ref": "#/components/schemas/AgeRestriction"
+          },
+          "badge": {
+            "$ref": "#/components/schemas/Badge"
+          },
+          "contributors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Contributor"
+            }
+          },
+          "firstTransmissionDateDisplayValue": {
+            "type": "string",
+            "description": "Formatted as \"dd.MM.YYYY\". Example: \"02.12.2018\""
+          },
+          "originalTitle": {
+            "$ref": "#/components/schemas/OriginalTitle"
+          },
+          "productionYear": {
+            "$ref": "#/components/schemas/ProductionYear"
+          },
+          "transmissions": {
+            "$ref": "#/components/schemas/Transmissions"
+          },
+          "_embedded": {
+            "$ref": "#/components/schemas/PageViewsGaEmbedded"
+          }
+        },
+        "required": [
+          "_links",
+          "id",
+          "prfId",
+          "titles",
+          "details",
+          "image",
+          "duration",
+          "releaseDateOnDemand",
+          "durationDisplayValue",
+          "durationInSeconds",
+          "usageRights",
+          "availability",
+          "legalAge",
+          "ageRestriction",
+          "contributors",
+          "firstTransmissionDateDisplayValue",
+          "_embedded"
+        ]
+      },
+      "NewsInstalmentHalResource": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "$ref": "#/components/schemas/InstalmentHalLinks"
+          },
+          "id": {
+            "$ref": "#/components/schemas/LocalProgramId"
+          },
+          "prfId": {
+            "$ref": "#/components/schemas/BackwardsCompatibleProgramId"
+          },
+          "titles": {
+            "$ref": "#/components/schemas/Titles"
+          },
+          "details": {
+            "$ref": "#/components/schemas/Details"
+          },
+          "image": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            }
+          },
+          "releaseDateOnDemand": {
+            "$ref": "#/components/schemas/ReleaseDateOnDemand"
+          },
+          "duration": {
+            "$ref": "#/components/schemas/DurationISO8601String"
+          },
+          "durationDisplayValue": {
+            "$ref": "#/components/schemas/DurationDisplayValue"
+          },
+          "durationInSeconds": {
+            "$ref": "#/components/schemas/DurationInSeconds"
+          },
+          "usageRights": {
+            "$ref": "#/components/schemas/UsageRights"
+          },
+          "availability": {
+            "$ref": "#/components/schemas/Availability"
+          },
+          "legalAge": {
+            "$ref": "#/components/schemas/LegalAge"
+          },
+          "ageRestriction": {
+            "$ref": "#/components/schemas/AgeRestriction"
+          },
+          "badge": {
+            "$ref": "#/components/schemas/Badge"
+          },
+          "contributors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Contributor"
+            }
+          },
+          "firstTransmissionDateDisplayValue": {
+            "type": "string",
+            "description": "Formatted as \"dd.MM.YYYY\". Example: \"02.12.2018\"",
+            "nullable": true
+          },
+          "originalTitle": {
+            "$ref": "#/components/schemas/OriginalTitle"
+          },
+          "productionYear": {
+            "$ref": "#/components/schemas/ProductionYear"
+          },
+          "transmissions": {
+            "$ref": "#/components/schemas/Transmissions"
+          },
+          "_embedded": {
+            "$ref": "#/components/schemas/PageViewsGaEmbedded"
+          }
+        },
+        "required": [
+          "_links",
+          "id",
+          "prfId",
+          "titles",
+          "details",
+          "image",
+          "releaseDateOnDemand",
+          "duration",
+          "durationDisplayValue",
+          "durationInSeconds",
+          "usageRights",
+          "availability",
+          "legalAge",
+          "ageRestriction",
+          "contributors",
+          "firstTransmissionDateDisplayValue",
+          "_embedded"
+        ]
+      },
+      "StandardInstalmentsHalEmbedded": {
+        "type": "object",
+        "properties": {
+          "instalments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StandardInstalmentHalResource"
+            }
+          }
+        },
+        "required": ["instalments"]
+      },
+      "NewsInstalmentsHalEmbedded": {
+        "type": "object",
+        "properties": {
+          "instalments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NewsInstalmentHalResource"
+            }
+          }
+        },
+        "required": ["instalments"]
+      },
+      "StandardInstalmentsHalLinks": {
+        "type": "object",
+        "properties": {
+          "next": {
+            "$ref": "#/components/schemas/HalLink"
+          },
+          "prev": {
+            "$ref": "#/components/schemas/HalLink"
+          },
+          "progresses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProgressesHalLink"
+            }
+          },
+          "self": {
+            "$ref": "#/components/schemas/HalLink"
+          }
+        },
+        "required": ["self", "progresses"]
+      },
+      "NewsInstalmentsHalLinks": {
+        "type": "object",
+        "properties": {
+          "next": {
+            "$ref": "#/components/schemas/HalLink"
+          },
+          "prev": {
+            "$ref": "#/components/schemas/HalLink"
+          },
+          "progresses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProgressesHalLink"
+            }
+          },
+          "self": {
+            "$ref": "#/components/schemas/HalLink"
+          }
+        },
+        "required": ["self", "progresses"]
+      },
+      "SeriesInstalmentsHalResource": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/StandardInstalmentsHalResource"
+          },
+          {
+            "$ref": "#/components/schemas/NewsInstalmentsHalResource"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "seriesType",
+          "mapping": {
+            "standard": "#/components/schemas/StandardInstalmentsHalResource",
+            "news": "#/components/schemas/NewsInstalmentsHalResource"
+          }
+        }
+      },
+      "StandardInstalmentsHalResource": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "$ref": "#/components/schemas/StandardInstalmentsHalLinks"
+          },
+          "seriesType": {
+            "$ref": "#/components/schemas/SeriesType"
+          },
+          "seasonType": {
+            "$ref": "#/components/schemas/SeasonType"
+          },
+          "_embedded": {
+            "$ref": "#/components/schemas/StandardInstalmentsHalEmbedded"
+          }
+        },
+        "required": ["_links", "seriesType", "seasonType", "_embedded"]
+      },
+      "NewsInstalmentsHalResource": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "$ref": "#/components/schemas/NewsInstalmentsHalLinks"
+          },
+          "seriesType": {
+            "$ref": "#/components/schemas/SeriesType"
+          },
+          "_embedded": {
+            "$ref": "#/components/schemas/NewsInstalmentsHalEmbedded"
+          }
+        },
+        "required": ["_links", "seriesType", "_embedded"]
+      },
+      "Titles": {
+        "type": "object",
+        "description": "Follows the guidelines from https://nrkconfluence.atlassian.net/l/c/y03p59M0",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "subtitle": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": ["title"],
+        "example": {
+          "title": "1. Stolt fortid, stor framtid",
+          "subtitle": "Helena prøver å få kontakt med Camilla før sesongens første kamp mot Rosenborg. Espen jobbar desperat for å redde økonomien i klubben."
+        }
+      },
+      "UsageRightsDate": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "https://tools.ietf.org/html/rfc3339#section-5.6",
+            "nullable": true
+          },
+          "displayValue": {
+            "type": "string",
+            "description": "To be displayed to the end-user."
+          }
+        },
+        "required": ["displayValue"],
+        "example": {
+          "date": "2019-05-04T19:51:39+02:00",
+          "displayValue": "4. mai 2019 kl. 19:51"
+        }
+      },
+      "UsageRights": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "$ref": "#/components/schemas/UsageRightsDate"
+          },
+          "to": {
+            "$ref": "#/components/schemas/UsageRightsDate"
+          },
+          "geoBlock": {
+            "$ref": "#/components/schemas/GeoBlock"
+          },
+          "offline": {
+            "$ref": "#/components/schemas/Offline"
+          }
+        },
+        "required": ["from", "to", "geoBlock", "offline"]
+      },
+      "Transmissions": {
+        "type": "object",
+        "properties": {
+          "first": {
+            "$ref": "#/components/schemas/Transmission"
+          },
+          "last": {
+            "$ref": "#/components/schemas/Transmission"
+          },
+          "next": {
+            "$ref": "#/components/schemas/Transmission"
+          }
+        },
+        "example": {
+          "first": {
+            "displayValue": "NRK1 · Fredag 22. desember 2023 kl. 20:05"
+          },
+          "last": {
+            "displayValue": "NRK2 · Søndag 24. desember 2023 kl. 15:15"
+          },
+          "next": {
+            "displayValue": "NRK1 · Søndag 21. januar 2024 kl. 20:15"
+          }
+        }
+      },
+      "Transmission": {
+        "type": "object",
+        "properties": {
+          "displayValue": {
+            "type": "string"
+          }
+        },
+        "required": ["displayValue"]
+      },
+      "Offline": {
+        "type": "boolean",
+        "description": "If true, the program or episode can be downloaded. Download-buttons on programs should only be shown if true. No downloading functionality should be possible if this is false.",
+        "nullable": false,
+        "example": false
+      },
+      "UserDataHalLink": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string"
+          },
+          "templated": {
+            "type": "boolean"
+          }
+        },
+        "required": ["href", "templated"],
+        "example": {
+          "href": "/tv/userdata/series/skam/{userId}",
+          "templated": true
+        }
+      },
+      "InappropriateContent": {
+        "type": "object",
+        "properties": {
+          "inappropriateContent": {
+            "type": "object",
+            "properties": {
+              "displayMessage": {
+                "type": "string",
+                "description": "User-friendly message informing that this content is non-appropriate."
+              },
+              "forContentGroup": {
+                "$ref": "#/components/schemas/ContentGroup"
+              }
+            },
+            "required": ["displayMessage"]
+          }
+        },
+        "example": {
+          "inappropriateContent": {
+            "displayMessage": "Du kan ikke se Exit med din profil",
+            "forContentGroup": "children"
+          }
+        }
+      },
+      "UnavailableContent": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "type": "object",
+            "properties": {
+              "self": {
+                "$ref": "#/components/schemas/HalLink"
+              },
+              "favourite": {
+                "$ref": "#/components/schemas/HalLinkWithTemplated"
+              }
+            },
+            "required": ["self", "favourite"]
+          },
+          "unavailableContent": {
+            "type": "object",
+            "properties": {
+              "displayMessage": {
+                "type": "string",
+                "description": "User-friendly message informing that this content is unavailable."
+              },
+              "displayHelpText": {
+                "type": "string",
+                "description": "User-friendly help text describing why the content is unavailable."
+              },
+              "displayActionClose": {
+                "type": "string",
+                "description": "User-friendly label for close action."
+              },
+              "displayActionDeleteFavourite": {
+                "type": "string",
+                "description": "User-friendly label for delete favourite action."
+              },
+              "forContentGroup": {
+                "$ref": "#/components/schemas/ContentGroup"
+              }
+            },
+            "required": [
+              "displayMessage",
+              "displayHelpText",
+              "displayActionClose",
+              "displayActionDeleteFavourite"
+            ]
+          }
+        },
+        "example": {
+          "_links": {
+            "self": {
+              "href": "/tv/catalog/series/peppa-gris"
+            },
+            "favourite": {
+              "href": "/tv/userdata/{userId}/favourites/series/peppa-gris",
+              "templated": true
+            }
+          },
+          "unavailableContent": {
+            "displayMessage": "Peppa Gris er borte!",
+            "displayHelpText": "Den er ikke lenger tilgjengelig",
+            "displayActionClose": "Lukk",
+            "displayActionDeleteFavourite": "Fjern Peppa Gris fra mitt innhold",
+            "forContentGroup": "children"
+          }
+        }
+      },
+      "ShareLink": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ShareStandardSeries"
+          },
+          {
+            "$ref": "#/components/schemas/ShareStandardSeason"
+          },
+          {
+            "$ref": "#/components/schemas/ShareStandardInstalment"
+          },
+          {
+            "$ref": "#/components/schemas/ShareSequentialSeries"
+          },
+          {
+            "$ref": "#/components/schemas/ShareSequentialSeason"
+          },
+          {
+            "$ref": "#/components/schemas/ShareSequentialEpisode"
+          },
+          {
+            "$ref": "#/components/schemas/ShareNewsSeries"
+          },
+          {
+            "$ref": "#/components/schemas/ShareNewsSeason"
+          },
+          {
+            "$ref": "#/components/schemas/ShareNewsInstalment"
+          },
+          {
+            "$ref": "#/components/schemas/ShareSingleProgram"
+          },
+          {
+            "$ref": "#/components/schemas/ShareStandardExtramaterial"
+          },
+          {
+            "$ref": "#/components/schemas/ShareNewsExtramaterial"
+          },
+          {
+            "$ref": "#/components/schemas/ShareSequentialExtramaterial"
+          }
+        ]
+      },
+      "ShareStandardSeries": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "type": "object",
+            "properties": {
+              "self": {
+                "$ref": "#/components/schemas/Href"
+              },
+              "series": {
+                "$ref": "#/components/schemas/Href"
+              }
+            },
+            "required": ["self", "series"]
+          },
+          "type": {
+            "type": "string",
+            "enum": ["standardSeries"]
+          },
+          "urlFriendlySeriesId": {
+            "type": "string"
+          }
+        },
+        "required": ["_links", "type", "urlFriendlySeriesId"]
+      },
+      "Href": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string"
+          }
+        },
+        "required": ["href"]
+      },
+      "ShareStandardSeason": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "type": "object",
+            "properties": {
+              "self": {
+                "$ref": "#/components/schemas/Href"
+              },
+              "series": {
+                "$ref": "#/components/schemas/Href"
+              },
+              "season": {
+                "type": "object",
+                "properties": {
+                  "href": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": ["href", "name", "title"]
+              }
+            },
+            "required": ["season", "self", "series"]
+          },
+          "type": {
+            "type": "string",
+            "enum": ["standardSeason"]
+          },
+          "urlFriendlySeriesId": {
+            "type": "string"
+          },
+          "seasonId": {
+            "type": "string"
+          },
+          "autoplay": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "_links",
+          "autoplay",
+          "seasonId",
+          "type",
+          "urlFriendlySeriesId"
+        ]
+      },
+      "ShareStandardInstalment": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "type": "object",
+            "properties": {
+              "self": {
+                "$ref": "#/components/schemas/Href"
+              },
+              "series": {
+                "$ref": "#/components/schemas/Href"
+              },
+              "season": {
+                "type": "object",
+                "properties": {
+                  "href": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": ["href", "name", "title"]
+              }
+            },
+            "required": ["season", "self", "series"]
+          },
+          "type": {
+            "type": "string",
+            "enum": ["standardInstalment"]
+          },
+          "prfId": {
+            "type": "string"
+          },
+          "urlFriendlySeriesId": {
+            "type": "string"
+          },
+          "seasonId": {
+            "type": "string"
+          },
+          "autoplay": {
+            "type": "boolean"
+          },
+          "startTime": {
+            "$ref": "#/components/schemas/ShareStartTime"
+          }
+        },
+        "required": [
+          "_links",
+          "autoplay",
+          "prfId",
+          "seasonId",
+          "startTime",
+          "type",
+          "urlFriendlySeriesId"
+        ]
+      },
+      "ShareStartTime": {
+        "type": "object",
+        "properties": {
+          "time": {
+            "type": "string"
+          },
+          "timeInSeconds": {
+            "type": "number"
+          },
+          "shortTime": {
+            "type": "string"
+          }
+        },
+        "required": ["shortTime", "time", "timeInSeconds"],
+        "nullable": true
+      },
+      "ShareSequentialSeries": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "type": "object",
+            "properties": {
+              "self": {
+                "$ref": "#/components/schemas/Href"
+              },
+              "series": {
+                "$ref": "#/components/schemas/Href"
+              }
+            },
+            "required": ["self", "series"]
+          },
+          "type": {
+            "type": "string",
+            "enum": ["sequentialSeries"]
+          },
+          "urlFriendlySeriesId": {
+            "type": "string"
+          }
+        },
+        "required": ["_links", "type", "urlFriendlySeriesId"]
+      },
+      "ShareSequentialSeason": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "type": "object",
+            "properties": {
+              "self": {
+                "$ref": "#/components/schemas/Href"
+              },
+              "series": {
+                "$ref": "#/components/schemas/Href"
+              },
+              "season": {
+                "type": "object",
+                "properties": {
+                  "href": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": ["href", "name", "title"]
+              }
+            },
+            "required": ["season", "self", "series"]
+          },
+          "type": {
+            "type": "string",
+            "enum": ["sequentialSeason"]
+          },
+          "urlFriendlySeriesId": {
+            "type": "string"
+          },
+          "seasonId": {
+            "type": "string"
+          },
+          "autoplay": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "_links",
+          "autoplay",
+          "seasonId",
+          "type",
+          "urlFriendlySeriesId"
+        ]
+      },
+      "ShareSequentialEpisode": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "type": "object",
+            "properties": {
+              "self": {
+                "$ref": "#/components/schemas/Href"
+              },
+              "series": {
+                "$ref": "#/components/schemas/Href"
+              },
+              "season": {
+                "type": "object",
+                "properties": {
+                  "href": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": ["href", "name", "title"]
+              }
+            },
+            "required": ["season", "self", "series"]
+          },
+          "type": {
+            "type": "string",
+            "enum": ["sequentialEpisode"]
+          },
+          "prfId": {
+            "type": "string"
+          },
+          "urlFriendlySeriesId": {
+            "type": "string"
+          },
+          "episodeNumber": {
+            "type": "number"
+          },
+          "seasonNumber": {
+            "type": "number"
+          },
+          "autoplay": {
+            "type": "boolean"
+          },
+          "startTime": {
+            "$ref": "#/components/schemas/ShareStartTime"
+          }
+        },
+        "required": [
+          "_links",
+          "autoplay",
+          "episodeNumber",
+          "prfId",
+          "seasonNumber",
+          "startTime",
+          "type",
+          "urlFriendlySeriesId"
+        ]
+      },
+      "ShareNewsSeries": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "type": "object",
+            "properties": {
+              "self": {
+                "$ref": "#/components/schemas/Href"
+              },
+              "series": {
+                "$ref": "#/components/schemas/Href"
+              }
+            },
+            "required": ["self", "series"]
+          },
+          "type": {
+            "type": "string",
+            "enum": ["newsSeries"]
+          },
+          "urlFriendlySeriesId": {
+            "type": "string"
+          }
+        },
+        "required": ["_links", "type", "urlFriendlySeriesId"]
+      },
+      "ShareNewsSeason": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "type": "object",
+            "properties": {
+              "self": {
+                "$ref": "#/components/schemas/Href"
+              },
+              "series": {
+                "$ref": "#/components/schemas/Href"
+              },
+              "season": {
+                "type": "object",
+                "properties": {
+                  "href": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": ["href", "name", "title"]
+              }
+            },
+            "required": ["season", "self", "series"]
+          },
+          "type": {
+            "type": "string",
+            "enum": ["newsSeason"]
+          },
+          "urlFriendlySeriesId": {
+            "type": "string"
+          },
+          "seasonId": {
+            "type": "string"
+          },
+          "autoplay": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "_links",
+          "autoplay",
+          "seasonId",
+          "type",
+          "urlFriendlySeriesId"
+        ]
+      },
+      "ShareNewsInstalment": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "type": "object",
+            "properties": {
+              "self": {
+                "$ref": "#/components/schemas/Href"
+              },
+              "series": {
+                "$ref": "#/components/schemas/Href"
+              },
+              "season": {
+                "type": "object",
+                "properties": {
+                  "href": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": ["href", "name", "title"]
+              }
+            },
+            "required": ["season", "self", "series"]
+          },
+          "type": {
+            "type": "string",
+            "enum": ["newsInstalment"]
+          },
+          "prfId": {
+            "type": "string"
+          },
+          "urlFriendlySeriesId": {
+            "type": "string"
+          },
+          "seasonId": {
+            "type": "string"
+          },
+          "autoplay": {
+            "type": "boolean"
+          },
+          "startTime": {
+            "$ref": "#/components/schemas/ShareStartTime"
+          }
+        },
+        "required": [
+          "_links",
+          "autoplay",
+          "prfId",
+          "seasonId",
+          "startTime",
+          "type",
+          "urlFriendlySeriesId"
+        ]
+      },
+      "ShareSingleProgram": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "type": "object",
+            "properties": {
+              "self": {
+                "$ref": "#/components/schemas/Href"
+              },
+              "programs": {
+                "$ref": "#/components/schemas/Href"
+              }
+            },
+            "required": ["programs", "self"]
+          },
+          "type": {
+            "type": "string",
+            "enum": ["singleProgram"]
+          },
+          "prfId": {
+            "type": "string"
+          },
+          "autoplay": {
+            "type": "boolean"
+          },
+          "startTime": {
+            "$ref": "#/components/schemas/ShareStartTime"
+          }
+        },
+        "required": ["_links", "autoplay", "prfId", "startTime", "type"]
+      },
+      "ShareStandardExtramaterial": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "type": "object",
+            "properties": {
+              "self": {
+                "$ref": "#/components/schemas/Href"
+              },
+              "series": {
+                "$ref": "#/components/schemas/Href"
+              }
+            },
+            "required": ["self", "series"]
+          },
+          "type": {
+            "type": "string",
+            "enum": ["standardExtramaterial"]
+          },
+          "prfId": {
+            "type": "string"
+          },
+          "urlFriendlySeriesId": {
+            "type": "string"
+          },
+          "autoplay": {
+            "type": "boolean"
+          },
+          "startTime": {
+            "$ref": "#/components/schemas/ShareStartTime"
+          }
+        },
+        "required": [
+          "_links",
+          "autoplay",
+          "prfId",
+          "startTime",
+          "type",
+          "urlFriendlySeriesId"
+        ]
+      },
+      "ShareNewsExtramaterial": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "type": "object",
+            "properties": {
+              "self": {
+                "$ref": "#/components/schemas/Href"
+              },
+              "series": {
+                "$ref": "#/components/schemas/Href"
+              }
+            },
+            "required": ["self", "series"]
+          },
+          "type": {
+            "type": "string",
+            "enum": ["newsExtramaterial"]
+          },
+          "prfId": {
+            "type": "string"
+          },
+          "urlFriendlySeriesId": {
+            "type": "string"
+          },
+          "autoplay": {
+            "type": "boolean"
+          },
+          "startTime": {
+            "$ref": "#/components/schemas/ShareStartTime"
+          }
+        },
+        "required": [
+          "_links",
+          "autoplay",
+          "prfId",
+          "startTime",
+          "type",
+          "urlFriendlySeriesId"
+        ]
+      },
+      "ShareSequentialExtramaterial": {
+        "type": "object",
+        "properties": {
+          "_links": {
+            "type": "object",
+            "properties": {
+              "self": {
+                "$ref": "#/components/schemas/Href"
+              },
+              "series": {
+                "$ref": "#/components/schemas/Href"
+              }
+            },
+            "required": ["self", "series"]
+          },
+          "type": {
+            "type": "string",
+            "enum": ["sequentialExtramaterial"]
+          },
+          "prfId": {
+            "type": "string"
+          },
+          "urlFriendlySeriesId": {
+            "type": "string"
+          },
+          "autoplay": {
+            "type": "boolean"
+          },
+          "startTime": {
+            "$ref": "#/components/schemas/ShareStartTime"
+          }
+        },
+        "required": [
+          "_links",
+          "autoplay",
+          "prfId",
+          "startTime",
+          "type",
+          "urlFriendlySeriesId"
+        ]
+      },
+      "NavigationLinkAnalytics": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "description": "Identifies the linked content.",
+                "type": "string",
+                "example": "/podcast/seriesnakk/sesong/makta"
+              },
+              "source": {
+                "description": "Indicates the source of the linked content.",
+                "type": "string",
+                "example": "radio_nrk_no"
+              },
+              "kind": {
+                "type": "string",
+                "description": "Indicates the kind of content being linked.",
+                "example": "navigation_link"
+              }
+            },
+            "required": ["id", "source", "kind"]
+          },
+          "section": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "description": "Identifies the section where the link is located.",
+                "type": "string",
+                "example": "navigation"
+              }
+            },
+            "required": ["id"]
+          }
+        },
+        "required": ["content", "section"]
+      }
+    }
+  }
+}

@@ -1,16 +1,50 @@
 {
   "name": "nrk-klient",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "keywords": [
+  ],
+  "homepage": "https://github.com/davidtoska/nrk-klient#readme",
+  "bugs": {
+    "url": "https://github.com/davidtoska/nrk-klient/issues"
   },
-  "keywords": [],
-  "author": "",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/davidtoska/nrk-klient.git"
+  },
   "license": "ISC",
+  "author": "David Toska",
   "type": "commonjs",
-  "dependencies": {
-    "zod": "^4.6.2"
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "node scripts/build.js",
+    "typecheck": "tsc --noEmit",
+    "test": "tsc && node --test \"build/test/offline/*.test.js\"",
+    "test:live": "tsc && node --test --test-timeout=900000 \"build/test/live/*.test.js\"",
+    "record": "tsc && node scripts/record-fixtures.js",
+    "verify:package": "node scripts/verify-package.js",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build && npm run verify:package"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.6",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
   }
 }

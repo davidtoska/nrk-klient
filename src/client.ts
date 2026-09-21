@@ -11,17 +11,24 @@ import {
     SeriesType,
     SeriesWithSeasons,
 } from "./nrk-response";
-import { nrkClientParsed } from "./nrk-client-parsed";
+import * as r from "./nrk-response";
+import { nrkClientParsed, seriesType as seriesTypeValidator } from "./nrk-client-parsed";
+import { flattenContributors, parseFirstAired, seriesIdFromHref } from "./nrk-format";
+import * as v from "./validate";
+
+/**
+ * Every public method runs its result through the validator for its declared type before
+ * returning it, so a caller never receives a value that contradicts the signature.
+ */
+const checked = <T>(method: string, validator: v.Validator<T>, value: T): T =>
+    v.parse(validator, value, `Invalid result from NRK.${method}`);
 
 class NrkClient {
-    constructor() {
-        this.letter = this.letter.bind(this);
-    }
     /**
      * Will throw
      * @param letter a letter between a-å
      */
-    async letter(letter: string): Promise<NrkLetterResponse> {
+    letter = async (letter: string): Promise<NrkLetterResponse> => {
         const parsed = await nrkClientParsed.letter(letter);
         const responseObject: NrkLetterResponse = {
             letter,
@@ -33,6 +40,9 @@ class NrkClient {
                 (a, b) => a.pixelWidth - b.pixelWidth,
             );
             const firstImage = images[0];
+            if (!firstImage) {
+                throw new Error("Missing image for content: " + item.id);
+            }
             const contentItem: ListedContent = {
                 id: item.id,
                 description: item.description ? item.description : "No description",
@@ -51,10 +61,10 @@ class NrkClient {
             }
         });
 
-        return responseObject;
-    }
+        return checked("letter", r.nrkLetterResponse, responseObject);
+    };
 
-    async getManifest(prfId: string): Promise<Manifest> {
+    getManifest = async (prfId: string): Promise<Manifest> => {
         const parsed = await nrkClientParsed.getManifest(prfId);
         const playable = parsed.playable;
         if (!playable) {
@@ -72,9 +82,9 @@ class NrkClient {
             // rawJSON: JSON.stringify(json),
         };
 
-        return manifest;
-    }
-    async getMetadata(prfId: string): Promise<Metadata> {
+        return checked("getManifest", r.manifest, manifest);
+    };
+    getMetadata = async (prfId: string): Promise<Metadata> => {
         const parsed = await nrkClientParsed.getMetadata(prfId);
         const availabilityOnDemand = parsed.availability.onDemand;
         if (!availabilityOnDemand) {
@@ -88,7 +98,7 @@ class NrkClient {
             })),
             availableNow: availabilityOnDemand.hasRightsNow,
             availableTo: availabilityOnDemand.to,
-            description: "",
+            description: parsed.preplay.description,
             playable: parsed.playability === "playable",
             prfId,
             // rawJSON: JSON.stringify(json),
@@ -96,25 +106,20 @@ class NrkClient {
             subTitle: parsed.preplay.titles.subtitle,
             title: parsed.preplay.titles.title,
         };
-        return metaData;
-    }
+        return checked("getMetadata", r.metadata, metaData);
+    };
 
-    async getSeasons(seriesId: string) {
+    getSeasons = async (seriesId: string) => {
         const data = await nrkClientParsed.getSeasons(seriesId);
-        let title = "";
-        let images: Array<{ url: string; width: number }> = [];
-        if (data.seriesType === "news") {
-            images = data.news.image;
-            title = data.news.titles.title;
-        }
-        if (data.seriesType === "standard") {
-            images = data.standard.image;
-            title = data.standard.titles.title;
-        }
-        if (data.seriesType === "sequential") {
-            images = data.sequential.image;
-            title = data.sequential.titles.title;
-        }
+        const inner =
+            data.seriesType === "news"
+                ? data.news
+                : data.seriesType === "standard"
+                  ? data.standard
+                  : data.sequential;
+        const images = inner.image;
+        const title = inner.titles.title;
+        const category = inner.category ?? null;
         const pickImage = (array: Array<{ url: string; width: number }>) => {
             const first = array[0];
             if (!first) {
@@ -133,76 +138,50 @@ class NrkClient {
             title,
             seriesId,
             seriesType: data.seriesType,
+            category,
             seasons: data._links.seasons,
         };
-        return seriesWithSeasons;
-    }
+        return checked("getSeasons", r.seriesWithSeasons, seriesWithSeasons);
+    };
 
-    async getAllEpisodes(
+    getAllEpisodes = async (
         seriesId: string,
         seasonName: string,
-    ): Promise<SeasonsWithEpisodes> {
+    ): Promise<SeasonsWithEpisodes> => {
         const parsed = await nrkClientParsed.getAllEpisodes(seriesId, seasonName);
-        const episodes: Episode[] = [];
-        if (parsed._embedded.episodes) {
-            const episodesResult: Episode[] = parsed._embedded.episodes.map((e) => {
-                const episode: Episode = {
-                    episodeId: e.id,
-                    prfId: e.prfId,
-                    detailsDisplayValue: e.details.displayValue,
-                    availabilityStatus: e.availability.status,
-                    availableFromDate: e.usageRights.from.date,
-                    availableFromDisplayValue: e.usageRights.from.displayValue,
-                    availableToDate: e.usageRights.to.date,
-                    availableToDisplayValue: e.usageRights.to.displayValue,
-                    duration: e.duration,
-                    durationInSeconds: e.durationInSeconds,
-                    images: e.image,
-                    productionYear: e._embedded.ga.dimension3,
-                    productionMonth: e._embedded.ga.dimension4,
-                    productionDay: e._embedded.ga.dimension5,
-                    episodeNumber: e._embedded.ga.dimension22,
-                    category: e._embedded.ga.dimension23,
-                    subtitle: e.titles.subtitle ?? null,
-                    title: e.titles.title,
-                    seriesId,
-                    seasonName,
-                };
-                return episode;
-            });
-            episodes.push(...episodesResult);
-        }
-        if (parsed._embedded.instalments) {
-            const episodesResult: Episode[] = parsed._embedded.instalments.map(
-                (e) => {
-                    const episode: Episode = {
-                        episodeId: e.id,
-                        prfId: e.prfId,
-                        detailsDisplayValue: e.details.displayValue,
-                        availabilityStatus: e.availability.status,
-                        availableFromDate: e.usageRights.from.date,
-                        availableFromDisplayValue: e.usageRights.from.displayValue,
-                        availableToDate: e.usageRights.to.date,
-                        availableToDisplayValue: e.usageRights.to.displayValue,
-                        duration: e.duration,
-                        durationInSeconds: e.durationInSeconds,
-                        images: e.image,
-                        productionYear: e._embedded.ga.dimension3,
-                        productionMonth: e._embedded.ga.dimension4,
-                        productionDay: e._embedded.ga.dimension5,
-                        episodeNumber: e._embedded.ga.dimension22,
-                        category: e._embedded.ga.dimension23,
-                        subtitle: e.titles.subtitle ?? null,
-                        title: e.titles.title,
-                        seriesId,
-                        seasonName,
-                    };
-
-                    return episode;
-                },
-            );
-            episodes.push(...episodesResult);
-        }
+        const toEpisode = (
+            e: NonNullable<typeof parsed._embedded.episodes>[number],
+        ): Episode => ({
+            episodeId: e.id,
+            prfId: e.prfId,
+            detailsDisplayValue: e.details.displayValue,
+            availabilityStatus: e.availability.status,
+            availableFromDate: e.usageRights.from.date,
+            availableFromDisplayValue: e.usageRights.from.displayValue,
+            availableToDate: e.usageRights.to.date,
+            availableToDisplayValue: e.usageRights.to.displayValue,
+            duration: e.duration,
+            durationInSeconds: e.durationInSeconds,
+            images: e.image,
+            productionYear: e.productionYear ?? null,
+            firstAired: parseFirstAired(
+                e.transmissions?.first?.displayValue,
+                e.firstTransmissionDateDisplayValue,
+            ),
+            contributors: (e.contributors ?? []).map((p) => ({
+                name: p.name,
+                role: p.role,
+            })),
+            episodeNumber: e.sequenceNumber ?? null,
+            subtitle: e.titles.subtitle ?? null,
+            title: e.titles.title,
+            seriesId,
+            seasonName,
+        });
+        const episodes: Episode[] = [
+            ...(parsed._embedded.episodes ?? []).map(toEpisode),
+            ...(parsed._embedded.instalments ?? []).map(toEpisode),
+        ];
 
         const returnValue: SeasonsWithEpisodes = {
             seriesId,
@@ -212,21 +191,21 @@ class NrkClient {
             episodes,
         };
 
-        return returnValue;
-    }
-    async getSeriesType(seriesId: string): Promise<SeriesType> {
+        return checked("getAllEpisodes", r.seasonsWithEpisodes, returnValue);
+    };
+    getSeriesType = async (seriesId: string): Promise<SeriesType> => {
         const seriesType = await nrkClientParsed.getSeriesType(seriesId);
 
-        return seriesType;
-    }
-    async getRecommendation(
+        return checked("getSeriesType", seriesTypeValidator, seriesType);
+    };
+    getRecommendation = async (
         contentId: string,
         options: {
             count?: 5 | 10 | 15 | 20 | 25;
             contentGroup?: "adults" | "children";
             age?: number;
         },
-    ) {
+    ) => {
         const parerResult = await nrkClientParsed.getRecommendation(
             contentId,
             options,
@@ -283,18 +262,17 @@ class NrkClient {
             }
         });
 
-        return result;
-    }
+        return checked("getRecommendation", r.recommendationResponse, result);
+    };
 
     /**
      * Will throw
      */
-    async getAllLetters(): Promise<NrkLetterResponse> {
-        const legalLetters = "abcdefghijklmnopqrstuvxyzæøå";
+    getAllLetters = async (): Promise<NrkLetterResponse> => {
+        const legalLetters = "abcdefghijklmnopqrstuvwxyzæøå";
         const all = legalLetters.split("").map(this.letter);
         const resolvedAll = await Promise.all(all);
         const flattend = resolvedAll.flat(1);
-        console.log(flattend.length);
         const allLetterResponsees: NrkLetterResponse = {
             letter: "",
             programs: [],
@@ -307,10 +285,10 @@ class NrkClient {
             allLetterResponsees.programs.push(...letterResult.programs);
             allLetterResponsees.series.push(...letterResult.series);
         });
-        return allLetterResponsees;
-    }
+        return checked("getAllLetters", r.nrkLetterResponse, allLetterResponsees);
+    };
 
-    async prfIdGetAll(prfId: string) {
+    prfIdGetAll = async (prfId: string) => {
         const programByIdPromise = this.getProgramById(prfId);
         const manifestPromise = this.getManifest(prfId);
         const metadataPromise = this.getMetadata(prfId);
@@ -321,9 +299,9 @@ class NrkClient {
         ]);
         const [manifest, metadata, programById] = all;
         return { manifest, metadata, programById };
-    }
+    };
 
-    async getProgramById(id: string) {
+    getProgramById = async (id: string) => {
         const parsed = await nrkClientParsed.getProgramById(id);
 
         // FLATTEND
@@ -332,9 +310,7 @@ class NrkClient {
         const durationDisplayValue = parsed.moreInformation.duration.displayValue;
         const durationInSeconds = parsed.moreInformation.duration.seconds;
         const category = parsed.moreInformation.category.id;
-        const productionYear = parsed._embedded.ga.dimension3;
-        const productionMonth = parsed._embedded.ga.dimension4;
-        const productionDay = parsed._embedded.ga.dimension5;
+        const productionYear = parsed.moreInformation.productionYear;
         const availableFromDate = parsed.moreInformation.usageRights.from.date;
         const availableFromDisplayValue =
             parsed.moreInformation.usageRights.from.displayValue;
@@ -353,15 +329,18 @@ class NrkClient {
             durationInSeconds,
             category,
             productionYear,
-            productionMonth,
-            productionDay,
+            firstAired: parseFirstAired(
+                parsed.moreInformation.transmissions?.first?.displayValue,
+            ),
+            contributors: flattenContributors(parsed.contributors),
+            seriesId: seriesIdFromHref(parsed._links.seriesPage?.href),
             availableFromDate,
             availableFromDisplayValue,
             availableToDate,
             availableToDisplayValue,
         };
-        return returnType;
-    }
+        return checked("getProgramById", r.programById, returnType);
+    };
 }
 
 export const NRK = new NrkClient();
