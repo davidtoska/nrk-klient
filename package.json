@@ -1,7 +1,7 @@
 {
-  "name": "nrk-klient",
+  "name": "narko-klient",
   "version": "0.0.1",
-  "description": "Client for NRK TV (psapi.nrk.no), plus an AiClient with compact results for AI agents. No dependencies.",
+  "description": "Client for NRK data.",
   "keywords": [],
   "homepage": "https://github.com/davidtoska/nrk-klient#readme",
   "bugs": {
@@ -35,6 +35,8 @@
   "scripts": {
     "build": "node scripts/build.js",
     "typecheck": "tsc --noEmit",
+    "clean": "node scripts/clean.js",
+    "clean:all": "node scripts/clean.js --all",
     "test": "tsc && node scripts/run-tests.js build/test/offline",
     "test:live": "tsc && node scripts/run-tests.js build/test/live --test-timeout=900000",
     "record": "tsc && node scripts/record-fixtures.js",

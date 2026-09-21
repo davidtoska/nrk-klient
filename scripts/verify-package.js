@@ -14,7 +14,7 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const root = path.resolve(__dirname, "..");
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "nrk-klient-verify-"));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "narko-klient-verify-"));
 const problems = [];
 const check = (ok, message) => {
     console.log((ok ? "  ok   " : "  FAIL ") + message);
@@ -51,11 +51,11 @@ try {
     fs.writeFileSync(path.join(app, "package.json"), JSON.stringify({ name: "consumer", private: true }));
     const install = run(`npm install "${tarball}" --no-audit --no-fund --ignore-scripts`, app);
     if (install.status !== 0) throw new Error("npm install failed:\n" + install.stderr);
-    const installed = JSON.parse(fs.readFileSync(path.join(app, "node_modules/nrk-klient/package.json"), "utf8"));
+    const installed = JSON.parse(fs.readFileSync(path.join(app, "node_modules/narko-klient/package.json"), "utf8"));
     check(!installed.dependencies && !installed.peerDependencies, "package declares no dependencies or peer dependencies");
     check(!installed.dependencies && !installed.peerDependencies && !installed.optionalDependencies, "package declares no dependencies of any kind");
     const installedPackages = fs.readdirSync(path.join(app, "node_modules")).filter((n) => !n.startsWith("."));
-    check(installedPackages.join() === "nrk-klient", "nothing else was installed (found: " + installedPackages.join(", ") + ")");
+    check(installedPackages.join() === "narko-klient", "nothing else was installed (found: " + installedPackages.join(", ") + ")");
 
     // 3. run it, with fetch replaced by recorded answers
     console.log("Runtime");
@@ -66,7 +66,7 @@ try {
         `
 const fs = require("node:fs");
 const assert = require("node:assert/strict");
-const pkg = require("nrk-klient");
+const pkg = require("narko-klient");
 
 assert.deepEqual(Object.keys(pkg).sort(), ["AiClient", "NRK", "NrkHttpError", "NrkValidationError"]);
 
@@ -123,28 +123,28 @@ globalThis.fetch = fetchWithFixtures;
 
     fs.writeFileSync(
         path.join(app, "smoke.mjs"),
-        `import { NRK, AiClient, NrkHttpError } from "nrk-klient";
+        `import { NRK, AiClient, NrkHttpError } from "narko-klient";
 if (typeof NRK.getProgramById !== "function" || typeof AiClient !== "function" || typeof NrkHttpError !== "function") process.exit(1);
 console.log("esm import ok");`,
     );
     const esm = run("node smoke.mjs", app);
     check(esm.status === 0, "ESM import of the named exports works");
 
-    const bundle = fs.readFileSync(path.join(app, "node_modules/nrk-klient/dist/index.js"), "utf8");
+    const bundle = fs.readFileSync(path.join(app, "node_modules/narko-klient/dist/index.js"), "utf8");
     // the build folds the version into a constant; the User-Agent template reads it at runtime
     const versionConstant = new RegExp("VERSION\\s*=\\s*" + JSON.stringify(installed.version));
     check(
-        versionConstant.test(bundle) && bundle.includes("nrk-klient/${VERSION} (+https://github.com/"),
+        versionConstant.test(bundle) && bundle.includes("narko-klient/${VERSION} (+https://github.com/"),
         `User-Agent carries the package version ${installed.version}`,
     );
-    check(!bundle.includes("nrk-klient/dev"), "no development placeholder in the build");
+    check(!bundle.includes("narko-klient/dev"), "no development placeholder in the build");
 
     // 4. types
     console.log("Types");
     fs.writeFileSync(
         path.join(app, "check.ts"),
-        `import { AiClient, NRK, NrkHttpError, NrkValidationError } from "nrk-klient";
-import type { AiResult, AiProgram, AiError, ProgramById, ListCatalogInput, ValidationIssue } from "nrk-klient";
+        `import { AiClient, NRK, NrkHttpError, NrkValidationError } from "narko-klient";
+import type { AiResult, AiProgram, AiError, ProgramById, ListCatalogInput, ValidationIssue } from "narko-klient";
 
 export const main = async (): Promise<void> => {
   const ai = new AiClient();

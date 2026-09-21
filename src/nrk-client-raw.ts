@@ -21,7 +21,7 @@ export const REQUEST_TIMEOUT_MS = 30_000;
 /** Set by the package build; "dev" when running from source. */
 declare const __NRK_KLIENT_VERSION__: string | undefined;
 const VERSION = typeof __NRK_KLIENT_VERSION__ === "string" ? __NRK_KLIENT_VERSION__ : "dev";
-const USER_AGENT = `nrk-klient/${VERSION} (+https://github.com/davidtoska/nrk-klient)`;
+const USER_AGENT = `narko-klient/${VERSION} (+https://github.com/davidtoska/nrk-klient)`;
 
 /**
  * Thrown when psapi.nrk.no answers with a non-2xx status.

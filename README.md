@@ -1,4 +1,4 @@
-# nrk-klient
+# narko-klient
 
 A TypeScript client for NRK TV (`psapi.nrk.no`), plus an `AiClient` that returns small, flat results
 for AI agents. No dependencies at all: response validation is built in, so there is nothing else to
@@ -12,7 +12,7 @@ Requires Node.js 20 or newer (it uses the global `fetch`). Published as CommonJS
 consumers import the named exports as shown below.
 
 ```sh
-npm install nrk-klient
+npm install narko-klient
 ```
 
 ## What it exports
@@ -32,7 +32,7 @@ The methods validate NRK's responses. If the shape is not what is expected they 
 `NrkValidationError`, whose `issues` list the offending fields.
 
 ```ts
-import { NRK, NrkHttpError, NrkValidationError } from "nrk-klient";
+import { NRK, NrkHttpError, NrkValidationError } from "narko-klient";
 
 try {
   const program = await NRK.getProgramById("MKTF73000514");
@@ -75,7 +75,7 @@ An API against NRK, made for agents that pick content and build schedules.
   archive to build your own index from, and keeping a copy of it or caching what you fetch is up to you.
 
 ```ts
-import { AiClient } from "nrk-klient";
+import { AiClient } from "narko-klient";
 
 const ai = new AiClient();
 
@@ -129,7 +129,7 @@ error instead of throwing. Arguments to `AiClient` are validated the same way (`
 ## Errors, timeouts and rate limits
 
 - Every request times out after 30 s (`TimeoutError`), sends `Accept: application/json` and a
-  `User-Agent` of `nrk-klient/<version>`.
+  `User-Agent` of `narko-klient/<version>`.
 - A non-2xx answer is a `NrkHttpError` with `status`, `url`, `body` and, on 429,
   `retryAfterSeconds` (NRK typically asks for 600). `AiClient` maps it to `rate_limited` and stops
   the current call early.

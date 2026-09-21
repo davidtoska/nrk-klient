@@ -21,7 +21,7 @@ describe("requests", () => {
         assert.ok(init.signal instanceof AbortSignal, "an AbortSignal (timeout) is attached");
         const headers = new Headers(init.headers);
         assert.equal(headers.get("accept"), "application/json");
-        assert.match(headers.get("user-agent") ?? "", /^nrk-klient\/\S+ \(\+https:\/\/github\.com\//);
+        assert.match(headers.get("user-agent") ?? "", /^narko-klient\/\S+ \(\+https:\/\/github\.com\//);
         assert.ok(REQUEST_TIMEOUT_MS >= 10_000 && REQUEST_TIMEOUT_MS <= 60_000);
     });
 
