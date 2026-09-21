@@ -31,7 +31,7 @@ describe("series", () => {
                 assert.equal(series.seriesId, id());
                 assert.equal(series.seriesType, type);
                 assert.equal(series.title, raw[type].titles.title);
-                assert.ok(isHttpUrl(series.imageUrl300));
+                assert.ok(series.imageUrl300 !== null && isHttpUrl(series.imageUrl300));
                 assert.deepEqual(series.seasons, raw._links.seasons);
                 assert.deepEqual(series.category, raw[type].category ?? null);
                 assert.ok(series.seasons.length > 0, "series should have seasons");

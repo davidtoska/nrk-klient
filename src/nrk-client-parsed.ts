@@ -1,5 +1,5 @@
 import * as v from "./validate";
-import { nrkClientRaw } from "./nrk-client-raw";
+import { nrkClientRaw, RecommendationOptions } from "./nrk-client-raw";
 import { AVAILABILITY_STATUSES, SEASON_TYPES, SERIES_TYPES } from "./nrk-response";
 
 export const productionYear = v.nullish(v.number);
@@ -152,8 +152,10 @@ const manifestParser = v.object({
             assets: v.array(
                 v.object({
                     url: v.string,
-                    format: v.oneOf("HLS", "MP4"),
-                    mimeType: v.literal("application/vnd.apple.mpegurl"),
+                    // NRK's spec lists HLS, MP4, MP3 and Dash; accept anything so one unknown asset
+                    // cannot make the whole manifest unreadable
+                    format: v.string,
+                    mimeType: v.string,
                 }),
                 { min: 1 },
             ),
@@ -165,7 +167,7 @@ const metaDataParser = v.object({
     playability: v.oneOf("playable", "nonPlayable"),
 
     streamingMode: v.oneOf("live", "onDemand"),
-    displayAspectRatio: v.oneOf("16:9", "4:3"),
+    displayAspectRatio: v.nullable(v.oneOf("16:9", "4:3")),
     preplay: v.object({
         titles: v.object({ title: v.string, subtitle: v.string }),
         description: v.string,
@@ -186,6 +188,14 @@ const metaDataParser = v.object({
                 from: v.nullable(v.string),
                 hasRightsNow: v.boolean,
                 to: v.nullable(v.string),
+            }),
+        ),
+        live: v.nullish(
+            v.object({
+                isOngoing: v.optional(v.boolean),
+                transmissionInterval: v.optional(
+                    v.object({ from: v.nullable(v.string), to: v.nullable(v.string) }),
+                ),
             }),
         ),
     }),
@@ -268,21 +278,11 @@ class NrkClientParsed {
         const parsedResult = v.parse(SeriesTypeResponse, data);
         return parsedResult.seriesType;
     };
-    getRecommendation = async (
-        contentId: string,
-        options: {
-            count?: 5 | 10 | 15 | 20 | 25;
-            contentGroup?: "adults" | "children";
-            age?: number;
-        },
-    ) => {
-        const count = options?.count ?? 25;
-        const contentGroup = options?.contentGroup ?? "adults";
-
+    getRecommendation = async (contentId: string, options: RecommendationOptions = {}) => {
         const body = await nrkClientRaw.getRecommendation(contentId, {
-            contentGroup,
-            count,
-            ...(options?.age !== undefined && { age: options.age }),
+            contentGroup: options.contentGroup ?? "adults",
+            count: options.count ?? 25,
+            ...(options.age !== undefined && { age: options.age }),
         });
         return v.parse(RecommendationSchema, body);
     };

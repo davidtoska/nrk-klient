@@ -1,9 +1,8 @@
 {
   "name": "nrk-klient",
   "version": "0.0.1",
-  "description": "",
-  "keywords": [
-  ],
+  "description": "Client for NRK TV (psapi.nrk.no), plus an AiClient with compact results for AI agents. No dependencies.",
+  "keywords": [],
   "homepage": "https://github.com/davidtoska/nrk-klient#readme",
   "bugs": {
     "url": "https://github.com/davidtoska/nrk-klient/issues"
@@ -31,7 +30,7 @@
   ],
   "sideEffects": false,
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "scripts": {
     "build": "node scripts/build.js",
@@ -40,7 +39,8 @@
     "test:live": "tsc && node --test --test-timeout=900000 \"build/test/live/*.test.js\"",
     "record": "tsc && node scripts/record-fixtures.js",
     "verify:package": "node scripts/verify-package.js",
-    "prepublishOnly": "npm run typecheck && npm test && npm run build && npm run verify:package"
+    "check": "npm run typecheck && npm test && npm run build && npm run verify:package",
+    "prepublishOnly": "npm run check"
   },
   "devDependencies": {
     "@types/node": "^24.13.6",

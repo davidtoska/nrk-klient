@@ -32,7 +32,7 @@ const BY_LETTER: Record<string, ListedContent[]> = {
         listed("P1", "programme", "Fotball-VM", "Kampen om pokalen."),
         listed("S1", "series", "Skiskyting", "Vinter i Holmenkollen.", { onDemand: false }),
         listed("P3", "programme", "Fotball utenfor Norge", "Sendes bare i Norge.", { geo: true }),
-        listed("P4", "programme", "Ordløs", "No description"),
+        listed("P4", "programme", "Ordløs", ""),
         listed("P5", "programme", "Lang beskrivelse", "x".repeat(500)),
     ],
     b: [
@@ -96,7 +96,7 @@ describe("AiClient.listCatalog", () => {
         assert.equal(catalog.items.find((i) => i.id === "P5")?.description, "x".repeat(500));
     });
 
-    it("drops the 'No description' placeholder", async () => {
+    it("keeps an empty description empty", async () => {
         const catalog = unwrap(await newClient().listCatalog({ letters: "a" }));
         assert.equal(catalog.items.find((i) => i.id === "P4")?.description, "");
     });

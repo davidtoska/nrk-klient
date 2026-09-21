@@ -13,6 +13,7 @@ import {
 } from "./nrk-response";
 import * as r from "./nrk-response";
 import { nrkClientParsed, seriesType as seriesTypeValidator } from "./nrk-client-parsed";
+import type { RecommendationOptions } from "./nrk-client-raw";
 import { flattenContributors, parseFirstAired, seriesIdFromHref } from "./nrk-format";
 import * as v from "./validate";
 
@@ -25,8 +26,8 @@ const checked = <T>(method: string, validator: v.Validator<T>, value: T): T =>
 
 class NrkClient {
     /**
-     * Will throw
-     * @param letter a letter between a-å
+     * Every program and series filed under one letter of NRK's index (a-z, æ, ø, å).
+     * Throws NrkHttpError on a non-2xx answer and NrkValidationError on an unexpected shape.
      */
     letter = async (letter: string): Promise<NrkLetterResponse> => {
         const parsed = await nrkClientParsed.letter(letter);
@@ -45,7 +46,7 @@ class NrkClient {
             }
             const contentItem: ListedContent = {
                 id: item.id,
-                description: item.description ? item.description : "No description",
+                description: item.description ?? "",
                 hasOnDemandRights: item.hasOndemandRights,
                 imageUrl: firstImage.imageUrl,
                 isGeoBlocked: item.isGeoBlocked,
@@ -74,7 +75,7 @@ class NrkClient {
         }
 
         const manifest: Manifest = {
-            format: hls.format,
+            format: "HLS",
             playUrl: hls.url,
             prfId,
             // rawJSON: JSON.stringify(json),
@@ -84,18 +85,15 @@ class NrkClient {
     };
     getMetadata = async (prfId: string): Promise<Metadata> => {
         const parsed = await nrkClientParsed.getMetadata(prfId);
-        const availabilityOnDemand = parsed.availability.onDemand;
-        if (!availabilityOnDemand) {
-            throw new Error("Missing availability on this program: " + prfId);
-        }
+        const { onDemand, live } = parsed.availability;
         const metaData: Metadata = {
             aspectRatio: parsed.displayAspectRatio,
             images: parsed.preplay.poster.images.map((img) => ({
                 url: img.url,
                 width: img.pixelWidth,
             })),
-            availableNow: availabilityOnDemand.hasRightsNow,
-            availableTo: availabilityOnDemand.to,
+            availableNow: onDemand?.hasRightsNow ?? live?.isOngoing ?? false,
+            availableTo: onDemand?.to ?? live?.transmissionInterval?.to ?? null,
             description: parsed.preplay.description,
             playable: parsed.playability === "playable",
             prfId,
@@ -118,20 +116,13 @@ class NrkClient {
         const images = inner.image;
         const title = inner.titles.title;
         const category = inner.category ?? null;
-        const pickImage = (array: Array<{ url: string; width: number }>) => {
-            const first = array[0];
-            if (!first) {
-                throw Error("Missing image at index 0");
-            }
-            if (first.width !== 300) {
-                throw new Error("Width of image is not 300 px");
-            }
-            const url = first.url;
-            return { url };
-        };
-        const smallImage = pickImage(images);
+        const nearest300 = images.reduce<{ url: string; width: number } | null>(
+            (best, img) =>
+                best === null || Math.abs(img.width - 300) < Math.abs(best.width - 300) ? img : best,
+            null,
+        );
         const seriesWithSeasons: SeriesWithSeasons = {
-            imageUrl300: smallImage.url,
+            imageUrl300: nearest300?.url ?? null,
             title,
             seriesId,
             seriesType: data.seriesType,
@@ -195,14 +186,7 @@ class NrkClient {
 
         return checked("getSeriesType", seriesTypeValidator, seriesType);
     };
-    getRecommendation = async (
-        contentId: string,
-        options: {
-            count?: 5 | 10 | 15 | 20 | 25;
-            contentGroup?: "adults" | "children";
-            age?: number;
-        },
-    ) => {
+    getRecommendation = async (contentId: string, options: RecommendationOptions = {}) => {
         const parerResult = await nrkClientParsed.getRecommendation(
             contentId,
             options,
@@ -263,13 +247,16 @@ class NrkClient {
     };
 
     /**
-     * Will throw
+     * The whole index: every letter, one request at a time (29 requests). `letter` in the
+     * result is the concatenation of the letters fetched.
      */
     getAllLetters = async (): Promise<NrkLetterResponse> => {
         const legalLetters = "abcdefghijklmnopqrstuvwxyzæøå";
-        const all = legalLetters.split("").map(this.letter);
-        const resolvedAll = await Promise.all(all);
-        const flattend = resolvedAll.flat(1);
+        // one request at a time: NRK answers 429 to bursts
+        const flattend: NrkLetterResponse[] = [];
+        for (const letter of legalLetters) {
+            flattend.push(await this.letter(letter));
+        }
         const allLetterResponsees: NrkLetterResponse = {
             letter: "",
             programs: [],
@@ -285,6 +272,7 @@ class NrkClient {
         return checked("getAllLetters", r.nrkLetterResponse, allLetterResponsees);
     };
 
+    /** The program page, the playback manifest and the metadata for one program id, fetched together. */
     prfIdGetAll = async (prfId: string) => {
         const programByIdPromise = this.getProgramById(prfId);
         const manifestPromise = this.getManifest(prfId);

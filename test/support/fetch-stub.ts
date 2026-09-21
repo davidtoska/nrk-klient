@@ -3,6 +3,8 @@ import { readRecorded } from "./fixtures";
 export interface FetchStub {
     /** Every URL requested while the stub was installed, in order. */
     readonly requested: string[];
+    /** The options passed with each request, in the same order. */
+    readonly inits: Array<RequestInit | undefined>;
     restore: () => void;
 }
 
@@ -20,13 +22,16 @@ export const installFetchMock = (
 ): FetchStub => {
     const original = globalThis.fetch;
     const requested: string[] = [];
-    globalThis.fetch = (async (input: string | URL | Request) => {
+    const inits: Array<RequestInit | undefined> = [];
+    globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
         const url = urlOf(input);
         requested.push(url);
+        inits.push(init);
         return handler(url);
     }) as typeof fetch;
     return {
         requested,
+        inits,
         restore: () => {
             globalThis.fetch = original;
         },

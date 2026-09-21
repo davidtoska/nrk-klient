@@ -65,6 +65,7 @@ export interface ListedContent {
     readonly imageUrl: string;
     readonly hasOnDemandRights: boolean;
     readonly isGeoBlocked: boolean;
+    /** Empty when NRK has no description (about 1 in 10 items). */
     readonly description: string;
 }
 /** @internal */
@@ -140,7 +141,8 @@ export const season: v.Validator<Season> = v.object({ name: v.string, title: v.s
 
 export interface SeriesWithSeasons {
     readonly seriesId: string;
-    readonly imageUrl300: string;
+    /** The series image closest to 300 px wide, or null when NRK lists no image. */
+    readonly imageUrl300: string | null;
     readonly title: string;
     readonly seriesType: SeriesType;
     /** NRK's own classification of the series, e.g. { id: "dokumentar", name: "Dokumentar" }. */
@@ -150,7 +152,7 @@ export interface SeriesWithSeasons {
 /** @internal */
 export const seriesWithSeasons: v.Validator<SeriesWithSeasons> = v.object({
     seriesId: v.nonEmptyString(),
-    imageUrl300: v.nonEmptyString(),
+    imageUrl300: v.nullable(v.nonEmptyString()),
     title: v.string,
     seriesType: v.oneOf(...SERIES_TYPES),
     category: v.nullable(v.object({ id: v.string, name: v.string })),
@@ -242,25 +244,29 @@ export const recommendationResponse: v.Validator<RecommendationResponse> = v.obj
 
 export interface Manifest {
     readonly prfId: string;
+    /** The HLS stream (NRK also lists MP4/Dash assets; getManifest picks HLS). */
     readonly playUrl: string;
-    readonly format: "HLS" | "MP4";
+    readonly format: "HLS";
 }
 /** @internal */
 export const manifest: v.Validator<Manifest> = v.object({
     prfId: v.nonEmptyString(),
     playUrl: v.nonEmptyString(),
-    format: v.oneOf("HLS", "MP4"),
+    format: v.literal("HLS"),
 });
 
 export interface Metadata {
     readonly playable: boolean;
     readonly prfId: string;
-    readonly aspectRatio: "16:9" | "4:3";
+    /** null when NRK does not state it (for instance for audio). */
+    readonly aspectRatio: "16:9" | "4:3" | null;
     readonly streamingMode: "live" | "onDemand";
     readonly title: string;
     readonly subTitle: string;
     readonly description: string;
+    /** End of the on-demand window, or of the live transmission; null when NRK gives none. */
     readonly availableTo: string | null;
+    /** On demand: rights now. Live: the transmission is ongoing. */
     readonly availableNow: boolean;
     readonly images: ReadonlyArray<{ url: string; width: number }>;
 }
@@ -268,7 +274,7 @@ export interface Metadata {
 export const metadata: v.Validator<Metadata> = v.object({
     playable: v.boolean,
     prfId: v.nonEmptyString(),
-    aspectRatio: v.oneOf("16:9", "4:3"),
+    aspectRatio: v.nullable(v.oneOf("16:9", "4:3")),
     streamingMode: v.oneOf("live", "onDemand"),
     title: v.string,
     subTitle: v.string,
