@@ -308,6 +308,10 @@ const record = async (fn) => {
         }),
     );
     await record(() => NRK.getRecommendation(curated.standardSeries, { count: 10 }));
+    // anbefalinger som NrkClient.getRecommendation ber om (10 per id, for voksne)
+    for (const id of ["FFIL63000263", "OCUH11002809", "filmavisen-innslag-i-utvalg", "DOESNOTEXIST"]) {
+        await record(() => NRK.getRecommendation(id, { count: 10 }));
+    }
     // små bokstavlister
     for (const l of ["w", "x", "y", "æ"]) await record(() => NRK.letter(l));
 

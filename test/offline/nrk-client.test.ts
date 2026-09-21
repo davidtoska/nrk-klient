@@ -1,6 +1,6 @@
 import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { NrkClient as AiClient, NrkLike } from "../../src/nrk-client";
+import { NrkClient, NrkLike } from "../../src/nrk-client";
 import { NrkHttpError } from "../../src/nrk-client-raw";
 import type { ListedContent, NrkLetterResponse } from "../../src/nrk-response";
 import { FetchStub, installFetchMock, installFetchStub } from "../support/fetch-stub";
@@ -56,14 +56,14 @@ const fakeNrk = (calls: string[] = []): NrkLike => {
 };
 
 const newClient = (nrk: NrkLike = fakeNrk()) =>
-    new AiClient({ nrk, letters: "ab", minIntervalMs: 0 });
+    new NrkClient({ nrk, letters: "ab", minIntervalMs: 0 });
 
 const unwrap = <T>(result: { ok: true; data: T } | { ok: false; error: unknown }): T => {
     assert.ok(result.ok, "expected ok result, got " + JSON.stringify(result));
     return result.data;
 };
 
-describe("AiClient.listCatalog", () => {
+describe("NrkClient.listCatalog", () => {
     it("lists programs and series with only the documented fields", async () => {
         const catalog = unwrap(await newClient().listCatalog({ letters: "a" }));
         assert.deepEqual(catalog.items.map((i) => i.id), ["P1", "P3", "P4", "P5", "S1"]);
@@ -108,7 +108,7 @@ describe("AiClient.listCatalog", () => {
 
     it("uses the whole alphabet by default and only the given letters when asked", async () => {
         const all: string[] = [];
-        unwrap(await new AiClient({ nrk: fakeNrk(all), minIntervalMs: 0 }).listCatalog());
+        unwrap(await new NrkClient({ nrk: fakeNrk(all), minIntervalMs: 0 }).listCatalog());
         assert.deepEqual(all.sort(), "abcdefghijklmnopqrstuvwxyzæøå".split("").sort());
 
         const some: string[] = [];
@@ -176,10 +176,10 @@ describe("AiClient.listCatalog", () => {
     });
 });
 
-describe("AiClient against recorded NRK responses", () => {
+describe("NrkClient against recorded NRK responses", () => {
     let stub: FetchStub | undefined;
     afterEach(() => stub?.restore());
-    const client = (options: object = {}) => new AiClient({ minIntervalMs: 0, ...options });
+    const client = (options: object = {}) => new NrkClient({ minIntervalMs: 0, ...options });
 
     it("lists the real letter lists", async () => {
         stub = installFetchStub();
@@ -239,12 +239,12 @@ describe("AiClient against recorded NRK responses", () => {
     });
 
     describe("getEpisodes", () => {
-        const load = async (c: AiClient, role = "standardSeries") => {
+        const load = async (c: NrkClient, role = "standardSeries") => {
             const series = unwrap(await c.getSeries({ seriesId: curated(role) }));
             return { seriesId: curated(role), season: first(series.seasons, "seasons").name };
         };
 
-        it("maps every episode of the season to a compact AiEpisode", async () => {
+        it("maps every episode of the season to a compact Episode", async () => {
             stub = installFetchStub();
             const c = client();
             const { seriesId, season } = await load(c);
@@ -378,7 +378,7 @@ describe("AiClient against recorded NRK responses", () => {
     });
 
     describe("getProgram / getPrograms", () => {
-        it("maps a program page to a compact AiProgram", async () => {
+        it("maps a program page to a compact Program", async () => {
             stub = installFetchStub();
             const id = curated("availableProgram");
             const raw = recordedJson(urls.programPage(id));
@@ -568,7 +568,7 @@ describe("AiClient against recorded NRK responses", () => {
 
     it("spaces requests by minIntervalMs", async () => {
         stub = installFetchStub();
-        const c = new AiClient({ minIntervalMs: 40 });
+        const c = new NrkClient({ minIntervalMs: 40 });
         const started = Date.now();
         await c.getProgram(curated("availableProgram"));
         await c.getProgram(curated("filmProgram"));

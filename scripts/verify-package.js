@@ -92,14 +92,14 @@ globalThis.fetch = fetchWithFixtures;
 (async () => {
   // NrkClient: catalog, details and error mapping - none of it throws
   // (letters and minIntervalMs are an internal test seam, not public API: they only keep this smoke test fast)
-  const ai = new pkg.NrkClient({ letters: "f", minIntervalMs: 0 });
-  const listing = await ai.listCatalog({ letters: "f" });
+  const client = new pkg.NrkClient({ letters: "f", minIntervalMs: 0 });
+  const listing = await client.listCatalog({ letters: "f" });
   assert.ok(listing.ok && listing.data.items.length === 1 && listing.data.items[0].id === "P1" && listing.data.failed.length === 0);
-  const one = await ai.getProgram("${ids.availableProgram}");
+  const one = await client.getProgram("${ids.availableProgram}");
   assert.ok(one.ok && typeof one.data.description === "string");
-  const missing = await ai.getSeries({ seriesId: "finnes-ikke" });
+  const missing = await client.getSeries({ seriesId: "finnes-ikke" });
   assert.ok(!missing.ok && missing.error.code === "not_found");
-  const bad = await ai.listCatalog({ letters: "1" });
+  const bad = await client.listCatalog({ letters: "1" });
   assert.ok(!bad.ok && bad.error.code === "invalid_input");
   console.log("smoke test passed");
 })().catch((e) => { console.error(e); process.exit(1); });
@@ -132,14 +132,14 @@ console.log("esm import ok");`,
     fs.writeFileSync(
         path.join(app, "check.ts"),
         `import { NrkClient } from "narko-klient";
-import type { Result, Program, NrkError, Playback } from "narko-klient";
+import type { Result, Program, NrkError, Playback, Recommendations } from "narko-klient";
 // @ts-expect-error the input types are not exported; the methods document what they accept
 import type { ListCatalogInput } from "narko-klient";
 
 export const main = async (): Promise<void> => {
-  const ai = new NrkClient();
+  const client = new NrkClient();
   const input: Parameters<NrkClient["listCatalog"]>[0] = { letters: "abc" };
-  const found = await ai.listCatalog(input);
+  const found = await client.listCatalog(input);
   if (found.ok) {
     const count: number = found.data.items.length;
     const title: string = found.data.items[0]?.title ?? "";
@@ -149,13 +149,13 @@ export const main = async (): Promise<void> => {
     const code: NrkError["code"] = found.error.code;
     void code;
   }
-  const program: Result<Program> = await ai.getProgram("MKTF73000514");
+  const program: Result<Program> = await client.getProgram("MKTF73000514");
   if (program.ok) {
     const people: string[] = program.data.contributors.map((c) => c.name);
     const description: string | null = program.data.description;
     void [people, description];
   }
-  const playback: Result<Playback> = await ai.getPlayback("MKTF73000514");
+  const playback: Result<Playback> = await client.getPlayback("MKTF73000514");
   if (playback.ok) {
     const url: string = playback.data.streamUrl;
     const tracks: string[] = playback.data.subtitles.map((t) => t.url);
@@ -166,14 +166,23 @@ export const main = async (): Promise<void> => {
     void forTheViewer;
   }
 
+  const recs: Result<Recommendations> = await client.getRecommendation({ basedOn: ["MKTF73000514"], count: 5 });
+  if (recs.ok) {
+    const ids: string[] = recs.data.items.map((i) => i.id);
+    const because: ReadonlyArray<string> | undefined = recs.data.items[0]?.basedOn;
+    void [ids, because];
+  }
+  // @ts-expect-error count must be 5, 10, 15, 20 or 25
+  await client.getRecommendation({ basedOn: ["x"], count: 7 });
+
   // @ts-expect-error the client takes no options
   new NrkClient({ nope: 1 });
   // @ts-expect-error not even the internal test seams are part of the public types
   new NrkClient({ minIntervalMs: 0 });
   // @ts-expect-error letters must be a string
-  await ai.listCatalog({ letters: 5 });
+  await client.listCatalog({ letters: 5 });
   // @ts-expect-error there is no search or cache any more
-  ai.searchCatalog({ query: "natur" });
+  client.searchCatalog({ query: "natur" });
 };
 `,
     );

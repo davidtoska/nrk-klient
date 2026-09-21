@@ -1,6 +1,6 @@
 import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { NrkClient as AiClient, NrkLike } from "../../src/nrk-client";
+import { NrkClient, NrkLike } from "../../src/nrk-client";
 import { NRK } from "../../src/client";
 import * as r from "../../src/nrk-response";
 import { NrkValidationError, safeParse } from "../../src/validate";
@@ -9,7 +9,7 @@ import { curated, recordedJson, urls } from "../support/helpers";
 
 /**
  * Both clients check what they return against the declared type. These tests feed the
- * AiClient a fake NRK that produces values contradicting the types, and check that the
+ * NrkClient a fake NRK that produces values contradicting the types, and check that the
  * caller gets an error instead of a wrong value.
  */
 
@@ -54,7 +54,7 @@ const validEpisode = {
     contributors: [],
 };
 
-const clientWith = (fake: object) => new AiClient({ nrk: fake as unknown as NrkLike, minIntervalMs: 0 });
+const clientWith = (fake: object) => new NrkClient({ nrk: fake as unknown as NrkLike, minIntervalMs: 0 });
 
 const programFake = (override: object = {}) => ({
     getProgramById: async () => ({ ...validProgram, ...override }),
@@ -68,7 +68,7 @@ const rejected = async (result: Promise<{ ok: boolean; error?: { code: string; m
     return r.error?.message ?? "";
 };
 
-describe("AiClient checks its results against their declared type", () => {
+describe("NrkClient checks its results against their declared type", () => {
     it("passes a value that matches (baseline)", async () => {
         const result = await clientWith(programFake()).getProgram("ABCD12345678");
         assert.ok(result.ok);
@@ -161,7 +161,7 @@ describe("AiClient checks its results against their declared type", () => {
                 series: [],
             }),
         };
-        const client = new AiClient({ nrk: fake as unknown as NrkLike, letters: "a", minIntervalMs: 0 });
+        const client = new NrkClient({ nrk: fake as unknown as NrkLike, letters: "a", minIntervalMs: 0 });
         const message = await rejected(client.listCatalog({}));
         assert.match(message, /items\.0\.id/);
     });

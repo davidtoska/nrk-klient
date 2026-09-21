@@ -6,16 +6,19 @@ import {
     seasonEpisodesValidator,
     programValidator,
     playbackValidator,
+    recommendationsValidator,
     programsResultValidator,
     seriesValidator,
     getEpisodesInput,
     getProgramsInput,
+    getRecommendationInput,
     getSeriesInput,
     listCatalogInput,
 } from "./types";
 import type {
     GetEpisodesInput,
     GetProgramsInput,
+    GetRecommendationInput,
     GetSeriesInput,
     ListCatalogInput,
     CatalogItem,
@@ -27,6 +30,8 @@ import type {
     Playback,
     Program,
     ProgramsResult,
+    RecommendedItem,
+    Recommendations,
     Result,
     Series,
 } from "./types";
@@ -38,7 +43,7 @@ import type { NrkEpisode, SeasonsWithEpisodes } from "./nrk-response";
  */
 export type NrkLike = Pick<
     typeof NRK,
-    "letter" | "getSeasons" | "getAllEpisodes" | "getProgramById" | "getMetadata" | "getPlayback"
+    "letter" | "getSeasons" | "getAllEpisodes" | "getProgramById" | "getMetadata" | "getPlayback" | "getRecommendation"
 >;
 
 /**
@@ -74,7 +79,7 @@ const isNetworkFailure = (e: unknown): boolean =>
  * Converts anything thrown by the NRK client into an NrkError.
  * @internal
  */
-export const toAiError = (e: unknown): NrkError => {
+export const toNrkError = (e: unknown): NrkError => {
     if (e instanceof NrkHttpError) {
         let where = e.url;
         try {
@@ -153,6 +158,7 @@ const checked = <T>(validator: Validator<T>, value: T): Result<T> => {
  * Ids: a program or episode id is a "prfId" such as "MKTF73000514"; a series id is a
  * slug such as "dagsrevyen". Catalog items and episodes carry the ids to pass on.
  * Typical flow: listCatalog -> getSeries -> getEpisodes -> getPlayback (or getProgram).
+ * getRecommendation finds more of what a viewer might like, from ids they liked.
  *
  * @example
  * const client = new NrkClient();
@@ -224,7 +230,7 @@ export class NrkClient {
                     });
                 }
             } catch (e) {
-                const error = toAiError(e);
+                const error = toNrkError(e);
                 failed.push({ letter, error });
                 // no point in hammering NRK when it asks us to slow down
                 if (error.code === "rate_limited") break;
@@ -257,7 +263,7 @@ export class NrkClient {
                 seasons: series.seasons.map((s) => ({ name: s.name, title: s.title })),
             });
         } catch (e) {
-            return fail(toAiError(e));
+            return fail(toNrkError(e));
         }
     };
 
@@ -285,7 +291,7 @@ export class NrkClient {
             const season = await this.call(() => this.nrk.getAllEpisodes(seriesId, seasonName));
             return checked(seasonEpisodesValidator, toEpisodes(season, availableOn, this.maxContributors));
         } catch (e) {
-            return fail(toAiError(e));
+            return fail(toNrkError(e));
         }
     };
 
@@ -324,7 +330,7 @@ export class NrkClient {
                 seriesId: p.seriesId,
             });
         } catch (e) {
-            return fail(toAiError(e));
+            return fail(toNrkError(e));
         }
     };
 
@@ -362,8 +368,69 @@ export class NrkClient {
                 availableTo: source.availableTo,
             });
         } catch (e) {
-            return fail(toAiError(e));
+            return fail(toNrkError(e));
         }
+    };
+
+    // ── Recommendations ─────────────────────────────────────────────
+
+    /**
+     * Programs and series NRK recommends to someone who liked the given ones. Give it what the
+     * viewer likes or has watched (program, episode or series ids); the results for all of them
+     * are merged, the given ids are left out, and items that come up for several of them are
+     * listed first. One request per id, and each item says which of your ids led to it.
+     *
+     * NRK gives no descriptions or availability here. Follow up with getProgram (`status`,
+     * description), getSeries or getPlayback. An id NRK does not know gets general
+     * recommendations, not an error. Ids NRK fails on are reported in `failed`; if all of them
+     * fail, the call returns the error.
+     *
+     * @param input.basedOn 1-5 ids, for instance `["MKTF73000514", "dagsrevyen"]`.
+     * @param input.count Recommendations per id: 5, 10, 15, 20 or 25. Default 10.
+     * @example
+     * const recs = await client.getRecommendation({ basedOn: ["MKTF73000514"] });
+     * if (recs.ok) console.log(recs.data.items.map((i) => i.title));
+     */
+    getRecommendation = async (input: GetRecommendationInput): Promise<Result<Recommendations>> => {
+        const parsed = parseInput(getRecommendationInput, input);
+        if (!parsed.ok) return fail(parsed.error);
+        const { basedOn, count } = parsed.data;
+        const asked = [...new Set(basedOn)];
+
+        const found = new Map<string, { id: string; type: "program" | "series"; title: string; subtitle: string | null; basedOn: string[] }>();
+        const failed: Array<{ id: string; error: NrkError }> = [];
+        for (const id of asked) {
+            try {
+                const response = await this.call(() => this.nrk.getRecommendation(id, { count: count ?? 10 }));
+                for (const item of [...response.programs, ...response.series]) {
+                    if (asked.includes(item.id)) continue;
+                    const known = found.get(item.id);
+                    if (known) {
+                        known.basedOn.push(id);
+                    } else {
+                        found.set(item.id, {
+                            id: item.id,
+                            type: item.type,
+                            title: item.title,
+                            subtitle: item.subtitle === "" || item.subtitle === null ? null : item.subtitle,
+                            basedOn: [id],
+                        });
+                    }
+                }
+            } catch (e) {
+                failed.push({ id, error: toNrkError(e) });
+                // no point in hammering NRK when it asks us to slow down
+                if (failed[failed.length - 1]?.error.code === "rate_limited") break;
+            }
+        }
+        if (failed.length === asked.length) {
+            const first = failed[0];
+            if (first) return fail(first.error);
+        }
+        // more of your ids behind an item means a stronger match; Array.sort is stable, so
+        // NRK's own order decides between equals
+        const items: RecommendedItem[] = [...found.values()].sort((a, b) => b.basedOn.length - a.basedOn.length);
+        return checked(recommendationsValidator, { items, failed });
     };
 
     /**
@@ -405,7 +472,7 @@ export class NrkClient {
             const meta = await this.call(() => this.nrk.getMetadata(programId));
             return meta.description;
         } catch (e) {
-            const code = toAiError(e).code;
+            const code = toNrkError(e).code;
             if (code === "rate_limited" || code === "network" || code === "upstream_error") {
                 throw e;
             }

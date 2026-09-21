@@ -35,28 +35,34 @@ An API against NRK, made for agents that pick content and build schedules.
 ```ts
 import { NrkClient } from "narko-klient";
 
-const ai = new NrkClient();
+const client = new NrkClient();
 
 // The whole archive: about 30 requests and roughly 12,000 items. Store it and search it yourself.
-const catalog = await ai.listCatalog();
+const catalog = await client.listCatalog();
 if (!catalog.ok) throw new Error(catalog.error.message);
 for (const item of catalog.data.items) {
   console.log(item.id, item.type, item.title, item.description);
 }
 console.log(catalog.data.failed); // letters that could not be fetched, if any
 
-const series = await ai.getSeries({ seriesId: "dagsrevyen" });
-const episodes = await ai.getEpisodes({
+const series = await client.getSeries({ seriesId: "dagsrevyen" });
+const episodes = await client.getEpisodes({
   seriesId: "dagsrevyen",
   seasonName: "2024",
   availableOn: "2026-10-03", // only episodes that can be streamed that day
 });
 
 // Full details, including NRK's description and credited people (max 20 ids per call)
-const programs = await ai.getPrograms({ programIds: ["MKTF73000514"] });
+const programs = await client.getPrograms({ programIds: ["MKTF73000514"] });
+
+// More of what the viewer likes, from ids they liked or watched (1-5 program, episode or series ids)
+const recs = await client.getRecommendation({ basedOn: ["MKTF73000514", "dagsrevyen"] });
+if (recs.ok) {
+  for (const item of recs.data.items) console.log(item.type, item.id, item.title, item.basedOn);
+}
 
 // Everything a player needs to play a program or an episode (pass the episode's `id`)
-const playback = await ai.getPlayback("MKTF73000514");
+const playback = await client.getPlayback("MKTF73000514");
 if (playback.ok) {
   const { streamUrl, subtitles, posterUrl, title, durationSeconds } = playback.data;
   // give streamUrl to an HLS player, subtitles[].url are WebVTT files
@@ -71,6 +77,7 @@ if (playback.ok) {
 | `getSeries({ seriesId })` | title, type, category, seasons |
 | `getEpisodes({ seriesId, seasonName, availableOn? })` | all episodes of the season, with duration and availability |
 | `getProgram(id)` / `getPrograms({ programIds })` | one or more programs with description and credited people |
+| `getRecommendation({ basedOn, count? })` | what NRK recommends for 1-5 ids the viewer likes: merged, without the ids you gave, strongest matches first, each with the ids that led to it (no descriptions: follow up with `getProgram`) |
 | `getPlayback(id)` | what a player needs: HLS `streamUrl`, `mimeType`, subtitle tracks (WebVTT), poster, duration, aspect ratio, title and end of the streaming window |
 
 Error codes: `not_found`, `forbidden`, `rate_limited` (with `retryAfterSeconds`), `upstream_error`,
@@ -87,6 +94,8 @@ instead of throwing. Arguments are validated the same way (`invalid_input`).
 ### Good to know
 
 - About 1 in 10 items has no description at NRK; `description` is then an empty string.
+- `getRecommendation` costs one request per id in `basedOn`. NRK does not say whether a recommended item
+  can be streamed now, so check with `getProgram` (`status`) or `getPlayback` before scheduling it.
 - `getPlayback` costs two requests (the manifest and the playback metadata). The stream address NRK
   gives is not permanent, so ask for it when the viewer presses play instead of storing it. A program
   that NRK will not stream now (expired, not published yet) is a `not_playable` error whose message is

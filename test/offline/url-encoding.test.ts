@@ -1,6 +1,6 @@
 import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { NrkClient as AiClient, NrkLike } from "../../src/nrk-client";
+import { NrkClient, NrkLike } from "../../src/nrk-client";
 import { NRK } from "../../src/client";
 import { FetchStub, installFetchMock } from "../support/fetch-stub";
 
@@ -60,13 +60,13 @@ describe("path segments are encoded", () => {
         assert.equal(url.pathname, "/medium/tv/letters/%C3%A6/indexelements");
     });
 
-    it("holds for ids that reach the client through AiClient", async () => {
-        const ai = new AiClient({ nrk: NRK as NrkLike, minIntervalMs: 0 });
+    it("holds for ids that reach the client through NrkClient", async () => {
+        const client = new NrkClient({ nrk: NRK as NrkLike, minIntervalMs: 0 });
         stub = installFetchMock(() => new Response("{}", { status: 404 }));
 
-        await ai.getEpisodes({ seriesId: HOSTILE, seasonName: HOSTILE });
-        await ai.getSeries({ seriesId: HOSTILE });
-        await ai.getProgram(HOSTILE);
+        await client.getEpisodes({ seriesId: HOSTILE, seasonName: HOSTILE });
+        await client.getSeries({ seriesId: HOSTILE });
+        await client.getProgram(HOSTILE);
 
         assert.ok(stub.requested.length >= 3);
         for (const requested of stub.requested) {

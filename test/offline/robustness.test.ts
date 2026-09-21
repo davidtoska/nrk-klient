@@ -1,6 +1,6 @@
 import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { NrkClient as AiClient, NrkLike } from "../../src/nrk-client";
+import { NrkClient, NrkLike } from "../../src/nrk-client";
 import { NRK } from "../../src/client";
 import { REQUEST_TIMEOUT_MS, parseRetryAfter } from "../../src/nrk-client-raw";
 import { FetchStub, installFetchMock, installFetchStub } from "../support/fetch-stub";
@@ -53,9 +53,9 @@ describe("requests", () => {
     });
 });
 
-describe("AiClient error classification", () => {
+describe("NrkClient error classification", () => {
     const failingWith = (thrown: unknown) =>
-        new AiClient({
+        new NrkClient({
             nrk: { getSeasons: async () => { throw thrown; } } as unknown as NrkLike,
             minIntervalMs: 0,
         });

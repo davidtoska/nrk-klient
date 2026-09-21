@@ -367,3 +367,55 @@ export const playbackValidator: v.Validator<Playback> = v.object({
     subtitles: v.array(subtitleTrackValidator),
     availableTo: v.nullable(v.string),
 });
+
+// ── Recommendations ─────────────────────────────────────────────────
+
+/** Arguments for NrkClient.getRecommendation. */
+export interface GetRecommendationInput {
+    /** 1-5 ids the viewer likes or has watched: program ids, episode ids or series ids. */
+    basedOn: string[];
+    /** How many recommendations NRK gives for each id. Default 10. */
+    count?: 5 | 10 | 15 | 20 | 25 | undefined;
+}
+/** @internal */
+export type GetRecommendationQuery = WithDefaults<GetRecommendationInput, "count">;
+/** @internal */
+export const getRecommendationInput: v.Validator<GetRecommendationQuery> = v.object({
+    basedOn: v.array(v.stringOf({ min: 1, max: 200 }), { min: 1, max: 5 }),
+    count: v.optional(v.oneOf(5, 10, 15, 20, 25)),
+});
+
+export interface RecommendedItem {
+    /** A program id (use it with getProgram or getPlayback) or a series id (use it with getSeries). */
+    readonly id: string;
+    readonly type: "program" | "series";
+    readonly title: string;
+    /** null when NRK has none. */
+    readonly subtitle: string | null;
+    /** Which of the ids you passed in led to this recommendation. More than one means a stronger match. */
+    readonly basedOn: ReadonlyArray<string>;
+}
+/** @internal */
+export const recommendedItemValidator: v.Validator<RecommendedItem> = v.object({
+    id: v.nonEmptyString(),
+    type: v.oneOf("program", "series"),
+    title: v.string,
+    subtitle: v.nullable(v.string),
+    basedOn: v.array(v.nonEmptyString(), { min: 1 }),
+});
+
+export interface Recommendations {
+    /**
+     * Best matches first: items recommended for several of your ids come before the rest.
+     * The ids you passed in are left out. NRK does not say whether an item can be streamed
+     * now; check with getProgram (`status`) or getPlayback.
+     */
+    readonly items: ReadonlyArray<RecommendedItem>;
+    /** Ids NRK could not give recommendations for. The other ids still contributed. */
+    readonly failed: ReadonlyArray<{ readonly id: string; readonly error: NrkError }>;
+}
+/** @internal */
+export const recommendationsValidator: v.Validator<Recommendations> = v.object({
+    items: v.array(recommendedItemValidator),
+    failed: v.array(v.object({ id: v.string, error: nrkErrorValidator })),
+});

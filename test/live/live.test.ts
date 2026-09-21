@@ -22,7 +22,7 @@ import type { ProgramById, SeasonsWithEpisodes } from "../../src/nrk-response";
 import { IdEntry, readIds } from "../support/fixtures";
 import { installPoliteFetch } from "../support/polite-fetch";
 import { isHttpUrl } from "../support/helpers";
-import { NrkClient as AiClient } from "../../src/nrk-client";
+import { NrkClient } from "../../src/nrk-client";
 
 const LIMIT = Number(process.env.NRK_LIVE_LIMIT) || Infinity;
 const INTERVAL_MS = Number(process.env.NRK_LIVE_INTERVAL_MS) || 350;
@@ -214,11 +214,11 @@ describe("live: psapi.nrk.no", () => {
         assertOutcomes("unavailable programs", outcomes);
     });
 
-    it("AiClient: list the catalog -> series -> episodes available today", async () => {
-        const ai = new AiClient({ minIntervalMs: 0 }); // the polite fetch already paces requests
+    it("NrkClient: list the catalog -> series -> episodes available today", async () => {
+        const client = new NrkClient({ minIntervalMs: 0 }); // the polite fetch already paces requests
         const today = new Date().toISOString().slice(0, 10);
 
-        const catalog = await ai.listCatalog();
+        const catalog = await client.listCatalog();
         assert.ok(catalog.ok, JSON.stringify(catalog));
         assert.deepEqual(catalog.data.failed, []);
         assert.ok(catalog.data.items.length > 10000, "catalog size " + catalog.data.items.length);
@@ -234,11 +234,11 @@ describe("live: psapi.nrk.no", () => {
 
         let withEpisodes = 0;
         for (const item of candidates) {
-            const series = await ai.getSeries({ seriesId: item.id });
+            const series = await client.getSeries({ seriesId: item.id });
             assert.ok(series.ok, item.id + ": " + JSON.stringify(series));
             const season = series.data.seasons[0];
             if (!season) continue;
-            const result = await ai.getEpisodes({ seriesId: item.id, seasonName: season.name, availableOn: today });
+            const result = await client.getEpisodes({ seriesId: item.id, seasonName: season.name, availableOn: today });
             assert.ok(result.ok, item.id + ": " + JSON.stringify(result));
             for (const episode of result.data.episodes) {
                 assert.ok(episode.durationMinutes >= 0 && episode.id.length > 0);

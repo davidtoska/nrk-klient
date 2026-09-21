@@ -18,6 +18,8 @@ export type {
     Program,
     Playback,
     ProgramsResult,
+    RecommendedItem,
+    Recommendations,
     Result,
     Season,
     Series,

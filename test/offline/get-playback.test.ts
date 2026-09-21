@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { NrkClient as AiClient } from "../../src/nrk-client";
+import { NrkClient } from "../../src/nrk-client";
 import { parseIsoDuration } from "../../src/nrk-format";
 import { FetchStub, installFetchMock, installFetchStub } from "../support/fetch-stub";
 import { FIXTURES_DIR } from "../support/fixtures";
@@ -22,7 +22,7 @@ const playbackIds: string[] = JSON.parse(
 const rawManifest = (id: string): any => recordedJson(urls.manifest(id));
 const rawMetadata = (id: string): any => recordedJson(urls.metadata(id));
 
-const newClient = () => new AiClient({ minIntervalMs: 0 });
+const newClient = () => new NrkClient({ minIntervalMs: 0 });
 
 describe("getPlayback against 20 recorded programs", () => {
     let stub: FetchStub;
