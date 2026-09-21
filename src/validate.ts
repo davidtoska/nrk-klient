@@ -15,12 +15,11 @@
  * Like the schemas it replaces, object() keeps only the keys it knows about.
  */
 
-export type Path = ReadonlyArray<string | number>;
+import { NrkValidationError, formatIssues } from "./validation-error";
+import type { Issue, Path } from "./validation-error";
 
-export interface Issue {
-    readonly path: Path;
-    readonly message: string;
-}
+export { NrkValidationError, formatIssues };
+export type { Issue, Path };
 
 /** Reads `input`, records problems in `issues`, and returns the typed value. */
 export type Validator<T> = (input: unknown, path: Path, issues: Issue[]) => T;
@@ -29,30 +28,6 @@ export type Validator<T> = (input: unknown, path: Path, issues: Issue[]) => T;
 export type OptionalValidator<T> = Validator<T | undefined> & { readonly optionalKey: true };
 
 export type Infer<V> = V extends (input: any, path: any, issues: any) => infer T ? T : never;
-
-// ── Errors ──────────────────────────────────────────────────────────
-
-export const formatIssues = (issues: ReadonlyArray<Issue>, max = 5): string => {
-    const shown = issues
-        .slice(0, max)
-        .map((i) => `${i.path.length > 0 ? i.path.join(".") : "input"}: ${i.message}`);
-    const rest = issues.length - max;
-    return shown.join("; ") + (rest > 0 ? ` (+${rest} more)` : "");
-};
-
-/**
- * Thrown by parse() when a value does not have the expected shape: an NRK response,
- * or a value one of our clients was about to return.
- */
-export class NrkValidationError extends Error {
-    constructor(
-        readonly issues: ReadonlyArray<Issue>,
-        label = "Unexpected response shape",
-    ) {
-        super(label + " - " + formatIssues(issues));
-        this.name = "NrkValidationError";
-    }
-}
 
 export const safeParse = <T>(
     validator: Validator<T>,

@@ -5,12 +5,16 @@
  *  - NRK          the client for psapi.nrk.no
  *  - AiClient     a client shaped for AI agents (compact results, keyword search, never throws)
  *  - NrkHttpError what NRK throws on a non-2xx response (AiClient never throws it)
+ *  - NrkValidationError what NRK throws when a response, or a result, does not match its type
  *
  * Everything else is a type and disappears at runtime.
  */
 export { NRK } from "./client";
 export { AiClient } from "./ai-client";
 export { NrkHttpError } from "./nrk-client-raw";
+export type { RecommendationOptions } from "./nrk-client-raw";
+export { NrkValidationError } from "./validation-error";
+export type { Issue as ValidationIssue } from "./validation-error";
 
 // NRK client
 export type {

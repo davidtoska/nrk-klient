@@ -70,7 +70,7 @@ describe("NRK.getMetadata", () => {
         assert.equal(meta.playable, true);
         assert.equal(meta.availableNow, raw.availability.onDemand.hasRightsNow);
         assert.equal(meta.availableTo, raw.availability.onDemand.to);
-        assert.ok(["16:9", "4:3"].includes(meta.aspectRatio));
+        assert.ok(meta.aspectRatio === null || ["16:9", "4:3"].includes(meta.aspectRatio));
         assert.ok(meta.images.length > 0);
         for (const image of meta.images) {
             assert.ok(isHttpUrl(image.url));

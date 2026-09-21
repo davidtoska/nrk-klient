@@ -258,7 +258,7 @@ describe("live: psapi.nrk.no", () => {
                 const series = await NRK.getSeasons(s.id);
                 assert.equal(series.seriesType, type);
                 assert.ok(series.title.length > 0, "title");
-                assert.ok(isHttpUrl(series.imageUrl300), "imageUrl300");
+                assert.ok(series.imageUrl300 === null || isHttpUrl(series.imageUrl300), "imageUrl300");
                 assert.ok(series.seasons.length > 0, "seasons");
 
                 const season = series.seasons[0];

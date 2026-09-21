@@ -8,7 +8,8 @@ install or keep in sync.
 > versioned or guaranteed to stay the same, and NRK answers `429 Too Many Requests` when it is hit
 > hard, so keep your request rate low.
 
-Requires Node.js 18 or newer (it uses the global `fetch`).
+Requires Node.js 20 or newer (it uses the global `fetch`). Published as CommonJS; ESM and TypeScript
+consumers import the named exports as shown below.
 
 ```sh
 npm install nrk-klient
@@ -21,16 +22,17 @@ npm install nrk-klient
 | `NRK` | the client for psapi.nrk.no |
 | `AiClient` | a client shaped for AI agents |
 | `NrkHttpError` | what `NRK` throws when NRK answers with a non-2xx status |
+| `NrkValidationError` | what `NRK` throws when a response, or a result, does not match its declared type |
 
 Everything else is a TypeScript type (`ProgramById`, `AiResult`, ...) and does not exist at runtime.
 
 ## NRK
 
-The methods validate NRK's responses. If the shape is not what is expected they throw an error named
-`NrkValidationError` that lists the offending fields (check `error.name`).
+The methods validate NRK's responses. If the shape is not what is expected they throw
+`NrkValidationError`, whose `issues` list the offending fields.
 
 ```ts
-import { NRK, NrkHttpError } from "nrk-klient";
+import { NRK, NrkHttpError, NrkValidationError } from "nrk-klient";
 
 try {
   const program = await NRK.getProgramById("MKTF73000514");
@@ -44,14 +46,20 @@ try {
 } catch (e) {
   if (e instanceof NrkHttpError) {
     console.error(e.status, e.url, e.retryAfterSeconds); // retryAfterSeconds is set on 429
+  } else if (e instanceof NrkValidationError) {
+    console.error(e.message, e.issues); // NRK changed something, or an id was wrong
   } else {
-    throw e;
+    throw e; // network failure or timeout (a TimeoutError after 30 s)
   }
 }
 ```
 
 Methods: `letter`, `getAllLetters`, `getProgramById`, `getManifest`, `getMetadata`, `prfIdGetAll`,
 `getSeriesType`, `getSeasons`, `getAllEpisodes`, `getRecommendation`.
+
+`NRK` does not pace or retry requests. `getAllLetters` asks for one letter at a time (29 requests);
+everything else is one request per call. If you call it in a loop, keep some time between calls or NRK
+will answer 429 and block you for about ten minutes.
 
 ## AiClient
 
@@ -117,6 +125,26 @@ error instead of throwing. Arguments to `AiClient` are validated the same way (`
   long-running news series can be a few hundred episodes.
 - NRK's Google Analytics fields are filled with placeholders, so production year, category and
   episode number are read from other fields. `productionMonth` / `productionDay` are not available.
+
+## Errors, timeouts and rate limits
+
+- Every request times out after 30 s (`TimeoutError`), sends `Accept: application/json` and a
+  `User-Agent` of `nrk-klient/<version>`.
+- A non-2xx answer is a `NrkHttpError` with `status`, `url`, `body` and, on 429,
+  `retryAfterSeconds` (NRK typically asks for 600). `AiClient` maps it to `rate_limited` and stops
+  the current call early.
+- Neither client retries. Retrying is a policy decision for the application (and retrying a 429 early
+  extends the block).
+
+## Stability
+
+- The exported API follows semantic versioning: a breaking change to what the package exports bumps
+  the major version. See `CHANGELOG.md`.
+- NRK's API is undocumented for some endpoints (`letter`, `getRecommendation`) and unversioned for
+  all of them. Every result is validated, so a change on NRK's side shows up as a
+  `NrkValidationError` / `invalid_response` rather than as wrong data. The offline test suite runs
+  against recorded NRK responses; `npm run test:live` runs against the real API.
+- Internal helpers (the validators, test seams) are not exported and may change at any time.
 
 ## License
 

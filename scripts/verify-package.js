@@ -68,13 +68,13 @@ const fs = require("node:fs");
 const assert = require("node:assert/strict");
 const pkg = require("nrk-klient");
 
-assert.deepEqual(Object.keys(pkg).sort(), ["AiClient", "NRK", "NrkHttpError"]);
+assert.deepEqual(Object.keys(pkg).sort(), ["AiClient", "NRK", "NrkHttpError", "NrkValidationError"]);
 
 const fixtures = {
   "/tv/catalog/programs/${ids.availableProgram}": ${JSON.stringify(raw(`tv__catalog__programs__${ids.availableProgram}.json`))},
   "/playback/metadata/program/${ids.availableProgram}": ${JSON.stringify(raw(`playback__metadata__program__${ids.availableProgram}.json`))},
 };
-globalThis.fetch = async (url) => {
+const fetchWithFixtures = async (url) => {
   const p = new URL(url).pathname;
   if (p.startsWith("/medium/tv/letters/")) {
     return new Response(JSON.stringify([{
@@ -87,6 +87,7 @@ globalThis.fetch = async (url) => {
   if (file) { const j = JSON.parse(fs.readFileSync(file, "utf8")); return new Response(JSON.stringify(j.json), { status: j.status }); }
   return new Response('{"message":"nope"}', { status: 404 });
 };
+globalThis.fetch = fetchWithFixtures;
 
 (async () => {
   // NRK: real recorded program page through the built-in validators
@@ -96,6 +97,10 @@ globalThis.fetch = async (url) => {
 
   // NRK: errors are NrkHttpError, from the same class that the package exports
   await assert.rejects(pkg.NRK.getSeriesType("finnes-ikke"), (e) => e instanceof pkg.NrkHttpError && e.status === 404);
+  // a 200 with the wrong shape is a NrkValidationError, from the exported class
+  globalThis.fetch = async () => new Response('{"nope":1}', { status: 200 });
+  await assert.rejects(pkg.NRK.getSeriesType("x"), (e) => e instanceof pkg.NrkValidationError && e.issues.length > 0);
+  globalThis.fetch = fetchWithFixtures;
 
   // AiClient: search, details, and error mapping - none of it throws
   // (letters and minIntervalMs are an internal test seam, not public API: they only keep this smoke test fast)
@@ -125,12 +130,21 @@ console.log("esm import ok");`,
     const esm = run("node smoke.mjs", app);
     check(esm.status === 0, "ESM import of the named exports works");
 
+    const bundle = fs.readFileSync(path.join(app, "node_modules/nrk-klient/dist/index.js"), "utf8");
+    // the build folds the version into a constant; the User-Agent template reads it at runtime
+    const versionConstant = new RegExp("VERSION\\s*=\\s*" + JSON.stringify(installed.version));
+    check(
+        versionConstant.test(bundle) && bundle.includes("nrk-klient/${VERSION} (+https://github.com/"),
+        `User-Agent carries the package version ${installed.version}`,
+    );
+    check(!bundle.includes("nrk-klient/dev"), "no development placeholder in the build");
+
     // 4. types
     console.log("Types");
     fs.writeFileSync(
         path.join(app, "check.ts"),
-        `import { AiClient, NRK, NrkHttpError } from "nrk-klient";
-import type { AiResult, AiProgram, AiError, ProgramById, ListCatalogInput } from "nrk-klient";
+        `import { AiClient, NRK, NrkHttpError, NrkValidationError } from "nrk-klient";
+import type { AiResult, AiProgram, AiError, ProgramById, ListCatalogInput, ValidationIssue } from "nrk-klient";
 
 export const main = async (): Promise<void> => {
   const ai = new AiClient();
@@ -153,7 +167,8 @@ export const main = async (): Promise<void> => {
   }
   const p: ProgramById = await NRK.getProgramById("MKTF73000514");
   const e: unknown = new NrkHttpError(500, "u", null);
-  void [p.title, e];
+  const issues: ReadonlyArray<ValidationIssue> = new NrkValidationError([]).issues;
+  void [p.title, e, issues];
 
   // @ts-expect-error the client takes no options
   new AiClient({ nope: 1 });
@@ -177,6 +192,16 @@ export const main = async (): Promise<void> => {
         check(result.status === 0, `strict type-check passes with moduleResolution ${resolution} (skipLibCheck off)`);
         if (result.status !== 0) console.log((result.stdout + result.stderr).split("\n").map((l) => "    " + l).join("\n"));
     }
+
+    // an ESM consumer (a .mts file is always a module under nodenext)
+    fs.copyFileSync(path.join(app, "check.ts"), path.join(app, "check.mts"));
+    const esmTypes = run(
+        `${tscBin} --noEmit --strict --skipLibCheck false --target es2022 --lib es2022 ` +
+            `--module nodenext --moduleResolution nodenext --types "" check.mts`,
+        app,
+    );
+    check(esmTypes.status === 0, "strict type-check passes for an ESM consumer (nodenext, .mts)");
+    if (esmTypes.status !== 0) console.log((esmTypes.stdout + esmTypes.stderr).split("\n").map((l) => "    " + l).join("\n"));
 } catch (e) {
     problems.push(e.message);
     console.error(e.message);

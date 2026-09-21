@@ -56,8 +56,6 @@ const ALPHABET = "abcdefghijklmnopqrstuvwxyzæøå";
 const MIN_INTERVAL_MS = 250;
 /** Most credited people returned per program or episode (p99 is 17). */
 const MAX_CONTRIBUTORS = 15;
-/** ListedContent.description falls back to this when NRK has none. */
-const NO_DESCRIPTION = "No description";
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -65,7 +63,15 @@ const toMinutes = (seconds: number): number => {
     return Math.round(seconds / 60);
 };
 
-/** Converts anything thrown by the NRK client into an AiError. */
+/** Node's fetch throws TypeError("fetch failed") with a cause; timeouts throw a TimeoutError. */
+const isNetworkFailure = (e: unknown): boolean =>
+    (e instanceof TypeError && (e.message === "fetch failed" || "cause" in e)) ||
+    (e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError"));
+
+/**
+ * Converts anything thrown by the NRK client into an AiError.
+ * @internal
+ */
 export const toAiError = (e: unknown): AiError => {
     if (e instanceof NrkHttpError) {
         let where = e.url;
@@ -94,8 +100,8 @@ export const toAiError = (e: unknown): AiError => {
             message: "NRK returned an unexpected response shape: " + formatIssues(e.issues, 3),
         };
     }
-    if (e instanceof TypeError) {
-        return { code: "network", message: e.message };
+    if (isNetworkFailure(e)) {
+        return { code: "network", message: e instanceof Error ? e.message : String(e) };
     }
     return { code: "unknown", message: e instanceof Error ? e.message : String(e) };
 };
@@ -191,7 +197,7 @@ export class AiClient {
                         id: c.id,
                         type,
                         title: c.title,
-                        description: c.description === NO_DESCRIPTION ? "" : c.description,
+                        description: c.description,
                         availableNow: c.hasOnDemandRights,
                         geoBlocked: c.isGeoBlocked,
                     });

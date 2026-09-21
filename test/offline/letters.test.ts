@@ -40,7 +40,7 @@ describe("NRK.letter", () => {
         for (const item of [...result.programs, ...result.series]) {
             assert.ok(item.id.length > 0);
             assert.ok(item.title.length > 0);
-            assert.ok(item.description.length > 0, "description falls back to a default");
+            assert.equal(typeof item.description, "string");
             assert.ok(isHttpUrl(item.imageUrl));
             assert.equal(typeof item.hasOnDemandRights, "boolean");
             assert.equal(typeof item.isGeoBlocked, "boolean");

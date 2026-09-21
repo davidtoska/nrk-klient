@@ -16,6 +16,7 @@ const { spawnSync } = require("node:child_process");
 const esbuild = require("esbuild");
 
 const root = path.resolve(__dirname, "..");
+const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 const dist = path.join(root, "dist");
 const fail = (message) => {
     console.error("\nBUILD FAILED: " + message);
@@ -38,7 +39,8 @@ const kb = (bytes) => (bytes / 1024).toFixed(1) + " KB";
         tsconfig: path.join(root, "tsconfig.build.json"),
         bundle: true,
         platform: "node",
-        target: "node18",
+        target: "node20",
+        define: { __NRK_KLIENT_VERSION__: JSON.stringify(pkg.version) },
         format: "cjs",
         minifyWhitespace: true,
         minifySyntax: true, // identifiers are kept so stack traces stay readable
