@@ -1,41 +1,11 @@
 /**
  * Public API of the package. Everything not exported here is internal and can change freely.
  *
- * Runtime exports are deliberately few:
- *  - NRK          the client for psapi.nrk.no
- *  - AiClient     a client shaped for AI agents (compact results, keyword search, never throws)
- *  - NrkHttpError what NRK throws on a non-2xx response (AiClient never throws it)
- *  - NrkValidationError what NRK throws when a response, or a result, does not match its type
- *
- * Everything else is a type and disappears at runtime.
+ * The only runtime export is NrkClient. The rest are the types it accepts and returns, and
+ * they disappear at runtime.
  */
-export { NRK } from "./client";
-export { AiClient } from "./ai-client";
-export { NrkHttpError } from "./nrk-client-raw";
-export type { RecommendationOptions } from "./nrk-client-raw";
-export { NrkValidationError } from "./validation-error";
-export type { Issue as ValidationIssue } from "./validation-error";
+export { NrkClient } from "./ai-client";
 
-// NRK client
-export type {
-    Contributor,
-    Episode,
-    ListedContent,
-    Manifest,
-    Metadata,
-    NrkLetterResponse,
-    ProgramById,
-    Recommendation,
-    RecommendationResponse,
-    Season,
-    SeasonsWithEpisodes,
-    SeasonType,
-    SeriesType,
-    SeriesWithSeasons,
-    WebImage,
-} from "./nrk-response";
-
-// AiClient
 export type {
     AiAvailabilityStatus,
     AiCatalog,
@@ -46,10 +16,12 @@ export type {
     AiError,
     AiErrorCode,
     AiProgram,
+    AiPlayback,
     AiProgramsResult,
     AiResult,
     AiSeason,
     AiSeries,
+    AiSubtitleTrack,
     GetEpisodesInput,
     GetProgramsInput,
     GetSeriesInput,

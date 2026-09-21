@@ -54,7 +54,7 @@ export const parseRetryAfter = (header: string | null, now = Date.now()): number
 };
 
 /**
- * Ids come from callers (for an AiClient: from an agent), so every value that becomes a
+ * Ids come from callers (for an NrkClient: from an agent), so every value that becomes a
  * path segment is encoded. Otherwise "x/../live" or "x?y" would change which endpoint is called.
  */
 const segment = encodeURIComponent;

@@ -4,6 +4,7 @@ import {
     Manifest,
     Metadata,
     NrkLetterResponse,
+    PlaybackSource,
     ProgramById,
     Recommendation,
     RecommendationResponse,
@@ -14,7 +15,7 @@ import {
 import * as r from "./nrk-response";
 import { nrkClientParsed, seriesType as seriesTypeValidator } from "./nrk-client-parsed";
 import type { RecommendationOptions } from "./nrk-client-raw";
-import { flattenContributors, parseFirstAired, seriesIdFromHref } from "./nrk-format";
+import { flattenContributors, parseFirstAired, parseIsoDuration, seriesIdFromHref } from "./nrk-format";
 import * as v from "./validate";
 
 /**
@@ -24,7 +25,7 @@ import * as v from "./validate";
 const checked = <T>(method: string, validator: v.Validator<T>, value: T): T =>
     v.parse(validator, value, `Invalid result from NRK.${method}`);
 
-class NrkClient {
+class NrkClient1 {
     /**
      * Every program and series filed under one letter of NRK's index (a-z, æ, ø, å).
      * Throws NrkHttpError on a non-2xx answer and NrkValidationError on an unexpected shape.
@@ -286,6 +287,75 @@ class NrkClient {
         return { manifest, metadata, programById };
     };
 
+    /**
+     * Everything a player needs to play one program: the stream, subtitles, poster, duration
+     * and title, or NRK's reason why it cannot be played (expired, not published yet, ...).
+     * prfIdGetAll is not enough for this: getManifest keeps only the stream address and throws
+     * for a program that is not playable, and the subtitles are not in its result.
+     */
+    getPlayback = async (prfId: string): Promise<PlaybackSource> => {
+        const [manifest, metadata] = await Promise.all([
+            nrkClientParsed.getManifest(prfId),
+            this.getMetadata(prfId),
+        ]);
+        const playable = manifest.playable;
+        if (manifest.playability !== "playable" || !playable) {
+            return {
+                playable: false,
+                prfId,
+                reason: manifest.nonPlayable?.messageType ?? "NotPlayable",
+                message: manifest.nonPlayable?.endUserMessage ?? "Not available for playback.",
+            };
+        }
+        const hls = playable.assets.find((asset) => asset.format === "HLS");
+        if (!hls) {
+            return {
+                playable: false,
+                prfId,
+                reason: "NoHlsStream",
+                message: "NRK offers no HLS stream for this program.",
+            };
+        }
+        if (hls.encrypted === true) {
+            return {
+                playable: false,
+                prfId,
+                reason: "Encrypted",
+                message: "The stream is DRM-protected and cannot be played by a plain HLS player.",
+            };
+        }
+        const poster = metadata.images.reduce<{ url: string; width: number } | null>(
+            (best, img) =>
+                best === null || Math.abs(img.width - 960) < Math.abs(best.width - 960) ? img : best,
+            null,
+        );
+        return {
+            playable: true,
+            prfId,
+            title: metadata.title,
+            subtitle: metadata.subTitle,
+            streamUrl: hls.url,
+            mimeType: hls.mimeType,
+            mediaType: manifest.sourceMedium === "audio" ? "audio" : "video",
+            durationSeconds: parseIsoDuration(playable.duration),
+            aspectRatio: metadata.aspectRatio,
+            posterUrl: poster?.url ?? null,
+            subtitles: (playable.subtitles ?? []).flatMap((track) =>
+                track.webVtt
+                    ? [
+                          {
+                              language: track.language,
+                              label: track.label,
+                              url: track.webVtt,
+                              defaultOn: track.defaultOn ?? false,
+                          },
+                      ]
+                    : [],
+            ),
+            availableTo: metadata.availableTo,
+        };
+    };
+
     getProgramById = async (id: string) => {
         const parsed = await nrkClientParsed.getProgramById(id);
 
@@ -328,4 +398,4 @@ class NrkClient {
     };
 }
 
-export const NRK = new NrkClient();
+export const NRK = new NrkClient1();

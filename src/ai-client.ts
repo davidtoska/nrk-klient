@@ -5,6 +5,7 @@ import {
     aiCatalog,
     aiEpisodes,
     aiProgram,
+    aiPlayback,
     aiProgramsResult,
     aiSeries,
     getEpisodesInput,
@@ -23,6 +24,7 @@ import type {
     AiEpisode,
     AiEpisodes,
     AiError,
+    AiPlayback,
     AiProgram,
     AiProgramsResult,
     AiResult,
@@ -31,20 +33,20 @@ import type {
 import type { Episode, SeasonsWithEpisodes } from "./nrk-response";
 
 /**
- * The part of NrkClient that AiClient uses.
+ * The part of the raw NRK client that NrkClient uses.
  * @internal
  */
 export type NrkLike = Pick<
     typeof NRK,
-    "letter" | "getSeasons" | "getAllEpisodes" | "getProgramById" | "getMetadata"
+    "letter" | "getSeasons" | "getAllEpisodes" | "getProgramById" | "getMetadata" | "getPlayback"
 >;
 
 /**
  * Seams for tests. Not part of the public API: the published declarations only have
- * `new AiClient()`.
+ * `new NrkClient()`.
  * @internal
  */
-export interface AiClientConfig {
+export interface NrkClientConfig {
     nrk?: NrkLike;
     letters?: string;
     minIntervalMs?: number;
@@ -148,7 +150,7 @@ const checked = <T>(validator: Validator<T>, value: T): AiResult<T> => {
  * It stores nothing. Every call goes to NRK, so keeping a copy of the catalog, searching
  * it, and caching what has been fetched is up to the code that uses this class.
  */
-export class AiClient {
+export class NrkClient {
     private readonly nrk: NrkLike;
     private readonly letters: string;
     private readonly minIntervalMs: number;
@@ -157,9 +159,9 @@ export class AiClient {
     private nextRequestAt = 0;
 
     /** @internal */
-    constructor(config: AiClientConfig);
+    constructor(config: NrkClientConfig);
     constructor();
-    constructor(config: AiClientConfig = {}) {
+    constructor(config: NrkClientConfig = {}) {
         this.nrk = config.nrk ?? NRK;
         this.letters = config.letters ?? ALPHABET;
         this.minIntervalMs = config.minIntervalMs ?? MIN_INTERVAL_MS;
@@ -279,6 +281,39 @@ export class AiClient {
     };
 
     /**
+     * What a player needs to play one episode or program (pass an episode's `id`): the HLS
+     * stream, subtitles, poster, duration and title. Hand the data to the player as it is.
+     * A program NRK will not stream now (expired, not published yet) gives `not_playable`,
+     * with NRK's text for the end user as the message.
+     */
+    getPlayback = async (programId: string): Promise<AiResult<AiPlayback>> => {
+        const parsed = parseInput(getProgramsInput, { programIds: [programId] });
+        if (!parsed.ok) return fail(parsed.error);
+
+        try {
+            const source = await this.call(() => this.nrk.getPlayback(programId));
+            if (!source.playable) {
+                return fail({ code: "not_playable", message: source.message });
+            }
+            return checked(aiPlayback, {
+                id: source.prfId,
+                title: source.title,
+                subtitle: source.subtitle === "" ? null : source.subtitle,
+                streamUrl: source.streamUrl,
+                mimeType: source.mimeType,
+                mediaType: source.mediaType,
+                durationSeconds: source.durationSeconds,
+                aspectRatio: source.aspectRatio,
+                posterUrl: source.posterUrl,
+                subtitles: source.subtitles,
+                availableTo: source.availableTo,
+            });
+        } catch (e) {
+            return fail(toAiError(e));
+        }
+    };
+
+    /**
      * Several programs at once. Partial success: programs that could not be
      * fetched are listed in `failed`, the rest are returned.
      */
@@ -377,3 +412,9 @@ const toEpisodes = (
         episodes: matching.map((e) => toEpisode(e, maxContributors)),
     };
 };
+
+/**
+ * Old internal name, kept so the existing tests keep working unchanged.
+ * @internal
+ */
+export { NrkClient as AiClient };

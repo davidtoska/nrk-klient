@@ -68,7 +68,7 @@ const fs = require("node:fs");
 const assert = require("node:assert/strict");
 const pkg = require("narko-klient");
 
-assert.deepEqual(Object.keys(pkg).sort(), ["AiClient", "NRK", "NrkHttpError", "NrkValidationError"]);
+assert.deepEqual(Object.keys(pkg).sort(), ["NrkClient"]);
 
 const fixtures = {
   "/tv/catalog/programs/${ids.availableProgram}": ${JSON.stringify(raw(`tv__catalog__programs__${ids.availableProgram}.json`))},
@@ -90,21 +90,9 @@ const fetchWithFixtures = async (url) => {
 globalThis.fetch = fetchWithFixtures;
 
 (async () => {
-  // NRK: real recorded program page through the built-in validators
-  const program = await pkg.NRK.getProgramById("${ids.availableProgram}");
-  assert.equal(program.id, "${ids.availableProgram}");
-  assert.ok(program.title.length > 0 && program.durationInSeconds > 0);
-
-  // NRK: errors are NrkHttpError, from the same class that the package exports
-  await assert.rejects(pkg.NRK.getSeriesType("finnes-ikke"), (e) => e instanceof pkg.NrkHttpError && e.status === 404);
-  // a 200 with the wrong shape is a NrkValidationError, from the exported class
-  globalThis.fetch = async () => new Response('{"nope":1}', { status: 200 });
-  await assert.rejects(pkg.NRK.getSeriesType("x"), (e) => e instanceof pkg.NrkValidationError && e.issues.length > 0);
-  globalThis.fetch = fetchWithFixtures;
-
-  // AiClient: search, details, and error mapping - none of it throws
+  // NrkClient: catalog, details and error mapping - none of it throws
   // (letters and minIntervalMs are an internal test seam, not public API: they only keep this smoke test fast)
-  const ai = new pkg.AiClient({ letters: "f", minIntervalMs: 0 });
+  const ai = new pkg.NrkClient({ letters: "f", minIntervalMs: 0 });
   const listing = await ai.listCatalog({ letters: "f" });
   assert.ok(listing.ok && listing.data.items.length === 1 && listing.data.items[0].id === "P1" && listing.data.failed.length === 0);
   const one = await ai.getProgram("${ids.availableProgram}");
@@ -118,13 +106,13 @@ globalThis.fetch = fetchWithFixtures;
 `,
     );
     const smoke = run("node smoke.js", app);
-    check(smoke.status === 0, "CommonJS require: NRK, AiClient and error handling work with nothing else installed");
+    check(smoke.status === 0, "CommonJS require: NrkClient and its error handling work with nothing else installed");
     if (smoke.status !== 0) console.log((smoke.stdout + smoke.stderr).split("\n").map((l) => "    " + l).join("\n"));
 
     fs.writeFileSync(
         path.join(app, "smoke.mjs"),
-        `import { NRK, AiClient, NrkHttpError } from "narko-klient";
-if (typeof NRK.getProgramById !== "function" || typeof AiClient !== "function" || typeof NrkHttpError !== "function") process.exit(1);
+        `import { NrkClient } from "narko-klient";
+if (typeof NrkClient !== "function") process.exit(1);
 console.log("esm import ok");`,
     );
     const esm = run("node smoke.mjs", app);
@@ -143,11 +131,11 @@ console.log("esm import ok");`,
     console.log("Types");
     fs.writeFileSync(
         path.join(app, "check.ts"),
-        `import { AiClient, NRK, NrkHttpError, NrkValidationError } from "narko-klient";
-import type { AiResult, AiProgram, AiError, ProgramById, ListCatalogInput, ValidationIssue } from "narko-klient";
+        `import { NrkClient } from "narko-klient";
+import type { AiResult, AiProgram, AiError, AiPlayback, ListCatalogInput } from "narko-klient";
 
 export const main = async (): Promise<void> => {
-  const ai = new AiClient();
+  const ai = new NrkClient();
   const input: ListCatalogInput = { letters: "abc" };
   const found = await ai.listCatalog(input);
   if (found.ok) {
@@ -165,15 +153,21 @@ export const main = async (): Promise<void> => {
     const description: string | null = program.data.description;
     void [people, description];
   }
-  const p: ProgramById = await NRK.getProgramById("MKTF73000514");
-  const e: unknown = new NrkHttpError(500, "u", null);
-  const issues: ReadonlyArray<ValidationIssue> = new NrkValidationError([]).issues;
-  void [p.title, e, issues];
+  const playback: AiResult<AiPlayback> = await ai.getPlayback("MKTF73000514");
+  if (playback.ok) {
+    const url: string = playback.data.streamUrl;
+    const tracks: string[] = playback.data.subtitles.map((t) => t.url);
+    const seconds: number | null = playback.data.durationSeconds;
+    void [url, tracks, seconds];
+  } else if (playback.error.code === "not_playable") {
+    const forTheViewer: string = playback.error.message;
+    void forTheViewer;
+  }
 
   // @ts-expect-error the client takes no options
-  new AiClient({ nope: 1 });
+  new NrkClient({ nope: 1 });
   // @ts-expect-error not even the internal test seams are part of the public types
-  new AiClient({ minIntervalMs: 0 });
+  new NrkClient({ minIntervalMs: 0 });
   // @ts-expect-error letters must be a string
   await ai.listCatalog({ letters: 5 });
   // @ts-expect-error there is no search or cache any more

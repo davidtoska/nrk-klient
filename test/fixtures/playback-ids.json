@@ -1,0 +1,25 @@
+{
+ "note": "Hand-picked prfIds for the getPlayback tests: 10 with subtitles, 6 playable without, 4 that NRK will not stream (expired, not published, not transcoded). Recorded by npm run record.",
+ "ids": [
+  "MUHH01002725",
+  "PRHO80003003",
+  "PRTY12005904",
+  "KMNO10022826",
+  "MUHU09005017",
+  "KOID75005824",
+  "PRTR70001005",
+  "KOID22002624",
+  "KOID28001424",
+  "MSUI29006126",
+  "FFIL63000263",
+  "FMUS20005482",
+  "OUHA10008102",
+  "FSAM09000690",
+  "FPGR00001384",
+  "FNYH70006587",
+  "FKUN32001296",
+  "KMNO10056526",
+  "KMNO10015526",
+  "MSUI31002023"
+ ]
+}

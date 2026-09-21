@@ -271,6 +271,14 @@ const record = async (fn) => {
         await record(() => NRK.getManifest(id));
         await record(() => NRK.getMetadata(id));
     }
+    // avspilling: manifest og metadata for de 20 id-ene i playback-ids.json
+    const playbackIds = JSON.parse(
+        fs.readFileSync(path.join(FIXTURES_DIR, "playback-ids.json"), "utf8"),
+    ).ids;
+    for (const id of playbackIds) {
+        await record(() => NRK.getManifest(id));
+        await record(() => NRK.getMetadata(id));
+    }
     for (const t of ["standard", "sequential", "news"]) {
         const id = curated[`${t}Series`];
         if (!id) continue;

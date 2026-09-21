@@ -2,7 +2,7 @@ import * as v from "./validate";
 import { AVAILABILITY_STATUSES, SEASON_TYPES, SERIES_TYPES, isoDate } from "./nrk-response";
 import type { AvailabilityStatus, SeasonType, SeriesType } from "./nrk-response";
 
-// What AiClient accepts and returns. Deliberately small: only what an agent needs to pick
+// What NrkClient accepts and returns. Deliberately small: only what an agent needs to pick
 // content and build a schedule. No image urls, display strings or HAL links.
 // All dates are ISO 8601 strings exactly as NRK sends them (or null).
 //
@@ -21,7 +21,7 @@ export type WithDefaults<I, Optional extends keyof I = never> = {
     [K in Exclude<keyof I, Optional>]-?: Exclude<I[K], undefined>;
 } & { [K in Optional]?: I[K] };
 
-/** Arguments for AiClient.listCatalog. */
+/** Arguments for NrkClient.listCatalog. */
 export interface ListCatalogInput {
     /**
      * Which letters to list, e.g. "abc". Default: the whole alphabet (a-z, æ, ø, å),
@@ -82,6 +82,8 @@ export const getProgramsInput: v.Validator<GetProgramsInput> = v.object({
  * - `upstream_error`: 5xx or another unexpected HTTP status
  * - `invalid_response`: NRK answered with an unexpected shape, or the result did not match its type
  * - `invalid_input`: the caller sent bad arguments
+ * - `not_playable`: getPlayback only. The program exists but NRK will not stream it now (expired,
+ *   not published yet, ...). `message` is NRK's text for the end user, in Norwegian.
  * - `network`: the request never completed
  * - `unknown`
  */
@@ -92,6 +94,7 @@ export type AiErrorCode =
     | "upstream_error"
     | "invalid_response"
     | "invalid_input"
+    | "not_playable"
     | "network"
     | "unknown";
 /** @internal */
@@ -102,6 +105,7 @@ export const AI_ERROR_CODES = v.allOf<AiErrorCode>({
     upstream_error: true,
     invalid_response: true,
     invalid_input: true,
+    not_playable: true,
     network: true,
     unknown: true,
 });
@@ -303,4 +307,63 @@ export interface AiProgramsResult {
 export const aiProgramsResult: v.Validator<AiProgramsResult> = v.object({
     programs: v.array(aiProgram),
     failed: v.array(v.object({ id: v.string, error: aiError })),
+});
+
+// ── Playback ────────────────────────────────────────────────────────
+
+/** One subtitle file, WebVTT. */
+export interface AiSubtitleTrack {
+    /** Language code, for instance "nb". */
+    readonly language: string;
+    /** Text for a language menu, for instance "Norsk på all tale". */
+    readonly label: string;
+    /** URL of the .vtt file. */
+    readonly url: string;
+    /** NRK's advice: show this track by default. */
+    readonly defaultOn: boolean;
+}
+/** @internal */
+export const aiSubtitleTrack: v.Validator<AiSubtitleTrack> = v.object({
+    language: v.nonEmptyString(),
+    label: v.string,
+    url: v.url,
+    defaultOn: v.boolean,
+});
+
+/** What a player needs to play one episode or program. Give it to the player as it is. */
+export interface AiPlayback {
+    /** The prfId that was asked for. */
+    readonly id: string;
+    readonly title: string;
+    /** null when NRK has none. */
+    readonly subtitle: string | null;
+    /** HLS master playlist. Play it with any HLS player (hls.js, AVPlayer, ExoPlayer, Safari). */
+    readonly streamUrl: string;
+    /** Content type of streamUrl, "application/vnd.apple.mpegurl". */
+    readonly mimeType: string;
+    readonly mediaType: "video" | "audio";
+    /** null when NRK gives no usable duration. */
+    readonly durationSeconds: number | null;
+    /** null when NRK does not state it. */
+    readonly aspectRatio: "16:9" | "4:3" | null;
+    /** A poster to show before playback, about 960 px wide. null when there is none. */
+    readonly posterUrl: string | null;
+    /** Empty when the program has no subtitles. */
+    readonly subtitles: ReadonlyArray<AiSubtitleTrack>;
+    /** End of the streaming window (ISO 8601), or null when NRK gives none. */
+    readonly availableTo: string | null;
+}
+/** @internal */
+export const aiPlayback: v.Validator<AiPlayback> = v.object({
+    id: v.nonEmptyString(),
+    title: v.string,
+    subtitle: v.nullable(v.string),
+    streamUrl: v.url,
+    mimeType: v.nonEmptyString(),
+    mediaType: v.oneOf("video", "audio"),
+    durationSeconds: v.nullable(v.number),
+    aspectRatio: v.nullable(v.oneOf("16:9", "4:3")),
+    posterUrl: v.nullable(v.url),
+    subtitles: v.array(aiSubtitleTrack),
+    availableTo: v.nullable(v.string),
 });

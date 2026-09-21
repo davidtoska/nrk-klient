@@ -9,18 +9,17 @@ listed as fixes.
 ## [Unreleased]
 
 ### Added
-- `NRK`: client for psapi.nrk.no with validated results (`letter`, `getAllLetters`,
-  `getProgramById`, `getManifest`, `getMetadata`, `prfIdGetAll`, `getSeriesType`,
-  `getSeasons`, `getAllEpisodes`, `getRecommendation`).
-- `AiClient`: an API for AI agents with compact results that never throws
-  (`listCatalog`, `getSeries`, `getEpisodes`, `getProgram`, `getPrograms`).
-- `NrkHttpError` (non-2xx responses, with `retryAfterSeconds`) and `NrkValidationError`
-  (a response or a result that does not match its declared type).
+- `NrkClient`, the only export: an API against NRK for AI agents, with compact results, that
+  never throws (`listCatalog`, `getSeries`, `getEpisodes`, `getProgram`, `getPrograms`).
+- `NrkClient.getPlayback(id)`: the stream (HLS), subtitles, poster, duration and title a player
+  needs, or a `not_playable` error with NRK's text for the viewer.
+- The types it accepts and returns (`AiResult`, `AiProgram`, `AiCatalog`, ...).
+- Results and arguments are validated against their declared types.
 - Requests time out after 30 s and identify themselves with a `User-Agent`.
-- Program and episode results carry production year, first broadcast date, credited
-  people and series link, for personalisation.
+- Program and episode results carry production year, first broadcast date and credited
+  people, for personalisation.
 
 ### Notes
 - No runtime dependencies; response validation is built in.
 - Node.js 20 or newer (uses the global `fetch`).
-- CommonJS build; ESM consumers import the named exports.
+- CommonJS build; ESM consumers import the named export.

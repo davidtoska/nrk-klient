@@ -95,3 +95,15 @@ export const flattenContributors = (
     }
     return people;
 };
+
+/** "PT1H2M3S" -> 3723. Null for anything that is not an ISO 8601 duration. */
+export const parseIsoDuration = (text: string): number | null => {
+    const m = /^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?)?$/.exec(text);
+    if (!m || text === "P" || text.endsWith("T")) {
+        return null;
+    }
+    const [, d, h, min, sec] = m;
+    return Math.round(
+        Number(d ?? 0) * 86400 + Number(h ?? 0) * 3600 + Number(min ?? 0) * 60 + Number(sec ?? 0),
+    );
+};

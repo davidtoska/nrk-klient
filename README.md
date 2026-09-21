@@ -1,15 +1,14 @@
 # narko-klient
 
-A TypeScript client for NRK TV (`psapi.nrk.no`), plus an `AiClient` that returns small, flat results
-for AI agents. No dependencies at all: response validation is built in, so there is nothing else to
-install or keep in sync.
+A TypeScript client for NRK TV (`psapi.nrk.no`) that returns small, flat results for AI agents. No dependencies at all: response
+validation is built in, so there is nothing else to install or keep in sync.
 
 > Unofficial. This package is not affiliated with NRK. It uses NRK's public API, which is not
 > versioned or guaranteed to stay the same, and NRK answers `429 Too Many Requests` when it is hit
 > hard, so keep your request rate low.
 
 Requires Node.js 20 or newer (it uses the global `fetch`). Published as CommonJS; ESM and TypeScript
-consumers import the named exports as shown below.
+consumers import the named export as shown below.
 
 ```sh
 npm install narko-klient
@@ -17,51 +16,10 @@ npm install narko-klient
 
 ## What it exports
 
-| Export | What it is |
-| --- | --- |
-| `NRK` | the client for psapi.nrk.no |
-| `AiClient` | a client shaped for AI agents |
-| `NrkHttpError` | what `NRK` throws when NRK answers with a non-2xx status |
-| `NrkValidationError` | what `NRK` throws when a response, or a result, does not match its declared type |
+One class, `NrkClient`. Everything else is a TypeScript type (`AiResult`, `AiProgram`, ...) that
+describes what it accepts and returns, and does not exist at runtime. The rest is internal.
 
-Everything else is a TypeScript type (`ProgramById`, `AiResult`, ...) and does not exist at runtime.
-
-## NRK
-
-The methods validate NRK's responses. If the shape is not what is expected they throw
-`NrkValidationError`, whose `issues` list the offending fields.
-
-```ts
-import { NRK, NrkHttpError, NrkValidationError } from "narko-klient";
-
-try {
-  const program = await NRK.getProgramById("MKTF73000514");
-  console.log(program.title, program.durationInSeconds, program.contributors);
-
-  const series = await NRK.getSeasons("dagsrevyen");
-  const season = series.seasons[0];
-  if (season) {
-    const { episodes } = await NRK.getAllEpisodes("dagsrevyen", season.name);
-  }
-} catch (e) {
-  if (e instanceof NrkHttpError) {
-    console.error(e.status, e.url, e.retryAfterSeconds); // retryAfterSeconds is set on 429
-  } else if (e instanceof NrkValidationError) {
-    console.error(e.message, e.issues); // NRK changed something, or an id was wrong
-  } else {
-    throw e; // network failure or timeout (a TimeoutError after 30 s)
-  }
-}
-```
-
-Methods: `letter`, `getAllLetters`, `getProgramById`, `getManifest`, `getMetadata`, `prfIdGetAll`,
-`getSeriesType`, `getSeasons`, `getAllEpisodes`, `getRecommendation`.
-
-`NRK` does not pace or retry requests. `getAllLetters` asks for one letter at a time (29 requests);
-everything else is one request per call. If you call it in a loop, keep some time between calls or NRK
-will answer 429 and block you for about ten minutes.
-
-## AiClient
+## NrkClient
 
 An API against NRK, made for agents that pick content and build schedules.
 
@@ -75,9 +33,9 @@ An API against NRK, made for agents that pick content and build schedules.
   archive to build your own index from, and keeping a copy of it or caching what you fetch is up to you.
 
 ```ts
-import { AiClient } from "narko-klient";
+import { NrkClient } from "narko-klient";
 
-const ai = new AiClient();
+const ai = new NrkClient();
 
 // The whole archive: about 30 requests and roughly 12,000 items. Store it and search it yourself.
 const catalog = await ai.listCatalog();
@@ -96,6 +54,15 @@ const episodes = await ai.getEpisodes({
 
 // Full details, including NRK's description and credited people (max 20 ids per call)
 const programs = await ai.getPrograms({ programIds: ["MKTF73000514"] });
+
+// Everything a player needs to play a program or an episode (pass the episode's `id`)
+const playback = await ai.getPlayback("MKTF73000514");
+if (playback.ok) {
+  const { streamUrl, subtitles, posterUrl, title, durationSeconds } = playback.data;
+  // give streamUrl to an HLS player, subtitles[].url are WebVTT files
+} else if (playback.error.code === "not_playable") {
+  console.log(playback.error.message); // NRK's text for the viewer, e.g. "Ikke tilgjengelig lenger"
+}
 ```
 
 | Method | Returns |
@@ -104,22 +71,26 @@ const programs = await ai.getPrograms({ programIds: ["MKTF73000514"] });
 | `getSeries({ seriesId })` | title, type, category, seasons |
 | `getEpisodes({ seriesId, seasonName, availableOn? })` | all episodes of the season, with duration and availability |
 | `getProgram(id)` / `getPrograms({ programIds })` | one or more programs with description and credited people |
+| `getPlayback(id)` | what a player needs: HLS `streamUrl`, `mimeType`, subtitle tracks (WebVTT), poster, duration, aspect ratio, title and end of the streaming window |
 
 Error codes: `not_found`, `forbidden`, `rate_limited` (with `retryAfterSeconds`), `upstream_error`,
-`invalid_response`, `invalid_input`, `network`, `unknown`.
+`invalid_response`, `invalid_input`, `not_playable` (`getPlayback` only), `network`, `unknown`.
 
-The client takes no options: `new AiClient()`.
+The client takes no options: `new NrkClient()`.
 
 ### Results are checked
 
-Both clients check what they return against the declared TypeScript type before handing it over, so
-a value that contradicts a signature never reaches you. `NRK` throws a `NrkValidationError` whose
-message starts with `Invalid result from NRK.<method>`; `AiClient` returns an `invalid_response`
-error instead of throwing. Arguments to `AiClient` are validated the same way (`invalid_input`).
+`NrkClient` checks what it returns against the declared TypeScript type before handing it over, so
+a value that contradicts a signature never reaches you. It returns an `invalid_response` error
+instead of throwing. Arguments are validated the same way (`invalid_input`).
 
 ### Good to know
 
 - About 1 in 10 items has no description at NRK; `description` is then an empty string.
+- `getPlayback` costs two requests (the manifest and the playback metadata). The stream address NRK
+  gives is not permanent, so ask for it when the viewer presses play instead of storing it. A program
+  that NRK will not stream now (expired, not published yet) is a `not_playable` error whose message is
+  NRK's own text for the viewer, in Norwegian. Live channels are not supported.
 - `getPrograms` costs two requests per program (the page and the playback metadata, which carries the
   description). `getEpisodes` costs one request per season and returns the whole season, which for a
   long-running news series can be a few hundred episodes.
@@ -130,11 +101,11 @@ error instead of throwing. Arguments to `AiClient` are validated the same way (`
 
 - Every request times out after 30 s (`TimeoutError`), sends `Accept: application/json` and a
   `User-Agent` of `narko-klient/<version>`.
-- A non-2xx answer is a `NrkHttpError` with `status`, `url`, `body` and, on 429,
-  `retryAfterSeconds` (NRK typically asks for 600). `AiClient` maps it to `rate_limited` and stops
-  the current call early.
-- Neither client retries. Retrying is a policy decision for the application (and retrying a 429 early
-  extends the block).
+- A non-2xx answer becomes an error result: `rate_limited` on 429 (with `retryAfterSeconds`,
+  NRK typically asks for 600, and the current call stops early), `not_found`, `forbidden` or
+  `upstream_error` otherwise. Timeouts and connection failures are `network`.
+- The client does not retry. Retrying is a policy decision for the application (and retrying a 429
+  early extends the block).
 
 ## Stability
 
@@ -142,7 +113,7 @@ error instead of throwing. Arguments to `AiClient` are validated the same way (`
   the major version. See `CHANGELOG.md`.
 - NRK's API is undocumented for some endpoints (`letter`, `getRecommendation`) and unversioned for
   all of them. Every result is validated, so a change on NRK's side shows up as a
-  `NrkValidationError` / `invalid_response` rather than as wrong data. The offline test suite runs
+  `invalid_response` error rather than as wrong data. The offline test suite runs
   against recorded NRK responses; `npm run test:live` runs against the real API.
 - Internal helpers (the validators, test seams) are not exported and may change at any time.
 

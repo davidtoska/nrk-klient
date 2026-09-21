@@ -146,6 +146,14 @@ const GetEpisodesParser = v.object({
 
 const manifestParser = v.object({
     playability: v.oneOf("playable", "nonPlayable"),
+    sourceMedium: v.optional(v.string),
+    // why NRK will not play it (expired, not yet published, ...), with a text for the end user
+    nonPlayable: v.nullish(
+        v.object({
+            messageType: v.string,
+            endUserMessage: v.nullable(v.string),
+        }),
+    ),
     playable: v.nullable(
         v.object({
             duration,
@@ -156,8 +164,19 @@ const manifestParser = v.object({
                     // cannot make the whole manifest unreadable
                     format: v.string,
                     mimeType: v.string,
+                    encrypted: v.optional(v.boolean),
                 }),
                 { min: 1 },
+            ),
+            subtitles: v.optional(
+                v.array(
+                    v.object({
+                        language: v.string,
+                        label: v.string,
+                        defaultOn: v.optional(v.boolean),
+                        webVtt: v.nullish(v.string),
+                    }),
+                ),
             ),
         }),
     ),

@@ -283,3 +283,33 @@ export const metadata: v.Validator<Metadata> = v.object({
     availableNow: v.boolean,
     images: v.array(webImage),
 });
+
+/** What getPlayback finds out about one program: a stream to play, or why there is none. */
+export type PlaybackSource =
+    | {
+          readonly playable: true;
+          readonly prfId: string;
+          readonly title: string;
+          readonly subtitle: string;
+          readonly streamUrl: string;
+          readonly mimeType: string;
+          readonly mediaType: "video" | "audio";
+          readonly durationSeconds: number | null;
+          readonly aspectRatio: "16:9" | "4:3" | null;
+          readonly posterUrl: string | null;
+          readonly subtitles: ReadonlyArray<{
+              readonly language: string;
+              readonly label: string;
+              readonly url: string;
+              readonly defaultOn: boolean;
+          }>;
+          readonly availableTo: string | null;
+      }
+    | {
+          readonly playable: false;
+          readonly prfId: string;
+          /** NRK's own code, for instance "ProgramRightsHasExpired". */
+          readonly reason: string;
+          /** NRK's text for the end user, in Norwegian. */
+          readonly message: string;
+      };
