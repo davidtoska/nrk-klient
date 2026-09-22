@@ -9,6 +9,7 @@ export { NrkClient } from "./nrk-client";
 export type {
     AvailabilityStatus,
     Catalog,
+    Channel,
     ContentItem,
     Contributor,
     Episode,
@@ -21,6 +22,7 @@ export type {
     RecommendedItem,
     Recommendations,
     Result,
+    ScheduleItem,
     SearchResults,
     Season,
     Series,

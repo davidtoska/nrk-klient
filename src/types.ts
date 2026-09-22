@@ -490,3 +490,97 @@ export interface SearchResults {
 export const searchResultsValidator: v.Validator<SearchResults> = v.object({
     items: v.array(contentItemValidator),
 });
+
+// ── Live TV ─────────────────────────────────────────────────────────
+
+export interface Channel {
+    /** Pass this to getSchedule or getLivePlayback. */
+    readonly id: string;
+    readonly title: string;
+    /** NRK's own text. Usually empty. */
+    readonly description: string;
+    /** Set on a district variant of a national channel (e.g. a regional news opt-out of NRK1). */
+    readonly parentChannelId: string | null;
+    readonly geoBlocked: boolean;
+    /**
+     * A small picture (about 300 px wide) for lists and cards, or null when NRK has none.
+     * getPlayback has a larger poster for the player.
+     */
+    readonly imageUrl: string | null;
+}
+const channelValidator: v.Validator<Channel> = v.object({
+    id: v.nonEmptyString(),
+    title: v.string,
+    description: v.string,
+    parentChannelId: v.nullable(v.string),
+    geoBlocked: v.boolean,
+    imageUrl: v.nullable(v.url),
+});
+/** @internal */
+export const channelsValidator: v.Validator<ReadonlyArray<Channel>> = v.array(channelValidator);
+
+/** Arguments for NrkClient.getSchedule. */
+export interface GetScheduleInput {
+    /** 1-20 channel ids from getChannels, e.g. `["nrk1", "nrksuper"]`. */
+    channelIds: string[];
+    /** YYYY-MM-DD. Default: today (NRK's current broadcast day). */
+    date?: string | undefined;
+}
+/** @internal */
+export const getScheduleInput: v.Validator<GetScheduleInput> = v.object({
+    channelIds: v.array(v.stringOf({ min: 1, max: 50 }), { min: 1, max: 20 }),
+    date: v.optional(v.stringOf({ pattern: /^\d{4}-\d{2}-\d{2}$/, patternMessage: "Use YYYY-MM-DD" })),
+});
+
+export interface ScheduleItem {
+    /** Program id - use it with getProgram, or with getPlayback once availableNow is true. */
+    readonly id: string;
+    readonly channelId: string;
+    readonly channelTitle: string;
+    readonly title: string;
+    readonly seriesId: string | null;
+    /** NRK's own text. Empty when NRK has none. */
+    readonly description: string;
+    /** NRK category id, e.g. 'nyheter', 'sport', 'barn'. */
+    readonly category: string;
+    readonly durationSeconds: number;
+    /** Planned start and end (ISO 8601). NRK's actual timing can drift a little, especially live. */
+    readonly start: string;
+    readonly end: string;
+    /** true when this airs, or aired, as a live transmission rather than a rerun. */
+    readonly isLive: boolean;
+    /** true once it can be streamed on demand: pass `id` to getProgram or getPlayback. */
+    readonly availableNow: boolean;
+    /**
+     * A small picture (about 300 px wide) for lists and cards, or null when NRK has none.
+     * getPlayback has a larger poster for the player.
+     */
+    readonly imageUrl: string | null;
+}
+const scheduleItemValidator: v.Validator<ScheduleItem> = v.object({
+    id: v.nonEmptyString(),
+    channelId: v.nonEmptyString(),
+    channelTitle: v.string,
+    title: v.string,
+    seriesId: v.nullable(v.string),
+    description: v.string,
+    category: v.string,
+    durationSeconds: v.number,
+    start: v.string,
+    end: v.string,
+    isLive: v.boolean,
+    availableNow: v.boolean,
+    imageUrl: v.nullable(v.url),
+});
+/** @internal */
+export const scheduleValidator: v.Validator<ReadonlyArray<ScheduleItem>> = v.array(scheduleItemValidator);
+
+/** Arguments for NrkClient.getLivePlayback. */
+export interface GetChannelInput {
+    /** Channel id from getChannels, for instance "nrk1". */
+    id: string;
+}
+/** @internal */
+export const getChannelInput: v.Validator<GetChannelInput> = v.object({
+    id: v.stringOf({ min: 1, max: 50 }),
+});

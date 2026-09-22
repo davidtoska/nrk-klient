@@ -8,6 +8,15 @@ listed as fixes.
 
 ## [Unreleased]
 
+### Added
+- `NrkClient.getChannels()`: NRK's live TV channels.
+- `NrkClient.getSchedule({ channelIds, date? })`: the programme guide (EPG) for one or more
+  channels, with `availableNow` and the id to follow up with getProgram / getPlayback once an
+  item is on demand.
+- `NrkClient.getLivePlayback({ id })`: what a player needs to play a live channel, the same shape
+  as getPlayback. Most of NRK's live TV streams are DRM-protected, so this is usually a
+  `not_playable` result; see the README.
+
 ## [0.1.0] - 2026-09-22
 
 ### Added

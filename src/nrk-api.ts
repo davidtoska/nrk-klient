@@ -31,6 +31,10 @@ const webImages = (limits: { min?: number } = {}) =>
     v.map(v.array(v.object({ imageUrl: v.string, pixelWidth: v.number }), limits), (list) =>
         list.map((item) => ({ url: item.imageUrl, width: item.pixelWidth })),
     );
+// the playback metadata poster and the live channel list: { url, pixelWidth }
+const posterImages = v.map(v.array(v.object({ url: v.string, pixelWidth: v.number })), (list) =>
+    list.map((item) => ({ url: item.url, width: item.pixelWidth })),
+);
 
 const availability = v.object({ status: v.oneOf(...AVAILABILITY_STATUSES) });
 const transmissions = v.nullish(v.object({ first: v.nullish(v.object({ displayValue: v.string })) }));
@@ -105,7 +109,8 @@ const manifestParser = v.object({
     nonPlayable: v.nullish(v.object({ endUserMessage: v.nullable(v.string) })),
     playable: v.nullable(
         v.object({
-            duration: v.nonEmptyString("Duration-string can not be empty."),
+            // null for a live channel (it has no fixed length)
+            duration: v.nullable(v.nonEmptyString("Duration-string can not be empty.")),
             assets: v.array(
                 v.object({
                     url: v.string,
@@ -136,12 +141,12 @@ const metadataParser = v.object({
     preplay: v.object({
         titles: v.object({ title: v.string, subtitle: v.string }),
         description: v.string,
-        poster: v.object({ images: v.array(v.object({ url: v.string, pixelWidth: v.number })) }),
+        poster: v.object({ images: posterImages }),
     }),
     // the end of the on-demand window, or of a live transmission
     availability: v.object({
         onDemand: v.nullable(v.object({ to: v.nullable(v.string) })),
-        live: v.nullish(v.object({ transmissionInterval: v.optional(v.object({ to: v.nullable(v.string) })) })),
+        live: v.nullish(v.object({ transmissionInterval: v.nullish(v.object({ to: v.nullable(v.string) })) })),
     }),
 });
 
@@ -157,6 +162,45 @@ const programParser = v.object({
         usageRights,
     }),
 });
+
+const channelParser = v.object({
+    id: v.nonEmptyString(),
+    // a district channel is a regional opt-out of a national one (e.g. NRK1 Østlandet of NRK1)
+    districtChannel: v.nullish(v.object({ parent: v.nonEmptyString() })),
+    _embedded: v.object({
+        playback: v.object({
+            title: v.string,
+            description: v.nullable(v.string),
+            isGeoBlocked: v.boolean,
+            posters: v.array(v.object({ image: v.object({ items: posterImages }) })),
+        }),
+    }),
+});
+
+// One entry per scheduled slot; a slot NRK has nothing to show for ("no-transmission",
+// "unspecified-content") has none of the optional fields below.
+const scheduleEntry = v.object({
+    itemType: v.string,
+    programId: v.optional(v.nonEmptyString()),
+    seriesId: v.optional(v.nonEmptyString()),
+    title: v.optional(v.string),
+    description: v.optional(v.string),
+    category: v.optional(v.object({ id: v.string })),
+    duration: v.optional(v.object({ iso8601: v.string })),
+    liveTransmission: v.optional(v.boolean),
+    // "ondemand" once it can be streamed; also "live", or absent
+    availableAs: v.optional(v.string),
+    start: v.object({ planned: v.string }),
+    end: v.object({ planned: v.string }),
+    posterImages: v.optional(image),
+});
+const scheduleParser = v.array(
+    v.object({
+        channelId: v.nonEmptyString(),
+        title: v.string,
+        transmissionGroups: v.array(v.object({ entries: v.array(scheduleEntry) })),
+    }),
+);
 
 // NRK's search returns series ("serie"), programs ("program") and episodes ("episode"). A hit
 // of any other kind is skipped, so a new kind cannot make the whole search unreadable.
@@ -200,6 +244,22 @@ export const nrkApi = {
 
     program: async (id: string) =>
         v.parse(programParser, await fetchJson(`${BASE}/tv/catalog/programs/${segment(id)}`)),
+
+    channelManifest: async (channelId: string) =>
+        v.parse(manifestParser, await fetchJson(`${BASE}/playback/manifest/channel/${segment(channelId)}`)),
+
+    channelMetadata: async (channelId: string) =>
+        v.parse(metadataParser, await fetchJson(`${BASE}/playback/metadata/channel/${segment(channelId)}`)),
+
+    /** NRK's live TV channels. */
+    channels: async () => v.parse(v.array(channelParser), await fetchJson(`${BASE}/tv/live`)),
+
+    /** The programme guide for one or more channels, for one day. Default date: today. */
+    schedule: async (channelIds: readonly string[], date?: string) => {
+        const url = new URL(`${BASE}/tv/epg/${channelIds.map(segment).join(",")}`);
+        if (date) url.searchParams.set("date", date);
+        return v.parse(scheduleParser, await fetchJson(url.toString()));
+    },
 
     /** What NRK recommends for adults who liked `contentId` (a program or a series). */
     recommendations: async (contentId: string, count: 5 | 10 | 15 | 20 | 25) =>

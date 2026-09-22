@@ -4,31 +4,38 @@ import { NrkHttpError } from "./nrk-client-raw";
 import { NrkValidationError, Validator, formatIssues, safeParse } from "./validate";
 import {
     catalogValidator,
+    channelsValidator,
     episodesValidator,
     programValidator,
     playbackValidator,
     recommendationsValidator,
     programsValidator,
+    scheduleValidator,
     seriesValidator,
+    getChannelInput,
     getEpisodesInput,
     getProgramInput,
     getProgramsInput,
     getRecommendationInput,
+    getScheduleInput,
     getSeriesInput,
     listCatalogInput,
     searchInput,
     searchResultsValidator,
 } from "./types";
 import type {
+    GetChannelInput,
     GetEpisodesInput,
     GetProgramInput,
     GetProgramsInput,
     GetRecommendationInput,
+    GetScheduleInput,
     GetSeriesInput,
     ListCatalogInput,
     SearchInput,
     SearchResults,
     AvailabilityStatus,
+    Channel,
     ContentItem,
     Catalog,
     Episodes,
@@ -39,6 +46,7 @@ import type {
     RecommendedItem,
     Recommendations,
     Result,
+    ScheduleItem,
     Series,
 } from "./types";
 
@@ -127,6 +135,9 @@ const parseInput = <T>(validator: Validator<T>, input: unknown): Result<T> => {
         : fail({ code: "invalid_input", message: formatIssues(parsed.issues, 3) });
 };
 
+/** For methods that take no arguments at all (getChannels). */
+const noInput: Validator<undefined> = () => undefined;
+
 /**
  * The shape of every method: check the arguments, do the work, and turn anything thrown
  * into an error result, so that no method ever throws.
@@ -163,7 +174,8 @@ const run = async <I, T>(
  * slug such as "dagsrevyen". Catalog items and episodes carry the ids to pass on.
  * Typical flow: listCatalog -> getSeries -> getEpisodes -> getPlayback (or getProgram).
  * search finds content from free text; getRecommendations finds more of what a viewer
- * might like, from ids they liked.
+ * might like, from ids they liked. getChannels and getSchedule cover NRK's live TV guide;
+ * getLivePlayback plays a channel when NRK's stream allows it (most are DRM-protected).
  *
  * @example
  * const client = new NrkClient();
@@ -400,37 +412,7 @@ export class NrkClient {
             const [manifest, metadata] = await this.call(() =>
                 Promise.all([nrkApi.manifest(id), nrkApi.metadata(id)]),
             );
-            const notPlayable = (message: string): Result<Playback> => fail({ code: "not_playable", message });
-            const { playable } = manifest;
-            if (manifest.playability !== "playable" || !playable) {
-                return notPlayable(manifest.nonPlayable?.endUserMessage ?? "Not available for playback.");
-            }
-            const hls = playable.assets.find((asset) => asset.format === "HLS");
-            if (!hls) return notPlayable("NRK offers no HLS stream for this program.");
-            if (hls.encrypted === true) {
-                return notPlayable("The stream is DRM-protected and cannot be played by a plain HLS player.");
-            }
-            const { preplay, availability } = metadata;
-            return checked(playbackValidator, {
-                id,
-                title: preplay.titles.title,
-                subtitle: preplay.titles.subtitle === "" ? null : preplay.titles.subtitle,
-                streamUrl: hls.url,
-                mimeType: hls.mimeType,
-                mediaType: manifest.sourceMedium === "audio" ? "audio" : "video",
-                durationSeconds: parseIsoDuration(playable.duration),
-                aspectRatio: metadata.displayAspectRatio,
-                posterUrl: nearestImageUrl(
-                    preplay.poster.images.map((img) => ({ url: img.url, width: img.pixelWidth })),
-                    960,
-                ),
-                subtitles: (playable.subtitles ?? []).flatMap((track) =>
-                    track.webVtt
-                        ? [{ language: track.language, label: track.label, url: track.webVtt, defaultOn: track.defaultOn ?? false }]
-                        : [],
-                ),
-                availableTo: availability.onDemand?.to ?? availability.live?.transmissionInterval?.to ?? null,
-            });
+            return toPlayback(id, manifest, metadata);
         });
 
     // ── Recommendations ─────────────────────────────────────────────
@@ -525,6 +507,94 @@ export class NrkClient {
             return checked(programsValidator, { programs, failed });
         });
 
+    // ── Live TV ───────────────────────────────────────────────────────
+
+    /**
+     * NRK's live TV channels: the national ones (NRK1, NRK2, NRK3, NRK Super, NRK Tegnspråk) and
+     * NRK1's regional opt-out variants (`parentChannelId` set on those). Pass an id to
+     * getSchedule or getLivePlayback.
+     *
+     * @example
+     * const channels = await client.getChannels();
+     * if (channels.ok) console.log(channels.data.map((c) => c.title));
+     */
+    getChannels = async (): Promise<Result<ReadonlyArray<Channel>>> =>
+        run(noInput, undefined, async () => {
+            const channels = await this.call(() => nrkApi.channels());
+            return checked(
+                channelsValidator,
+                channels.map((c) => ({
+                    id: c.id,
+                    title: c._embedded.playback.title,
+                    description: c._embedded.playback.description ?? "",
+                    parentChannelId: c.districtChannel?.parent ?? null,
+                    geoBlocked: c._embedded.playback.isGeoBlocked,
+                    imageUrl: nearestImageUrl(c._embedded.playback.posters[0]?.image.items ?? []),
+                })),
+            );
+        });
+
+    /**
+     * The programme guide for one or more channels, for one day: what is airing, what aired
+     * before and what is coming up. Slots NRK has nothing to show for are left out. An item
+     * already on demand (`availableNow`) can be played right away with getProgram or getPlayback;
+     * a live or upcoming one cannot, until NRK publishes it.
+     *
+     * @param input.channelIds 1-20 channel ids from getChannels, e.g. `["nrk1", "nrksuper"]`.
+     * @param input.date YYYY-MM-DD. Default: today.
+     * @example
+     * const guide = await client.getSchedule({ channelIds: ["nrk1"] });
+     * if (guide.ok) console.log(guide.data.map((i) => `${i.start} ${i.title}`));
+     */
+    getSchedule = async (input: GetScheduleInput): Promise<Result<ReadonlyArray<ScheduleItem>>> =>
+        run(getScheduleInput, input, async ({ channelIds, date }) => {
+            const channels = await this.call(() => nrkApi.schedule(channelIds, date));
+            const items = channels.flatMap((channel) =>
+                channel.transmissionGroups.flatMap((group) =>
+                    group.entries.flatMap((entry) => {
+                        if ((entry.itemType !== "episode" && entry.itemType !== "program") || !entry.programId) {
+                            return [];
+                        }
+                        return [
+                            {
+                                id: entry.programId,
+                                channelId: channel.channelId,
+                                channelTitle: channel.title,
+                                title: entry.title ?? "",
+                                seriesId: entry.seriesId ?? null,
+                                description: entry.description ?? "",
+                                category: entry.category?.id ?? "",
+                                durationSeconds: entry.duration ? (parseIsoDuration(entry.duration.iso8601) ?? 0) : 0,
+                                start: entry.start.planned,
+                                end: entry.end.planned,
+                                isLive: entry.liveTransmission ?? false,
+                                availableNow: entry.availableAs === "ondemand",
+                                imageUrl: nearestImageUrl(entry.posterImages ?? []),
+                            },
+                        ];
+                    }),
+                ),
+            );
+            return checked(scheduleValidator, items);
+        });
+
+    /**
+     * What a player needs to play one live TV channel - the same shape as getPlayback. Most of
+     * NRK's live streams are DRM-protected (a plain HLS player cannot use them), so this usually
+     * gives a `not_playable` result; use getChannels and getSchedule for the guide regardless.
+     *
+     * @param input.id Channel id from getChannels, for instance `"nrk1"`.
+     * @example
+     * const live = await client.getLivePlayback({ id: "nrk1" });
+     */
+    getLivePlayback = async (input: GetChannelInput): Promise<Result<Playback>> =>
+        run(getChannelInput, input, async ({ id }) => {
+            const [manifest, metadata] = await this.call(() =>
+                Promise.all([nrkApi.channelManifest(id), nrkApi.channelMetadata(id)]),
+            );
+            return toPlayback(id, manifest, metadata);
+        });
+
     // ── Internals ───────────────────────────────────────────────────
 
     /**
@@ -556,6 +626,45 @@ export class NrkClient {
         return fn();
     };
 }
+
+type ParsedManifest = Awaited<ReturnType<typeof nrkApi.manifest>>;
+type ParsedMetadata = Awaited<ReturnType<typeof nrkApi.metadata>>;
+
+/**
+ * getPlayback and getLivePlayback both resolve to a manifest/metadata pair (a program's or a
+ * channel's - the shapes are the same) and turn it into what a player needs, or why it cannot
+ * play right now.
+ */
+const toPlayback = (id: string, manifest: ParsedManifest, metadata: ParsedMetadata): Result<Playback> => {
+    const notPlayable = (message: string): Result<Playback> => fail({ code: "not_playable", message });
+    const { playable } = manifest;
+    if (manifest.playability !== "playable" || !playable) {
+        return notPlayable(manifest.nonPlayable?.endUserMessage ?? "Not available for playback.");
+    }
+    const hls = playable.assets.find((asset) => asset.format === "HLS");
+    if (!hls) return notPlayable("NRK offers no HLS stream for this program.");
+    if (hls.encrypted === true) {
+        return notPlayable("The stream is DRM-protected and cannot be played by a plain HLS player.");
+    }
+    const { preplay, availability } = metadata;
+    return checked(playbackValidator, {
+        id,
+        title: preplay.titles.title,
+        subtitle: preplay.titles.subtitle === "" ? null : preplay.titles.subtitle,
+        streamUrl: hls.url,
+        mimeType: hls.mimeType,
+        mediaType: manifest.sourceMedium === "audio" ? "audio" : "video",
+        durationSeconds: playable.duration === null ? null : parseIsoDuration(playable.duration),
+        aspectRatio: metadata.displayAspectRatio,
+        posterUrl: nearestImageUrl(preplay.poster.images, 960),
+        subtitles: (playable.subtitles ?? []).flatMap((track) =>
+            track.webVtt
+                ? [{ language: track.language, label: track.label, url: track.webVtt, defaultOn: track.defaultOn ?? false }]
+                : [],
+        ),
+        availableTo: availability.onDemand?.to ?? availability.live?.transmissionInterval?.to ?? null,
+    });
+};
 
 /** Dates are compared as calendar days (the date part NRK sends, Oslo time). */
 const isAvailableOn = (

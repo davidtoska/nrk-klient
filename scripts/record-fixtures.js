@@ -316,6 +316,25 @@ const contributorNames = (page) => (page.contributors ?? []).flatMap((group) => 
     // small letter lists
     for (const l of ["w", "x", "y", "æ"]) await record(() => nrkApi.letter(l));
 
+    // live TV: the channel list, EPG and playback for the ids in live-ids.json
+    const live = JSON.parse(fs.readFileSync(path.join(FIXTURES_DIR, "live-ids.json"), "utf8"));
+    await record(() => nrkApi.channels());
+    await record(() => nrkApi.schedule(live.channelIds, live.scheduleDate));
+    await record(() => nrkApi.schedule([live.channelIds[0]], live.scheduleDate));
+    await record(() => nrkApi.schedule(live.channelIds)); // default date (today)
+    for (const id of live.channelIds) {
+        await record(() => nrkApi.channelManifest(id));
+        await record(() => nrkApi.channelMetadata(id));
+    }
+    const missingChannel = await record(() => nrkApi.channelManifest("doesnotexist"));
+    await record(() => nrkApi.channelMetadata("doesnotexist"));
+    const missingChannelSchedule = await record(() =>
+        nrkApi.schedule([...live.channelIds, "doesnotexist"], live.scheduleDate),
+    );
+    if (!(missingChannel.error instanceof NrkHttpError) || !(missingChannelSchedule.error instanceof NrkHttpError)) {
+        throw new Error("Expected NrkHttpError for a channel id that does not exist");
+    }
+
     // 6. ids.json
     const ids = {
         generatedAt: new Date().toISOString(),

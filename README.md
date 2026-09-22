@@ -5,7 +5,9 @@ validation is built in, so there is nothing else to install or keep in sync.
 
 > Unofficial. This package is not affiliated with NRK. It uses NRK's public API, which is not
 > versioned or guaranteed to stay the same, and NRK answers `429 Too Many Requests` when it is hit
-> hard, so keep your request rate low.
+> hard, so keep your request rate low. NRK's terms restrict live channels and streams to private
+> use; building a public service around `getChannels` / `getSchedule` / `getLivePlayback` needs
+> NRK's approval.
 
 Requires Node.js 20 or newer (it uses the global `fetch`). Published as CommonJS; ESM and TypeScript
 consumers import the named export as shown below. The code itself uses only standard web APIs
@@ -34,6 +36,8 @@ An API against NRK, made for agents that pick content and build schedules.
 - **Gentle**: requests are spaced 250 ms apart, and it stops asking when NRK answers 429.
 - **Stores nothing.** Every call goes to NRK. `listCatalog` gives you the whole
   archive to build your own index from, `search` looks up one theme; keeping a copy or caching what you fetch is up to you.
+- **Live TV**: `getChannels` and `getSchedule` cover NRK's programme guide; `getLivePlayback` plays a
+  channel when NRK's stream allows it (most live TV is DRM-protected, see "Good to know").
 
 ```ts
 import { NrkClient } from "narko-klient";
@@ -78,6 +82,14 @@ if (playback.ok) {
 } else if (playback.error.code === "not_playable") {
   console.log(playback.error.message); // NRK's text for the viewer, e.g. "Ikke tilgjengelig lenger"
 }
+
+// Live TV: the channels, today's guide for one of them, and (rarely) its stream
+const channels = await client.getChannels();
+const guide = await client.getSchedule({ channelIds: ["nrk1"] });
+if (guide.ok) {
+  for (const item of guide.data) console.log(item.start, item.title, item.availableNow);
+}
+const live = await client.getLivePlayback({ id: "nrk1" });
 ```
 
 | Method | Returns |
@@ -89,9 +101,13 @@ if (playback.ok) {
 | `search({ query, limit? })` | free-text search in NRK TV (title and description words, small typos forgiven): series, programs and single episodes with their ids, best match first |
 | `getRecommendations({ basedOn, count? })` | what NRK recommends for 1-5 ids the viewer likes: merged, without the ids you gave, strongest matches first, each with the ids that led to it (no descriptions: follow up with `getProgram`) |
 | `getPlayback({ id })` | what a player needs: HLS `streamUrl`, `mimeType`, subtitle tracks (WebVTT), poster, duration, aspect ratio, title and end of the streaming window |
+| `getChannels()` | NRK's live TV channels: id, title, description and picture |
+| `getSchedule({ channelIds, date? })` | the programme guide for one or more channels: what aired, is airing and is coming up, with `availableNow` for what can already be played |
+| `getLivePlayback({ id })` | what a player needs to play a live channel, in the shape as `getPlayback` - usually `not_playable`, since NRK's live streams are DRM-protected |
 
 Error codes: `not_found`, `forbidden`, `rate_limited` (with `retryAfterSeconds`), `upstream_error`,
-`invalid_response`, `invalid_input`, `not_playable` (`getPlayback` only), `network`, `unknown`.
+`invalid_response`, `invalid_input`, `not_playable` (`getPlayback` / `getLivePlayback` only),
+`network`, `unknown`.
 
 The client takes no options: `new NrkClient()`.
 
@@ -115,12 +131,16 @@ instead of throwing. Arguments are validated the same way (`invalid_input`).
 - `getPlayback` costs two requests (the manifest and the playback metadata). The stream address NRK
   gives is not permanent, so ask for it when the viewer presses play instead of storing it. A program
   that NRK will not stream now (expired, not published yet) is a `not_playable` error whose message is
-  NRK's own text for the viewer, in Norwegian. Live channels are not supported.
+  NRK's own text for the viewer, in Norwegian.
 - `getPrograms` costs two requests per program (the page and the playback metadata, which carries the
   description). `getEpisodes` costs one request per season and returns the whole season, which for a
   long-running news series can be a few hundred episodes.
 - NRK's Google Analytics fields are filled with placeholders, so production year, category and
   episode number are read from other fields. `productionMonth` / `productionDay` are not available.
+- `getLivePlayback` almost always returns `not_playable`: NRK's live TV streams are encrypted
+  (DRM, a static key this library does not have), so a plain HLS player cannot use them. Use
+  `getChannels` / `getSchedule` for the guide, and follow up on-demand items (`availableNow`) with
+  `getProgram` / `getPlayback`. Radio is not covered.
 
 ## Errors, timeouts and rate limits
 

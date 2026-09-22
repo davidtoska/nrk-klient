@@ -1,0 +1,5 @@
+{
+ "note": "Hand-picked channel ids for the live-TV tests: two national channels (one with district variants, one without), one district variant, and a channel NRK does not have. Recorded by npm run record.",
+ "channelIds": ["nrk1", "nrksuper", "nrk1_ostlandet", "nrk_tegnspraak"],
+ "scheduleDate": "2026-09-22"
+}

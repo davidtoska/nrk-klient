@@ -132,7 +132,7 @@ console.log("esm import ok");`,
     fs.writeFileSync(
         path.join(app, "check.ts"),
         `import { NrkClient } from "narko-klient";
-import type { Result, Program, NrkError, Playback, Recommendations, SearchResults } from "narko-klient";
+import type { Result, Program, NrkError, Playback, Recommendations, SearchResults, Channel, ScheduleItem } from "narko-klient";
 // @ts-expect-error the input types are not exported; the methods document what they accept
 import type { ListCatalogInput } from "narko-klient";
 
@@ -181,6 +181,26 @@ export const main = async (): Promise<void> => {
   }
   // @ts-expect-error query is required
   await client.search({ limit: 5 });
+
+  const channels: Result<ReadonlyArray<Channel>> = await client.getChannels();
+  if (channels.ok) {
+    const ids: string[] = channels.data.map((c) => c.id);
+    const parent: string | null | undefined = channels.data[0]?.parentChannelId;
+    void [ids, parent];
+  }
+  const guide: Result<ReadonlyArray<ScheduleItem>> = await client.getSchedule({ channelIds: ["nrk1"], date: "2026-09-22" });
+  if (guide.ok) {
+    const titles: string[] = guide.data.map((i) => i.title);
+    const upNext: boolean | undefined = guide.data[0]?.availableNow;
+    void [titles, upNext];
+  }
+  const live: Result<Playback> = await client.getLivePlayback({ id: "nrk1" });
+  if (!live.ok) {
+    const code: NrkError["code"] = live.error.code;
+    void code;
+  }
+  // @ts-expect-error channelIds is required
+  await client.getSchedule({ date: "2026-09-22" });
 
   // @ts-expect-error count must be 5, 10, 15, 20 or 25
   await client.getRecommendations({ basedOn: ["x"], count: 7 });
