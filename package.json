@@ -1,6 +1,6 @@
 {
   "name": "narko-klient",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Typed client for NRK TV (psapi.nrk.no) with small, validated results for AI agents that build playlists. Never throws, no dependencies.",
   "keywords": [
     "nrk",

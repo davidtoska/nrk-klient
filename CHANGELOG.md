@@ -8,6 +8,8 @@ listed as fixes.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-22
+
 ### Added
 - `NrkClient.getChannels()`: NRK's live TV channels.
 - `NrkClient.getSchedule({ channelIds, date? })`: the programme guide (EPG) for one or more
