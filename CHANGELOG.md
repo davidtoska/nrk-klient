@@ -8,6 +8,12 @@ listed as fixes.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-09-22
+
+### Fixed
+- README: "What it exports" also points to `dist/types.d.ts` for what the methods return, not
+  only `dist/nrk-client.d.ts` for what they accept. No code changes.
+
 ## [0.2.0] - 2026-09-22
 
 ### Added
