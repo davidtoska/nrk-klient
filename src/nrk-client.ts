@@ -152,7 +152,8 @@ const run = async <I, T>(
  *    a schedule (ids, titles, duration, availability window, credited people),
  *  - methods never throw: they return { ok, data } or { ok: false, error },
  *    with error codes an agent can act on (for instance rate_limited),
- *  - partial results where a call covers several requests (listCatalog, getPrograms),
+ *  - partial results where a call covers several requests (listCatalog, getPrograms,
+ *    getRecommendations),
  *  - requests are spaced 250 ms apart, because NRK answers 429 when it is hit hard.
  *
  * It stores nothing. Every call goes to NRK, so keeping a copy of the catalog, searching
@@ -227,11 +228,7 @@ export class NrkClient {
                             description: c.description ?? "",
                             availableNow: c.hasOndemandRights,
                             geoBlocked: c.isGeoBlocked,
-                            // the smallest picture
-                            imageUrl: nearestImageUrl(
-                                c.image.webImages.map((img) => ({ url: img.imageUrl, width: img.pixelWidth })),
-                                0,
-                            ),
+                            imageUrl: nearestImageUrl(c.image.webImages, 0), // the smallest picture
                         });
                     }
                 } catch (e) {
@@ -272,9 +269,7 @@ export class NrkClient {
                         description: hit.description ?? "",
                         availableNow: hit.usageRights?.hasRightsNow ?? hit.hasRights ?? false,
                         geoBlocked: hit.usageRights?.isGeoBlocked ?? false,
-                        imageUrl: nearestImageUrl(
-                            (hit.image?.webImages ?? []).map((img) => ({ url: img.imageUrl, width: img.pixelWidth })),
-                        ),
+                        imageUrl: nearestImageUrl(hit.image?.webImages ?? []),
                         // only episodes name their series
                         ...(kind === "episode" && hit.seriesId != null
                             ? {
@@ -405,22 +400,15 @@ export class NrkClient {
             const [manifest, metadata] = await this.call(() =>
                 Promise.all([nrkApi.manifest(id), nrkApi.metadata(id)]),
             );
+            const notPlayable = (message: string): Result<Playback> => fail({ code: "not_playable", message });
             const { playable } = manifest;
             if (manifest.playability !== "playable" || !playable) {
-                return fail({
-                    code: "not_playable",
-                    message: manifest.nonPlayable?.endUserMessage ?? "Not available for playback.",
-                });
+                return notPlayable(manifest.nonPlayable?.endUserMessage ?? "Not available for playback.");
             }
             const hls = playable.assets.find((asset) => asset.format === "HLS");
-            if (!hls) {
-                return fail({ code: "not_playable", message: "NRK offers no HLS stream for this program." });
-            }
+            if (!hls) return notPlayable("NRK offers no HLS stream for this program.");
             if (hls.encrypted === true) {
-                return fail({
-                    code: "not_playable",
-                    message: "The stream is DRM-protected and cannot be played by a plain HLS player.",
-                });
+                return notPlayable("The stream is DRM-protected and cannot be played by a plain HLS player.");
             }
             const { preplay, availability } = metadata;
             return checked(playbackValidator, {
@@ -472,12 +460,14 @@ export class NrkClient {
             for (const id of asked) {
                 try {
                     const response = await this.call(() => nrkApi.recommendations(id, count ?? 10));
-                    // programs first, then series, each in NRK's order
                     const listed = response._embedded.recommendations;
+                    const bodyOf = (r: (typeof listed)[number]) =>
+                        r.type === "program" ? { type: r.type, body: r.program } : { type: r.type, body: r.series };
+                    // programs first, then series, each in NRK's order
                     const items = [
-                        ...listed.flatMap((r) => (r.type === "program" ? [{ type: r.type, body: r.program }] : [])),
-                        ...listed.flatMap((r) => (r.type === "series" ? [{ type: r.type, body: r.series }] : [])),
-                    ];
+                        ...listed.filter((r) => r.type === "program"),
+                        ...listed.filter((r) => r.type === "series"),
+                    ].map(bodyOf);
                     for (const { type, body } of items) {
                         if (asked.includes(body.id)) continue;
                         const known = found.get(body.id);

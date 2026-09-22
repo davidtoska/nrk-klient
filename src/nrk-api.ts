@@ -18,12 +18,19 @@ const segment = encodeURIComponent;
 
 const titles = v.object({ title: v.string, subtitle: v.optional(v.nullable(v.string)) });
 
-// the program page and the episodes list write a picture as { url, width }...
+// NRK writes a picture list in three shapes; all three are normalized here to { url, width },
+// so nothing downstream needs to know which endpoint a picture came from.
+// the program page and the episodes list: { url, width }, an empty list is fine (no picture)
 const image = v.array(v.object({ url: v.nonEmptyString("ImageUrl can not be empty"), width: v.number }));
-// ...the recommendations as { uri, width }. An empty list is fine: the item just has no picture.
-const webImages = v.map(v.array(v.object({ uri: v.string, width: v.number })), (list) =>
+// the recommendations: { uri, width }
+const recommendationImages = v.map(v.array(v.object({ uri: v.string, width: v.number })), (list) =>
     list.map((item) => ({ url: item.uri, width: item.width })),
 );
+// letters and search: { imageUrl, pixelWidth }
+const webImages = (limits: { min?: number } = {}) =>
+    v.map(v.array(v.object({ imageUrl: v.string, pixelWidth: v.number }), limits), (list) =>
+        list.map((item) => ({ url: item.imageUrl, width: item.pixelWidth })),
+    );
 
 const availability = v.object({ status: v.oneOf(...AVAILABILITY_STATUSES) });
 const transmissions = v.nullish(v.object({ first: v.nullish(v.object({ displayValue: v.string })) }));
@@ -38,7 +45,7 @@ const letterParser = v.array(
     v.object({
         id: v.nonEmptyString("Id can not be empty string."),
         title: v.string,
-        image: v.object({ webImages: v.array(v.object({ imageUrl: v.string, pixelWidth: v.number }), { min: 1 }) }),
+        image: v.object({ webImages: webImages({ min: 1 }) }),
         type: v.oneOf("programme", "series"),
         isGeoBlocked: v.boolean,
         description: v.nullable(v.string),
@@ -79,7 +86,7 @@ const seasonParser = v.object({
     }),
 });
 
-const recommendationBody = { id: v.string, image: v.object({ webImages }), titles };
+const recommendationBody = { id: v.string, image: v.object({ webImages: recommendationImages }), titles };
 const recommendationsParser = v.object({
     _embedded: v.object({
         recommendations: v.array(
@@ -165,7 +172,7 @@ const searchHitParser = v.object({
     seriesId: v.nullish(v.string),
     seriesTitle: v.nullish(v.string),
     hideInSearchResults: v.optional(v.boolean),
-    image: v.nullish(v.object({ webImages: v.array(v.object({ imageUrl: v.string, pixelWidth: v.number })) })),
+    image: v.nullish(v.object({ webImages: webImages() })),
 });
 const SEARCH_KINDS = { serie: "series", program: "program", episode: "episode" } as const;
 

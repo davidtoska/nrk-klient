@@ -8,7 +8,9 @@ validation is built in, so there is nothing else to install or keep in sync.
 > hard, so keep your request rate low.
 
 Requires Node.js 20 or newer (it uses the global `fetch`). Published as CommonJS; ESM and TypeScript
-consumers import the named export as shown below.
+consumers import the named export as shown below. The code itself uses only standard web APIs
+(`fetch`, `URL`, `AbortSignal`, ...), nothing Node-specific, so it also runs in a browser once a
+bundler resolves the CommonJS module.
 
 ```sh
 npm install narko-klient
@@ -27,8 +29,8 @@ An API against NRK, made for agents that pick content and build schedules.
   year, first broadcast date and credited people, and one small picture (`imageUrl`, about 300 px wide) for lists and cards. No
   links or display strings. `getPlayback` has a larger poster for the player.
 - **Never throws**: every method returns `{ ok: true, data }` or `{ ok: false, error }`.
-- **Partial results**: where one call needs several requests (`listCatalog`, `getPrograms`) you get what
-  could be fetched, plus a `failed` list.
+- **Partial results**: where one call needs several requests (`listCatalog`, `getPrograms`,
+  `getRecommendations`) you get what could be fetched, plus a `failed` list.
 - **Gentle**: requests are spaced 250 ms apart, and it stops asking when NRK answers 429.
 - **Stores nothing.** Every call goes to NRK. `listCatalog` gives you the whole
   archive to build your own index from, `search` looks up one theme; keeping a copy or caching what you fetch is up to you.
@@ -134,8 +136,8 @@ instead of throwing. Arguments are validated the same way (`invalid_input`).
 
 - The exported API follows semantic versioning: a breaking change to what the package exports bumps
   the major version. See `CHANGELOG.md`.
-- NRK's API is undocumented for some endpoints (`letter`, `getRecommendations`) and unversioned for
-  all of them. Every result is validated, so a change on NRK's side shows up as a
+- NRK's API is undocumented for some endpoints (the letter list behind `listCatalog`,
+  `getRecommendations` and `search`) and unversioned for all of them. Every result is validated, so a change on NRK's side shows up as an
   `invalid_response` error rather than as wrong data. The offline test suite runs
   against recorded NRK responses; `npm run test:live` runs against the real API.
 - Internal helpers (the validators, test seams) are not exported and may change at any time.
