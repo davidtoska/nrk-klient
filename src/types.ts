@@ -22,8 +22,7 @@ export const AVAILABILITY_STATUSES = v.allOf<AvailabilityStatus>({
 });
 
 export type SeriesType = "sequential" | "news" | "standard";
-/** @internal */
-export const SERIES_TYPES = v.allOf<SeriesType>({ sequential: true, news: true, standard: true });
+const SERIES_TYPES = v.allOf<SeriesType>({ sequential: true, news: true, standard: true });
 
 export type SeasonType = "latest" | "extramaterial" | "season";
 /** @internal */

@@ -8,6 +8,8 @@ listed as fixes.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-22
+
 ### Added
 - `NrkClient`, the only export: an API against NRK for AI agents, with compact results, that
   never throws (`listCatalog`, `getSeries`, `getEpisodes`, `getProgram`, `getPrograms`).

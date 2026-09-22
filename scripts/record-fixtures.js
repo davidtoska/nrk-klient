@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * Samler testdata fra psapi.nrk.no.
+ * Collects test data from psapi.nrk.no.
  *
  *   npm run record
  *
- * 1. Henter alle bokstavlister og velger ut noen hundre programmer og serier
- *    (deterministisk utvalg) -> test/fixtures/ids.json. Brukes av live-testene.
- * 2. Spiller inn rå API-svar for et lite håndplukket sett -> test/fixtures/raw/.
- *    Brukes av offline-testene via fetch-stub.
+ * 1. Fetches the whole catalog and picks a few hundred programs and series
+ *    (a deterministic sample) -> test/fixtures/ids.json. Used by the live tests.
+ * 2. Records NRK's raw answers for a small hand-picked set -> test/fixtures/raw/.
+ *    Used by the offline tests through the fetch stub.
  *
- * Krever at prosjektet er bygget (npm run record gjør det).
+ * Needs the project to be built (npm run record does that).
  */
 const fs = require("node:fs");
 const path = require("node:path");
@@ -23,8 +23,8 @@ const { writeRecorded, FIXTURES_DIR, RAW_DIR } = require(
 );
 const { installPoliteFetch } = require(path.join(dist, "test/support/polite-fetch.js"));
 
-// Snill mot API-et: jevn rate, pause ved 429, og disk-cache (.cache/http)
-// slik at gjentatte kjøringer ikke treffer nettverket.
+// Polite to the API: an even rate, a pause on 429, and a disk cache (.cache/http)
+// so that repeated runs do not hit the network.
 const restoreFetch = installPoliteFetch({
     minIntervalMs: 350,
     maxRetries: 3,
@@ -36,7 +36,7 @@ const CONCURRENCY = 4;
 const BASE = "https://psapi.nrk.no";
 const FILM_MIN_SECONDS = 75 * 60;
 
-// ---------- hjelpere ----------
+// ---------- helpers ----------
 
 const mulberry32 = (seed) => {
     return () => {
@@ -72,7 +72,7 @@ const pool = async (items, fn) => {
 const log = (...a) => console.log(...a);
 let swallowed = 0;
 
-// ---------- innspilling av rå svar ----------
+// ---------- recording raw answers ----------
 
 let recording = false;
 const realFetch = globalThis.fetch;
@@ -80,7 +80,7 @@ globalThis.fetch = async (input, init) => {
     const url = typeof input === "string" ? input : (input.url ?? String(input));
     const res = await realFetch(input, init);
     if (recording && ![200, 400, 404].includes(res.status)) {
-        throw new Error(`Vil ikke spille inn ${res.status} for ${url}`);
+        throw new Error(`Will not record ${res.status} for ${url}`);
     }
     if (recording) {
         const text = await res.clone().text();
@@ -90,7 +90,7 @@ globalThis.fetch = async (input, init) => {
             parsed = JSON.parse(text);
             isJson = true;
         } catch {
-            /* ikke JSON */
+            /* not JSON */
         }
         writeRecorded(
             url,
@@ -112,7 +112,7 @@ const record = async (fn) => {
 
 // ---------- main ----------
 
-// katalogen hentes gjennom NrkClient; resten gjennom endepunktene i nrk-api (samme URL-er som klienten bruker)
+// the catalog comes through NrkClient; the rest through the endpoints in nrk-api (the same URLs the client uses)
 const client = new NrkClient({ minIntervalMs: 0 });
 const unwrap = (result) => {
     if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`);
@@ -123,20 +123,20 @@ const contributorNames = (page) => (page.contributors ?? []).flatMap((group) => 
 (async () => {
     fs.rmSync(RAW_DIR, { recursive: true, force: true });
 
-    // 1. Alle bokstavlister
+    // 1. All letter lists
     const catalog = unwrap(await client.listCatalog());
     if (catalog.failed.length > 0) {
-        throw new Error("Bokstavlister feilet: " + catalog.failed.map((f) => f.letter).join(", "));
+        throw new Error("Letter lists failed: " + catalog.failed.map((f) => f.letter).join(", "));
     }
     const programs = catalog.items.filter((i) => i.type === "program");
     const series = catalog.items.filter((i) => i.type === "series");
-    // stabil rekkefølge uavhengig av nettverkstiming
+    // a stable order whatever the network timing
     const byId = (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
     programs.sort(byId);
     series.sort(byId);
-    log(`Bokstavlister: ${programs.length} programmer, ${series.length} serier`);
+    log(`Letter lists: ${programs.length} programs, ${series.length} series`);
 
-    // 2. Programmer
+    // 2. Programs
     const onDemand = programs.filter((p) => p.availableNow && !p.geoBlocked);
     const geoblockedAll = programs.filter((p) => p.availableNow && p.geoBlocked);
     const unavailableAll = programs.filter((p) => !p.availableNow);
@@ -146,7 +146,7 @@ const contributorNames = (page) => (page.contributors ?? []).flatMap((group) => 
     const geoblocked = pick(geoblockedAll, 20);
     const unavailable = pick(unavailableAll, 40);
 
-    // filmer: lange programmer. Lengden hentes fra programsiden for et stort tilfeldig utvalg.
+    // films: long programs. The length comes from the program page, for a large random sample.
     const availableIds = new Set(available.map((p) => p.id));
     const filmCandidates = shuffled(onDemand.filter((p) => !availableIds.has(p.id))).slice(0, 400);
     const filmChecked = await pool(filmCandidates, async (p) => {
@@ -161,10 +161,10 @@ const contributorNames = (page) => (page.contributors ?? []).flatMap((group) => 
     const films = filmChecked
         .filter((f) => f && f.durationInSeconds >= FILM_MIN_SECONDS)
         .slice(0, 40);
-    log(`Programmer: ${available.length} tilgjengelige, ${films.length} filmer, ` +
-        `${geoblocked.length} geoblokkerte, ${unavailable.length} utilgjengelige`);
+    log(`Programs: ${available.length} available, ${films.length} films, ` +
+        `${geoblocked.length} geoblocked, ${unavailable.length} unavailable`);
 
-    // 3. Serier: finn serietype for et større utvalg
+    // 3. Series: find the series type for a larger sample
     const seriesSample = shuffled(series).slice(0, 400);
     const typed = await pool(seriesSample, async (s) => {
         try {
@@ -180,13 +180,13 @@ const contributorNames = (page) => (page.contributors ?? []).flatMap((group) => 
         sequential: ofType("sequential", 100),
         news: ofType("news", 20),
     };
-    log(`Serier: ${seriesOut.standard.length} standard, ` +
+    log(`Series: ${seriesOut.standard.length} standard, ` +
         `${seriesOut.sequential.length} sequential, ${seriesOut.news.length} news`);
 
-    // 4. Håndplukkede eksempler for offline-testene
+    // 4. Hand-picked examples for the offline tests
     const curated = {};
 
-    // tilgjengelig program, gjerne uten undertittel i tillegg
+    // an available program, preferably one without a subtitle as well
     const firstAvailable = available[0];
     curated.availableProgram = firstAvailable.id;
     for (const p of available.slice(0, 60)) {
@@ -197,10 +197,10 @@ const contributorNames = (page) => (page.contributors ?? []).flatMap((group) => 
                 break;
             }
         } catch {
-            /* hopp over */
+            /* skip */
         }
     }
-    // program med flere medvirkende (tester mapping av contributors)
+    // a program with several credited people (tests the mapping of contributors)
     for (const p of available.slice(0, 150)) {
         try {
             const x = await nrkApi.program(p.id);
@@ -215,7 +215,7 @@ const contributorNames = (page) => (page.contributors ?? []).flatMap((group) => 
     if (films[0]) curated.filmProgram = films[0].id;
     if (geoblocked[0]) curated.geoblockedProgram = geoblocked[0].id;
 
-    // utløpt (manifest 200 uten playable) og kommende (playback 404)
+    // expired (manifest 200 without playable) and upcoming (playback 404)
     for (const p of unavailable) {
         const page = await (await realFetch(`${BASE}/tv/catalog/programs/${p.id}`)).json();
         const status = page?.programInformation?.availability?.status;
@@ -228,7 +228,7 @@ const contributorNames = (page) => (page.contributors ?? []).flatMap((group) => 
         }
     }
 
-    // en serie av hver type, gjerne med flere sesonger
+    // one series of each type, preferably with several seasons
     for (const t of ["standard", "sequential", "news"]) {
         let best = null;
         for (const s of seriesOut[t].slice(0, 25)) {
@@ -241,7 +241,7 @@ const contributorNames = (page) => (page.contributors ?? []).flatMap((group) => 
         }
         if (best) curated[`${t}Series`] = best.id;
     }
-    // serie der episodene har medvirkende
+    // a series whose episodes have credited people
     search: for (const s of [...seriesOut.standard, ...seriesOut.sequential].slice(0, 150)) {
         try {
             const info = await nrkApi.series(s.id);
@@ -261,9 +261,9 @@ const contributorNames = (page) => (page.contributors ?? []).flatMap((group) => 
     curated.missingProgram = "DOESNOTEXIST";
     curated.missingSeries = "finnes-ikke-serie";
 
-    log("Håndplukket:", curated);
+    log("Hand-picked:", curated);
 
-    // 5. Spill inn rå svar for de håndplukkede
+    // 5. Record the raw answers for the hand-picked ones
     for (const role of [
         "availableProgram",
         "noSubtitleProgram",
@@ -279,7 +279,7 @@ const contributorNames = (page) => (page.contributors ?? []).flatMap((group) => 
         await record(() => nrkApi.manifest(id));
         await record(() => nrkApi.metadata(id));
     }
-    // avspilling: manifest og metadata for de 20 id-ene i playback-ids.json
+    // playback: manifest and metadata for the 20 ids in playback-ids.json
     const playbackIds = JSON.parse(
         fs.readFileSync(path.join(FIXTURES_DIR, "playback-ids.json"), "utf8"),
     ).ids;
@@ -303,17 +303,17 @@ const contributorNames = (page) => (page.contributors ?? []).flatMap((group) => 
     const missing = await record(() => nrkApi.program(curated.missingProgram));
     const missingSeries = await record(() => nrkApi.series(curated.missingSeries));
     if (!(missing.error instanceof NrkHttpError) || !(missingSeries.error instanceof NrkHttpError)) {
-        throw new Error("Forventet NrkHttpError for ikke-eksisterende ID-er");
+        throw new Error("Expected NrkHttpError for ids that do not exist");
     }
-    // anbefalinger som NrkClient.getRecommendations ber om (10 per id, for voksne)
+    // the recommendations NrkClient.getRecommendations asks for (10 per id, for adults)
     for (const id of ["FFIL63000263", "OCUH11002809", "filmavisen-innslag-i-utvalg", "DOESNOTEXIST"]) {
         await record(() => nrkApi.recommendations(id, 10));
     }
-    // fritekstsøk som NrkClient.search ber om (20 treff per søk)
+    // the free-text searches NrkClient.search asks for (20 hits per search)
     for (const query of ["norsk historie", "Ivar Aasen", "fotball", "krigen", "qzxwvyk"]) {
         await record(() => nrkApi.search(query, 20));
     }
-    // små bokstavlister
+    // small letter lists
     for (const l of ["w", "x", "y", "æ"]) await record(() => nrkApi.letter(l));
 
     // 6. ids.json
@@ -330,9 +330,9 @@ const contributorNames = (page) => (page.contributors ?? []).flatMap((group) => 
     const bytes = files.reduce((n, f) => n + fs.statSync(path.join(RAW_DIR, f)).size, 0);
     restoreFetch();
     if (swallowed > 0) {
-        log(`ADVARSEL: ${swallowed} kall feilet og ble hoppet over - utvalget kan være ufullstendig.`);
+        log(`WARNING: ${swallowed} calls failed and were skipped - the sample may be incomplete.`);
     }
-    log(`Ferdig: ${files.length} rå-fixtures (${(bytes / 1024).toFixed(0)} KB), ids.json skrevet.`);
+    log(`Done: ${files.length} raw fixtures (${(bytes / 1024).toFixed(0)} KB), ids.json written.`);
 })().catch((e) => {
     console.error(e);
     process.exit(1);
