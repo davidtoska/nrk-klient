@@ -21,7 +21,9 @@ npm install narko-klient
 ## What it exports
 
 One class, `NrkClient`. Everything else is a TypeScript type (`Result`, `Program`, ...) that
-describes what its methods return, and does not exist at runtime. What the methods accept is documented on the methods (hover in your editor, or see `dist/nrk-client.d.ts`). The rest is internal.
+describes what its methods return, and does not exist at runtime. What the methods accept and
+return is documented on the methods and the types themselves (hover in your editor, or see
+`dist/nrk-client.d.ts` and `dist/types.d.ts`). The rest is internal.
 
 ## NrkClient
 
